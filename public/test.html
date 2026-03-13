@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Page</title>
+</head>
+<body>
+    <h1>Test des boutons</h1>
+    <button id="btnCreateGroup">Créer un groupe AVEC</button>
+    <button id="btnConnectGroup">Se connecter à votre groupe AVEC</button>
+
+    <div id="initialSection" style="border:1px solid black; padding:10px; margin:10px;">
+        <h2>Page d'accueil - AVEC Microcredit</h2>
+        <p>Choisissez une option pour continuer :</p>
+        <button>Créer un groupe AVEC</button>
+        <button>Se connecter à votre groupe AVEC</button>
+    </div>
+
+    <div id="loginSection" style="border:1px solid red; padding:10px; margin:10px; display:none;">
+        <h2>Connexion</h2>
+        <form id="loginForm">
+            <input type="tel" placeholder="Téléphone">
+            <input type="password" placeholder="PIN">
+            <button type="submit">Se connecter</button>
+        </form>
+    </div>
+
+    <div id="createGroupSection" style="border:1px solid blue; padding:10px; margin:10px; display:none;">
+        <h2>Créer un groupe</h2>
+        <form id="createGroupForm">
+            <input type="text" placeholder="Nom du groupe">
+            <button type="submit">Créer</button>
+        </form>
+    </div>
+
+    <script>
+        function hideAllSections() {
+            document.getElementById('initialSection').style.display = 'none';
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('createGroupSection').style.display = 'none';
+        }
+
+        function showInitialScreen() {
+            hideAllSections();
+            document.getElementById('initialSection').style.display = 'block';
+        }
+
+        function showLogin() {
+            hideAllSections();
+            document.getElementById('loginSection').style.display = 'block';
+        }
+
+        function showCreateGroup() {
+            hideAllSections();
+            document.getElementById('createGroupSection').style.display = 'block';
+        }
+
+        // Test des boutons
+        document.getElementById('btnCreateGroup').addEventListener('click', showCreateGroup);
+        document.getElementById('btnConnectGroup').addEventListener('click', showLogin);
+
+        // Initialisation
+        showInitialScreen();
+    </script>
+</body>
+</html>

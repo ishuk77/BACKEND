@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Administration Plateforme - AVEC Microcredit</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007bff">
+</head>
+<body>
+    <header>
+        <h1>Administration de la Plateforme AVEC</h1>
+        <div id="adminInfo"></div>
+    </header>
+
+    <main class="container">
+        <!-- Platform Admin Login -->
+        <section id="platformLoginSection" class="card">
+            <h2>Connexion Administration Plateforme</h2>
+            <form id="platformLoginForm">
+                <div class="form-group">
+                    <label for="platformLoginPhone">Téléphone</label>
+                    <input type="tel" id="platformLoginPhone" placeholder="+22912345678" required>
+                </div>
+                <div class="form-group">
+                    <label for="platformLoginPin">PIN</label>
+                    <input type="password" id="platformLoginPin" placeholder="1234" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Se connecter</button>
+            </form>
+        </section>
+
+        <!-- Platform Admin Dashboard -->
+        <section id="platformDashboard" class="card" style="display:none;">
+            <h2>Tableau de bord - <span id="platformAdminName"></span></h2>
+            <button onclick="platformLogout()" class="btn btn-secondary">Déconnexion</button>
+
+            <div class="button-grid">
+                <button id="btnViewAllGroups" class="btn btn-primary">Voir tous les groupes</button>
+                <button id="btnViewAllMembers" class="btn btn-secondary">Voir tous les membres</button>
+                <button id="btnViewAlerts" class="btn btn-warning">Voir les alertes</button>
+                <button id="btnManageMomo" class="btn btn-info">Gérer comptes Momo</button>
+                <button id="btnPlatformStats" class="btn btn-success">Statistiques globales</button>
+            </div>
+
+            <div id="platformContent"></div>
+        </section>
+
+        <!-- Momo Management Section -->
+        <section id="momoSection" class="card" style="display:none;">
+            <h2>Gestion des comptes Momo</h2>
+            <div class="form-group">
+                <input type="text" id="momoCountry" placeholder="Pays (ex: Bénin)" required>
+                <input type="tel" id="momoPhone" placeholder="Numéro Momo" required>
+                <button id="btnAddMomo" class="btn btn-primary">Ajouter compte Momo</button>
+            </div>
+            <div id="momoList"></div>
+        </section>
+
+        <!-- Groups List Section -->
+        <section id="groupsSection" class="card" style="display:none;">
+            <h2>Tous les groupes AVEC</h2>
+            <div id="allGroupsList"></div>
+        </section>
+
+        <!-- Members List Section -->
+        <section id="membersSection" class="card" style="display:none;">
+            <h2>Tous les membres</h2>
+            <div id="allMembersList"></div>
+        </section>
+
+        <!-- Alerts Section -->
+        <section id="alertsSection" class="card" style="display:none;">
+            <h2>Alertes et signalements</h2>
+            <div id="alertsList"></div>
+        </section>
+
+        <!-- Platform Stats Section -->
+        <section id="platformStatsSection" class="card" style="display:none;">
+            <h2>Statistiques de la plateforme</h2>
+            <div id="platformStats"></div>
+        </section>
+    </main>
+
+    <script src="data.js"></script>
+    <script src="admin.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AVEC Microcredit</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007bff">
+</head>
+<body>
+    <header>
+        <h1>Système AVEC - Microcredit</h1>
+        <div id="groupInfo"></div>
+    </header>
+
+    <main class="container">
+        <!-- Initial Screen -->
+        <section id="initialSection" class="card">
+            <h2>Page d'accueil - AVEC Microcredit</h2>
+            <p>Choisissez une option pour continuer :</p>
+            <div class="button-grid">
+                <button id="btnCreateGroup" class="btn btn-primary">Créer un groupe AVEC</button>
+                <button id="btnConnectGroup" class="btn btn-secondary">Se connecter à votre groupe AVEC</button>
+            </div>
+        </section>
+
+        <!-- Platform Admin Creation -->
+        <section id="createPlatformSection" class="card" style="display:none;">
+            <h2>Créer l'administrateur de la plateforme</h2>
+            <p>Cette section est réservée à l'initialisation de la plateforme.</p>
+            <form id="createPlatformForm">
+                <div class="form-group">
+                    <label for="platformPrenom">Prénom</label>
+                    <input type="text" id="platformPrenom" placeholder="Prénom" required>
+                </div>
+                <div class="form-group">
+                    <label for="platformNom">Nom</label>
+                    <input type="text" id="platformNom" placeholder="Nom" required>
+                </div>
+                <div class="form-group">
+                    <label for="platformPhone">Téléphone</label>
+                    <input type="tel" id="platformPhone" placeholder="+22912345678" required>
+                </div>
+                <div class="form-group">
+                    <label for="platformIdNumber">N° carte d'identité / passeport</label>
+                    <input type="text" id="platformIdNumber" placeholder="ID" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Créer administrateur</button>
+                <button type="button" id="btnBackFromPlatform" class="btn btn-secondary">Retour</button>
+            </form>
+        </section>
+        <!-- Group Creation Section -->
+        <section id="createGroupSection" class="card" style="display:none;">
+            <h2>Créer un nouveau groupe AVEC</h2>
+            <form id="createGroupForm" style="display:none;">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="newGroupName">Nom de l'AVEC</label>
+                        <input type="text" id="newGroupName" placeholder="Nom de l'AVEC" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newGroupContinent">Continent</label>
+                        <select id="newGroupContinent" required>
+                            <option value="">(continent)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="newGroupCountry">Pays</label>
+                        <select id="newGroupCountry" required>
+                            <option value="">(sélectionner pays)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="newGroupProvince">Province/État</label>
+                        <input type="text" id="newGroupProvince" placeholder="Province/État" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newGroupCity">Ville</label>
+                        <input type="text" id="newGroupCity" placeholder="Ville" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newGroupCurrency">Monnaie</label>
+                        <select id="newGroupCurrency" required>
+                            <option value="">(monnaie)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="newGroupPhone">Téléphone du groupe (wallet principal)</label>
+                    <input type="tel" id="newGroupPhone" placeholder="+22912345678" required>
+                </div>
+                <h3>Informations du premier membre (Président)</h3>
+                <div class="form-group">
+                    <label for="firstPrenom">Prénom</label>
+                    <input type="text" id="firstPrenom" placeholder="Prénom" required>
+                </div>
+                <div class="form-group">
+                    <label for="firstNom">Nom</label>
+                    <input type="text" id="firstNom" placeholder="Nom" required>
+                </div>
+                <div class="form-group">
+                    <label for="firstPhone">Téléphone</label>
+                    <input type="tel" id="firstPhone" placeholder="+22912345678" required>
+                </div>
+                <div class="form-group">
+                    <label for="firstIdNumber">N° carte d'identité / passeport</label>
+                    <input type="text" id="firstIdNumber" placeholder="ID" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Créer le groupe</button>
+                <button type="button" id="btnBackToInitial" class="btn btn-secondary">Retour</button>
+            </form>
+        </section>
+        </section>
+
+        <!-- Login Section -->
+        <section id="loginSection" class="card" style="display:none;">
+            <h2>Connexion à votre groupe AVEC</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginPhone">Téléphone</label>
+                    <input type="tel" id="loginPhone" placeholder="+22912345678" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPin">PIN</label>
+                    <input type="password" id="loginPin" placeholder="1234" required>
+                </div>
+                <button type="submit" id="btnLogin" class="btn btn-primary">Se connecter</button>
+                <button type="button" id="btnBackToInitialFromLogin" class="btn btn-secondary">Retour</button>
+            </form>
+        </section>
+
+        <!-- User Dashboard -->
+        <section id="userPanel" class="card" style="display:none;">
+            <h2>Bienvenue, <span id="userName"></span> (<span id="userRole"></span>)</h2>
+            <button onclick="logout()" class="btn btn-secondary">Déconnexion</button>
+            <div id="notifications" class="notifications"></div>
+            
+            <!-- Member Dashboard -->
+            <div id="memberDashboard" style="display:none;">
+                <h3>Votre compte</h3>
+                <div class="stats">
+                    <div class="stat-item">Portefeuille: <span id="memberWallet">0</span> <span id="currencySymbol"></span></div>
+                    <div class="stat-item">Contribution: <span id="memberContribution">0</span> <span id="currencySymbol"></span></div>
+                    <div class="stat-item">Crédit disponible: <span id="memberCredit">0</span> <span id="currencySymbol"></span></div>
+                    <div class="stat-item">Intérêts: <span id="memberInterest">0</span> <span id="currencySymbol"></span></div>
+                </div>
+                <h3>Actions</h3>
+                <div class="button-grid">
+                    <button id="btnContribute" class="btn btn-primary">Contribuer</button>
+                    <button id="btnRequestCredit" class="btn btn-warning">Demander crédit</button>
+                    <button id="btnRepay" class="btn btn-success">Rembourser</button>
+                    <button id="btnWithdraw" class="btn btn-secondary">Retirer</button>
+                    <button id="btnSendAlert" class="btn btn-danger">Signaler fraude</button>
+                </div>
+                <h3>Vos mouvements</h3>
+                <div id="memberHistory" class="history"></div>
+            </div>
+            
+            <!-- Group Admin Dashboard -->
+            <div id="adminDashboard" style="display:none;">
+                <h3>Administration du groupe</h3>
+                <div class="button-grid">
+                    <button id="btnAddMember" class="btn btn-primary">Ajouter un membre</button>
+                    <button id="btnManageCycle" class="btn btn-secondary">Gérer le cycle</button>
+                    <button id="btnViewStats" class="btn btn-info">Voir statistiques</button>
+                </div>
+            </div>
+            
+            <!-- Platform Admin Dashboard -->
+            <div id="platformDashboard" style="display:none;">
+                <h3>Administration de la plateforme</h3>
+                <div class="button-grid">
+                    <button id="btnViewAllGroups" class="btn btn-primary">Voir tous les groupes</button>
+                    <button id="btnViewAllMembers" class="btn btn-secondary">Voir tous les membres</button>
+                    <button id="btnViewAlerts" class="btn btn-warning">Voir les alertes</button>
+                    <button id="btnManageMomo" class="btn btn-info">Gérer comptes Momo</button>
+                </div>
+                <div id="platformContent"></div>
+            </div>
+        </section>
+
+        <!-- Add Member Form -->
+        <section id="addMemberSection" class="card" style="display:none;">
+            <h2>Ajouter un nouveau membre</h2>
+            <form id="addMemberForm">
+                <div class="form-group">
+                    <label for="memberPrenom">Prénom</label>
+                    <input type="text" id="memberPrenom" placeholder="Prénom" required>
+                </div>
+                <div class="form-group">
+                    <label for="memberNom">Nom</label>
+                    <input type="text" id="memberNom" placeholder="Nom" required>
+                </div>
+                <div class="form-group">
+                    <label for="memberPhone">Téléphone</label>
+                    <input type="tel" id="memberPhone" placeholder="+22912345678" required>
+                </div>
+                <div class="form-group">
+                    <label for="memberIdNumber">N° carte d'identité / passeport</label>
+                    <input type="text" id="memberIdNumber" placeholder="ID" required>
+                </div>
+                <div class="form-group">
+                    <label for="memberParrain">Parrain</label>
+                    <select id="memberParrain">
+                        <option value="">(aucun)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="memberRole">Rôle</label>
+                    <select id="memberRole">
+                        <option value="membre">Membre</option>
+                        <option value="parrain">Parrain</option>
+                        <option value="president">Président</option>
+                        <option value="comptable">Comptable</option>
+                        <option value="secretaire">Secrétaire</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Ajouter</button>
+                <button type="button" id="btnCancelAddMember" class="btn btn-secondary">Annuler</button>
+            </form>
+        </section>
+
+        <!-- Cycle Management -->
+        <section id="cycleSection" class="card" style="display:none;">
+            <h2>Gestion du cycle</h2>
+            <div class="form-group">
+                <label for="cycleLength">Durée du cycle (mois)</label>
+                <select id="cycleLength">
+                    <option value="3">3</option>
+                    <option value="6" selected>6</option>
+                    <option value="12">12</option>
+                </select>
+                <button id="setCycle" class="btn btn-primary">Définir</button>
+            </div>
+            <div class="button-grid">
+                <button id="closeCycle" class="btn btn-warning">Clôturer le cycle</button>
+                <button id="distributeCycle" class="btn btn-success">Partager le cycle</button>
+            </div>
+            <div id="cycleInfo"></div>
+            <button type="button" id="btnBackFromCycle" class="btn btn-secondary">Retour</button>
+        </section>
+
+        <!-- Stats Section -->
+        <section id="statsSection" class="card" style="display:none;">
+            <h2>Statistiques du groupe</h2>
+            <div id="stats"></div>
+            <button type="button" id="btnBackFromStats" class="btn btn-secondary">Retour</button>
+        </section>
+
+        <section id="adminSection2" class="card" style="display:none;">
+            <h2>Rechercher</h2>
+            <input type="text" id="search" placeholder="Recherche par nom/role..." class="form-control">
+
+            <h2>Actions</h2>
+            <div class="button-grid">
+                <button id="exportCSV" class="btn btn-secondary">Exporter membres CSV</button>
+                <button id="exportHistory" class="btn btn-secondary">Exporter historique CSV</button>
+                <label for="importFile" class="btn btn-secondary">Importer CSV</label>
+                <input type="file" id="importFile" accept=".csv" style="display:none;">
+                <button id="importCSV" class="btn btn-primary">Importer membres CSV</button>
+                <button id="exportJSON" class="btn btn-secondary">Exporter état JSON</button>
+                <label for="importJSON" class="btn btn-secondary">Importer JSON</label>
+                <input type="file" id="importJSON" accept=".json" style="display:none;">
+                <button id="importJSONBtn" class="btn btn-primary">Importer état JSON</button>
+                <button id="sendNotif" class="btn btn-warning">Envoyer Notification test</button>
+            </div>
+            <div class="form-group">
+                <label for="cycleLength">Durée cycle (mois)</label>
+                <select id="cycleLength" title="Durée cycle" class="form-control">
+                    <option value="3">3</option>
+                    <option value="6" selected>6</option>
+                    <option value="12">12</option>
+                </select>
+                <button id="setCycle" class="btn btn-primary">Définir cycle</button>
+                <button id="closeCycle" class="btn btn-warning">Clôturer cycle</button>
+                <button id="distributeCycle" class="btn btn-success">Partager cycle</button>
+            </div>
+
+            <h2>Statistiques</h2>
+            <div id="stats" class="stats"></div>
+            <div id="cycleInfo"></div>
+
+            <h2>Historique</h2>
+            <div id="history" class="history"></div>
+        </section>
+
+        <section id="memberListSection" style="display:none;">
+            <h2>Liste des membres</h2>
+            <div id="listeMembres" class="member-list"></div>
+        </section>
+
+        <section id="chatSection" class="card" style="display:none;">
+            <h2>Chat du groupe</h2>
+            <div class="form-group">
+                <label for="chatRecipient">Envoyer à :</label>
+                <select id="chatRecipient" title="Destinataire">
+                    <option value="all">Tous</option>
+                </select>
+            </div>
+            <div id="chatWindow" class="chat-window"></div>
+            <form id="chatForm">
+                <textarea id="chatInput" rows="2" class="form-control" placeholder="Votre message" required></textarea>
+                <button type="submit" id="btnSendChat" class="btn btn-primary">Envoyer</button>
+            </form>
+        </section>
+    </main>
+
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>
