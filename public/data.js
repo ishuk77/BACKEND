@@ -255,36 +255,6 @@ window.geoData = {
             "Southern": ["Nyanza", "Huye", "Gisagara", "Nyaruguru", "Muhanga", "Kamonyi"]
         }
     },
-    "République Démocratique du Congo": {
-        currency: 'CDF',
-        provinces: {
-            "Kinshasa": ["Kinshasa"],
-            "Kongo Central": ["Matadi", "Boma"],
-            "Kwango": ["Kenge"],
-            "Kwilu": ["Bandundu", "Kikwit"],
-            "Mai-Ndombe": ["Inongo"],
-            "Kasaï": ["Tshikapa"],
-            "Lulua": ["Kananga"],
-            "Kasaï Oriental": ["Mbuji-Mayi"],
-            "Lomami": ["Kabinda"],
-            "Sankuru": ["Lusambo"],
-            "Maniema": ["Kindu"],
-            "Nord-Kivu": ["Goma", "Butembo"],
-            "Ituri": ["Bunia"],
-            "Haut-Uélé": ["Isiro"],
-            "Tshopo": ["Kisangani"],
-            "Bas-Uélé": ["Buta"],
-            "Nord-Ubangi": ["Gbadolite"],
-            "Mongala": ["Lisala"],
-            "Sud-Ubangi": ["Gemena"],
-            "Équateur": ["Mbandaka"],
-            "Tshuapa": ["Boende"],
-            "Tanganyika": ["Kalemie"],
-            "Haut-Lomami": ["Kamina"],
-            "Lualaba": ["Kolwezi"],
-            "Haut-Katanga": ["Lubumbashi"]
-        }
-    },
     "Cambodia": { currency: 'KHR', provinces: {} },
     "Cameroon": { currency: 'XAF', provinces: {} },
     "Cape Verde": { currency: 'CVE', provinces: {} },
