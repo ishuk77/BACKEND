@@ -169,4 +169,4 @@ L'application fonctionne comme une **PWA (Progressive Web App)** :
 
 ---
 
-**Développé pour les communautés AVEC d'Afrique de l'Ouest**
+**Développé pour les communautés AVEC - Afrique Centrale**
