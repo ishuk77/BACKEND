@@ -63,17 +63,27 @@
             <p class="notifications" style="display:block;"><strong>PAIEMENTS : SANDBOX UNIQUEMENT.</strong> Aucune transaction réelle n’est envoyée à un opérateur.</p>
             <button onclick="platformLogout()" class="btn btn-secondary">Déconnexion</button>
 
-            <div class="button-grid">
-                <button id="btnViewAllGroups" class="btn btn-primary">Voir tous les groupes</button>
-                <button id="btnViewAllMembers" class="btn btn-secondary">Voir tous les membres</button>
-                <button id="btnViewAlerts" class="btn btn-warning">Voir les alertes</button>
-                <button id="btnReviewRequests" class="btn btn-danger">Groupes bloqués et révisions</button>
-                <button id="btnPlatformMessages" class="btn btn-info">Messages privés aux présidents</button>
-                <button id="btnManageMomo" class="btn btn-info">Gérer comptes Momo</button>
-                <button id="btnPaymentLedger" class="btn btn-warning">Registre de paiements SANDBOX</button>
-                <button id="btnSocialModeration" class="btn btn-danger">Modération des publications</button>
-                <button id="btnPlatformStats" class="btn btn-success">Statistiques globales</button>
-                <button id="btnDeploymentSettings" class="btn btn-secondary">Paramètres de déploiement</button>
+            <div class="action-menu-list" aria-label="Outils d’administration">
+                <details class="action-menu" open>
+                    <summary>Finance <span>Momo et paiements de démonstration</span></summary>
+                    <div class="button-grid"><button id="btnManageMomo" class="btn btn-info" type="button">Gérer comptes Momo</button><button id="btnPaymentLedger" class="btn btn-warning" type="button">Registre de paiements SANDBOX</button></div>
+                </details>
+                <details class="action-menu">
+                    <summary>Groupe <span>Groupes, membres et révisions</span></summary>
+                    <div class="button-grid"><button id="btnViewAllGroups" class="btn btn-primary" type="button">Voir tous les groupes</button><button id="btnViewAllMembers" class="btn btn-secondary" type="button">Voir tous les membres</button><button id="btnReviewRequests" class="btn btn-danger" type="button">Groupes bloqués et révisions</button><button id="btnPlatformStats" class="btn btn-success" type="button">Statistiques globales</button></div>
+                </details>
+                <details class="action-menu">
+                    <summary>Collaboration <span>Alertes et messages aux présidents</span></summary>
+                    <div class="button-grid"><button id="btnViewAlerts" class="btn btn-warning" type="button">Voir les alertes</button><button id="btnPlatformMessages" class="btn btn-info" type="button">Messages privés aux présidents</button></div>
+                </details>
+                <details class="action-menu">
+                    <summary>Social <span>Modération des publications</span></summary>
+                    <div class="button-grid"><button id="btnSocialModeration" class="btn btn-danger" type="button">Modération des publications</button></div>
+                </details>
+                <details class="action-menu">
+                    <summary>Profil et paramètres <span>Configuration de la plateforme</span></summary>
+                    <div class="button-grid"><button id="btnDeploymentSettings" class="btn btn-secondary" type="button">Paramètres de déploiement</button></div>
+                </details>
             </div>
 
             <div id="platformContent"></div>

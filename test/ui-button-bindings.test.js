@@ -77,6 +77,21 @@ test('public dashboard initializes every visible action and form target', () => 
     ].forEach(id => hasListener(elements, id, 'submit'));
 });
 
+test('navigation groups actions without exposing platform administration publicly', () => {
+    const publicLanding = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
+    const memberPortal = fs.readFileSync(path.join(root, 'public', 'platform.html'), 'utf8');
+    const admin = fs.readFileSync(path.join(root, 'public', 'admin.html'), 'utf8');
+    const adminScript = fs.readFileSync(path.join(root, 'public', 'admin.js'), 'utf8');
+
+    assert.doesNotMatch(publicLanding, /href="admin\.html"/);
+    assert.match(publicLanding, /<details class="action-menu" open>/);
+    ['Finance', 'Groupe', 'Collaboration'].forEach(label => assert.match(publicLanding, new RegExp(`<summary>${label}`)));
+    ['Profil et paramètres', 'Groupe', 'Collaboration', 'Social'].forEach(label => assert.match(memberPortal, new RegExp(`<summary>${label}`)));
+    ['Finance', 'Groupe', 'Collaboration', 'Social', 'Profil et paramètres'].forEach(label => assert.match(admin, new RegExp(`<summary>${label}`)));
+    assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v22/);
+});
+
 test('legacy group login opens the canonical platform portal', async () => {
     const { elements, context, localStorage } = loadPageScript('index.html', 'script.js');
     const requests = [];

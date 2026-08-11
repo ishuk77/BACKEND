@@ -40,9 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Check if platform admin is already logged in
     const token = localStorage.getItem('platformAccessToken');
-    if (token) {
-        showPlatformDashboard();
-    }
+    if (token) restorePlatformAdminSession();
 });
 
 function populateMomoCountries() {
@@ -143,6 +141,17 @@ async function handlePlatformLogin(e) {
 function showPlatformDashboard() {
     hideAllSections();
     document.getElementById('platformDashboard').style.display = 'block';
+}
+
+async function restorePlatformAdminSession() {
+    try {
+        // The protected endpoint confirms that a stored token still belongs to
+        // a platform administrator before revealing administration controls.
+        await apiRequest('/api/stats/platform');
+        showPlatformDashboard();
+    } catch (_) {
+        platformLogout();
+    }
 }
 
 function platformLogout() {

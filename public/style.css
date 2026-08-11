@@ -101,6 +101,51 @@ header {
     margin: 18px 0;
 }
 
+.action-menu-list {
+    display: grid;
+    gap: 10px;
+    margin: 18px 0;
+}
+
+.action-menu {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.action-menu summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 48px;
+    padding: 12px 16px;
+    color: #173f67;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.action-menu summary::-webkit-details-marker { display: none; }
+.action-menu summary::after { content: "+"; color: var(--primary-color); font-size: 1.35rem; line-height: 1; }
+.action-menu[open] summary::after { content: "−"; }
+
+.action-menu summary span {
+    margin-left: auto;
+    color: #495057;
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
+.action-menu summary:focus-visible {
+    outline: 3px solid var(--primary-color);
+    outline-offset: -3px;
+}
+
+.action-menu > .button-grid {
+    margin: 0;
+    padding: 0 16px 16px;
+}
+
 .portal-screen {
     margin-top: 24px;
     padding-top: 20px;
@@ -666,6 +711,10 @@ fieldset.form-group legend {
 }
 
 @media (max-width: 768px) {
+    body {
+        padding: 14px;
+    }
+
     .app-header, .dashboard-heading {
         align-items: stretch;
         flex-direction: column;
@@ -695,5 +744,19 @@ fieldset.form-group legend {
     
     .button-grid {
         grid-template-columns: 1fr;
+    }
+
+    .action-menu summary {
+        align-items: flex-start;
+        padding: 14px;
+    }
+
+    .action-menu summary span {
+        max-width: 17ch;
+        text-align: right;
+    }
+
+    .action-menu > .button-grid {
+        padding: 0 14px 14px;
     }
 }
