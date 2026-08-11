@@ -40,6 +40,7 @@
             feed.appendChild(article);
         });
     };
+    renderDemoItems();
 
     fetch('/api/public/news?limit=6').then(async response => {
         const data = await response.json().catch(() => ({}));
