@@ -2548,6 +2548,47 @@ app.post('/api/platform/phone-verifications/verify', (req, res) => {
     res.json({ verified: true, ...result });
 });
 
+app.post('/api/auth/pin-reset', (req, res) => {
+    const phone = safeText(req.body.phone, 30);
+    const pin = String(req.body.pin || '');
+    const pinConfirmation = String(req.body.pinConfirmation || '');
+    const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
+    const verificationToken = String(req.body.phoneVerificationToken || '');
+    if (!validPlatformPhone(phone) || !validPlatformPin(pin) || pin !== pinConfirmation
+        || !browserSessionId || !hasVerifiedPhoneClaim(phone, browserSessionId, verificationToken)) {
+        return res.status(400).json({ error: 'Vérifiez le téléphone et choisissez un PIN à 4 chiffres confirmé.' });
+    }
+
+    const passwordHash = bcrypt.hashSync(pin, 10);
+    db.serialize(() => {
+        db.run('BEGIN IMMEDIATE', beginErr => {
+            if (beginErr) return res.status(500).json({ error: beginErr.message });
+            db.run('UPDATE platform_accounts SET password = ?, refresh_token = NULL WHERE phone = ?', [passwordHash, phone], function resetAccount(accountErr) {
+                if (accountErr) {
+                    db.run('ROLLBACK');
+                    return res.status(500).json({ error: accountErr.message });
+                }
+                const accountChanges = this.changes;
+                db.run('UPDATE members SET pin = ? WHERE phone = ?', [passwordHash, phone], function resetMember(memberErr) {
+                    if (memberErr) {
+                        db.run('ROLLBACK');
+                        return res.status(500).json({ error: memberErr.message });
+                    }
+                    if (!accountChanges && !this.changes) {
+                        db.run('ROLLBACK');
+                        return res.status(400).json({ error: 'Impossible de réinitialiser ce PIN.' });
+                    }
+                    db.run('COMMIT', commitErr => {
+                        if (commitErr) return res.status(500).json({ error: commitErr.message });
+                        consumeVerifiedPhoneClaim(phone, browserSessionId);
+                        res.json({ reset: true, message: 'PIN réinitialisé. Connectez-vous avec votre nouveau PIN.' });
+                    });
+                });
+            });
+        });
+    });
+});
+
 app.post('/api/platform/auth/login', (req, res) => {
     const phone = safeText(req.body.phone, 30);
     const pin = String(req.body.pin || '');

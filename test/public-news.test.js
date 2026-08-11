@@ -68,6 +68,22 @@ test('public news preserves social privacy and platform admins control scheduled
     assert.equal(admin.status, 201);
     const member = await createAccount('+22991112222', 'Awa');
     assert.equal(member.status, 201);
+    const resetSession = 'public-news-pin-reset';
+    const resetCode = await request('POST', '/api/platform/phone-verifications/request', {
+        body: { phone: '+22991112222', browserSessionId: resetSession }
+    });
+    const resetVerification = await request('POST', '/api/platform/phone-verifications/verify', {
+        body: { phone: '+22991112222', browserSessionId: resetSession, code: resetCode.data.sandboxCode }
+    });
+    assert.equal((await request('POST', '/api/auth/pin-reset', {
+        body: {
+            phone: '+22991112222', pin: '5678', pinConfirmation: '5678', browserSessionId: resetSession,
+            phoneVerificationToken: resetVerification.data.verificationToken
+        }
+    })).status, 200);
+    assert.equal((await request('POST', '/api/platform/auth/login', {
+        body: { phone: '+22991112222', pin: '5678' }
+    })).status, 200);
 
     assert.equal((await request('GET', '/api/admin/public-content')).status, 401);
     const memberRoleToken = jwt.sign({ id: 99, role: 'membre' }, process.env.JWT_SECRET);

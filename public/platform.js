@@ -9,7 +9,7 @@ let paidContentPrices = null;
 let pendingMomoPaymentId = null;
 const mediaUrls = new Map();
 const PHONE_VERIFICATION_SESSION_KEY = 'platformPhoneVerificationSession';
-const phoneVerificationTokens = { register: null, profile: null };
+const phoneVerificationTokens = { register: null, profile: null, reset: null };
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
 const countryByName = name => (window.MOMO_COUNTRIES || []).find(country => country.name === name);
@@ -166,6 +166,23 @@ async function login(event) {
     localStorage.setItem('platformAccessToken', data.accessToken);
     localStorage.setItem('platformRefreshToken', data.refreshToken);
     await enter();
+}
+async function resetPin(event) {
+    event.preventDefault();
+    if (!phoneVerificationTokens.reset) throw new Error('Vérifiez le téléphone avant de réinitialiser le PIN.');
+    const data = await request('/api/auth/pin-reset', {
+        method: 'POST',
+        body: JSON.stringify({
+            phone: $p('pinResetPhone').value.trim(),
+            pin: $p('pinResetNewPin').value.trim(),
+            pinConfirmation: $p('pinResetPinConfirmation').value.trim(),
+            phoneVerificationToken: phoneVerificationTokens.reset,
+            browserSessionId: browserVerificationSessionId()
+        })
+    });
+    phoneVerificationTokens.reset = null;
+    $p('pinResetForm').reset();
+    showVerificationStatus('pinResetStatus', data.message);
 }
 async function saveProfile(event) {
     event.preventDefault();
@@ -609,6 +626,9 @@ document.addEventListener('DOMContentLoaded', () => {
     $p('profileVerifyCode').addEventListener('click', () => verifyPhoneVerification('profile', 'profileSecurityPhone', 'profileVerificationCode', 'profileVerificationStatus').catch(error => showVerificationStatus('profileVerificationStatus', error.message)));
     $p('registerForm').addEventListener('submit', event => register(event).catch(error => alert(error.message)));
     $p('platformLoginForm').addEventListener('submit', event => login(event).catch(error => alert(error.message)));
+    $p('pinResetRequestCode').addEventListener('click', () => requestPhoneVerification('reset', 'pinResetPhone', 'pinResetStatus').catch(error => showVerificationStatus('pinResetStatus', error.message)));
+    $p('pinResetVerifyCode').addEventListener('click', () => verifyPhoneVerification('reset', 'pinResetPhone', 'pinResetCode', 'pinResetStatus').catch(error => showVerificationStatus('pinResetStatus', error.message)));
+    $p('pinResetForm').addEventListener('submit', event => resetPin(event).catch(error => showVerificationStatus('pinResetStatus', error.message)));
     $p('profileForm').addEventListener('submit', event => saveProfile(event).catch(error => alert(error.message)));
     $p('securityProfileForm').addEventListener('submit', event => saveSecurityProfile(event).catch(error => alert(error.message)));
     $p('avatarForm').addEventListener('submit', event => uploadAvatar(event).catch(error => alert(error.message)));

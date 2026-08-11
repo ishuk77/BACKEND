@@ -5,6 +5,17 @@ const API_BASE = window.location.origin;
 const momoCountryByName = name => (window.MOMO_COUNTRIES || []).find(country => country.name === name);
 let platformConversationGroups = [];
 let selectedPlatformConversationId = '';
+let adminPinResetToken = null;
+const ADMIN_PIN_RESET_SESSION_KEY = 'adminPinResetSession';
+
+function adminPinResetSessionId() {
+    let value = sessionStorage.getItem(ADMIN_PIN_RESET_SESSION_KEY);
+    if (!value) {
+        value = crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : `${Date.now()}${Math.random().toString(36).slice(2)}`;
+        sessionStorage.setItem(ADMIN_PIN_RESET_SESSION_KEY, value);
+    }
+    return value;
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     // Platform login
@@ -12,6 +23,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('platformSetupForm').addEventListener('submit', handlePlatformSetup);
     document.getElementById('btnShowPlatformSetup').addEventListener('click', showPlatformSetup);
     document.getElementById('btnBackToPlatformLogin').addEventListener('click', showPlatformLogin);
+    document.getElementById('adminPinResetRequestCode').addEventListener('click', () => requestAdminPinResetCode().catch(error => setAdminPinResetStatus(error.message)));
+    document.getElementById('adminPinResetVerifyCode').addEventListener('click', () => verifyAdminPinResetCode().catch(error => setAdminPinResetStatus(error.message)));
+    document.getElementById('adminPinResetForm').addEventListener('submit', event => resetAdminPin(event).catch(error => setAdminPinResetStatus(error.message)));
 
     // Admin actions
     document.getElementById('btnViewAllGroups').addEventListener('click', showAllGroups);
@@ -130,6 +144,53 @@ async function handlePlatformLogin(e) {
 
         if (!data.member || data.member.role !== 'plateforme') {
             throw new Error('Accès non autorisé - Administrateur plateforme requis');
+        }
+
+        function setAdminPinResetStatus(message) {
+            document.getElementById('adminPinResetStatus').textContent = message;
+        }
+        async function requestAdminPinResetCode() {
+            const response = await fetch(API_BASE + '/api/platform/phone-verifications/request', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: document.getElementById('adminPinResetPhone').value.trim(), browserSessionId: adminPinResetSessionId() })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Impossible de demander le code.');
+            adminPinResetToken = null;
+            setAdminPinResetStatus(`Code SANDBOX pour cette session : ${data.sandboxCode}.`);
+        }
+        async function verifyAdminPinResetCode() {
+            const response = await fetch(API_BASE + '/api/platform/phone-verifications/verify', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: document.getElementById('adminPinResetPhone').value.trim(),
+                    code: document.getElementById('adminPinResetCode').value.trim(),
+                    browserSessionId: adminPinResetSessionId()
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Code incorrect.');
+            adminPinResetToken = data.verificationToken;
+            setAdminPinResetStatus('Téléphone vérifié. Vous pouvez choisir un nouveau PIN.');
+        }
+        async function resetAdminPin(event) {
+            event.preventDefault();
+            if (!adminPinResetToken) throw new Error('Vérifiez le téléphone avant de réinitialiser le PIN.');
+            const response = await fetch(API_BASE + '/api/auth/pin-reset', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: document.getElementById('adminPinResetPhone').value.trim(),
+                    pin: document.getElementById('adminPinResetNewPin').value.trim(),
+                    pinConfirmation: document.getElementById('adminPinResetPinConfirmation').value.trim(),
+                    phoneVerificationToken: adminPinResetToken,
+                    browserSessionId: adminPinResetSessionId()
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Impossible de réinitialiser le PIN.');
+            adminPinResetToken = null;
+            document.getElementById('adminPinResetForm').reset();
+            setAdminPinResetStatus(data.message);
         }
 
         // Store platform tokens separately
