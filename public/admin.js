@@ -666,48 +666,6 @@ async function showPaymentLedger() {
             paymentData.payments.forEach(payment => ledger.appendChild(paymentLedgerItem(payment)));
         }
 
-        async function showSocialModeration() {
-            const content = document.getElementById('platformContent');
-            content.replaceChildren();
-            const title = document.createElement('h3');
-            title.textContent = 'Signalements de publications';
-            const note = document.createElement('p');
-            note.textContent = 'Cette vue ne contient jamais de messages privés.';
-            content.append(title, note);
-            const data = await apiRequest('/api/admin/social/reports');
-            if (!data.reports.length) {
-                const empty = document.createElement('p');
-                empty.textContent = 'Aucun signalement ouvert.';
-                content.appendChild(empty);
-                return;
-            }
-            data.reports.forEach(report => {
-                const item = document.createElement('article');
-                item.className = 'momo-item';
-                const body = document.createElement('p');
-                body.textContent = `${report.prenom} ${report.name} : ${report.body}`;
-                const reason = document.createElement('p');
-                reason.textContent = `Signalement : ${report.reason}`;
-                const remove = document.createElement('button');
-                remove.className = 'btn btn-danger';
-                remove.type = 'button';
-                remove.textContent = 'Retirer la publication';
-                remove.addEventListener('click', async () => {
-                    await apiRequest(`/api/admin/social/posts/${encodeURIComponent(report.post_id)}`, { method: 'DELETE' });
-                    await showSocialModeration();
-                });
-                const resolve = document.createElement('button');
-                resolve.className = 'btn btn-secondary';
-                resolve.type = 'button';
-                resolve.textContent = 'Classer le signalement';
-                resolve.addEventListener('click', async () => {
-                    await apiRequest(`/api/admin/social/reports/${encodeURIComponent(report.id)}`, { method: 'PUT' });
-                    await showSocialModeration();
-                });
-                item.append(body, reason, remove, resolve);
-                content.appendChild(item);
-            });
-        }
         const operationsTitle = document.createElement('h3');
         operationsTitle.textContent = 'Opérations de prêt';
         operations.appendChild(operationsTitle);
@@ -727,6 +685,61 @@ async function showPaymentLedger() {
         console.error(err);
         ledger.textContent = 'Erreur lors du chargement du registre de paiements.';
     }
+}
+
+async function showSocialModeration() {
+    showPlatformDashboard();
+    const content = document.getElementById('platformContent');
+    content.replaceChildren();
+    const title = document.createElement('h3');
+    title.textContent = 'Modération sociale et publicitaire';
+    const note = document.createElement('p');
+    note.textContent = 'Publications, commentaires et publicités payées en attente. Les messages privés ne sont jamais affichés.';
+    content.append(title, note);
+
+    const data = await apiRequest('/api/admin/social/moderation');
+    if (!data.items.length) {
+        const empty = document.createElement('p');
+        empty.textContent = 'Aucun contenu en attente de modération.';
+        content.appendChild(empty);
+        return;
+    }
+
+    data.items.forEach(item => {
+        const card = document.createElement('article');
+        card.className = 'momo-item';
+        const heading = document.createElement('h4');
+        heading.textContent = item.content_type === 'paid_content'
+            ? 'Publicité ou annonce payée'
+            : item.content_type === 'comment' ? 'Commentaire' : 'Publication';
+        const author = document.createElement('p');
+        author.textContent = `Auteur : ${item.prenom} ${item.name}`;
+        const body = document.createElement('p');
+        body.textContent = item.body;
+        const reason = document.createElement('p');
+        reason.textContent = `Motif : ${item.moderation_reason || item.review_tag || 'Examen manuel requis.'}`;
+        const review = action => async () => {
+            const reviewReason = window.prompt('Indiquez le motif de votre décision :', item.moderation_reason || 'Examen manuel');
+            if (!reviewReason || !reviewReason.trim()) return;
+            await apiRequest(`/api/admin/social/moderation/${encodeURIComponent(item.content_type)}/${encodeURIComponent(item.content_id)}`, {
+                method: 'POST',
+                body: JSON.stringify({ action, reason: reviewReason.trim() })
+            });
+            await showSocialModeration();
+        };
+        const approve = document.createElement('button');
+        approve.className = 'btn btn-success';
+        approve.type = 'button';
+        approve.textContent = 'Approuver';
+        approve.addEventListener('click', review('approve'));
+        const remove = document.createElement('button');
+        remove.className = 'btn btn-danger';
+        remove.type = 'button';
+        remove.textContent = 'Retirer';
+        remove.addEventListener('click', review('remove'));
+        card.append(heading, author, body, reason, approve, remove);
+        content.appendChild(card);
+    });
 }
 
 function publicContentDateTime(value) {

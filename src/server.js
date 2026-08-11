@@ -550,6 +550,7 @@ function initDatabase(onReady) {
             media_ids_json TEXT NOT NULL DEFAULT '[]',
             duration_days INTEGER NOT NULL DEFAULT 1,
             publication_status TEXT NOT NULL CHECK (publication_status IN ('payment_pending', 'pending_review', 'approved', 'removed')),
+            moderation_reason TEXT,
             payment_status TEXT NOT NULL CHECK (payment_status IN ('pending', 'succeeded', 'failed')),
             payment_method TEXT NOT NULL CHECK (payment_method IN ('internal_wallet', 'momo_sandbox')),
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -598,6 +599,17 @@ function initDatabase(onReady) {
             FOREIGN KEY (content_id) REFERENCES paid_public_contents(id),
             FOREIGN KEY (actor_account_id) REFERENCES platform_accounts(id)
         )`, logDatabaseError('creating paid public content audit table'));
+        db.run(`CREATE TABLE IF NOT EXISTS paid_public_content_moderation_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            audit_id TEXT NOT NULL UNIQUE,
+            content_id INTEGER NOT NULL,
+            action TEXT NOT NULL CHECK (action IN ('approved', 'removed', 'banned')),
+            actor_member_id INTEGER,
+            reason TEXT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (content_id) REFERENCES paid_public_contents(id),
+            FOREIGN KEY (actor_member_id) REFERENCES members(id)
+        )`, logDatabaseError('creating paid public content moderation audit'));
         db.run(`CREATE TRIGGER IF NOT EXISTS paid_public_content_ledger_immutable_update
                 BEFORE UPDATE ON paid_public_content_ledger BEGIN SELECT RAISE(ABORT, 'paid_public_content_ledger is append-only'); END`,
         logDatabaseError('protecting paid public content ledger updates'));
@@ -884,6 +896,7 @@ function initDatabase(onReady) {
             ['post_comments', 'parent_comment_id', 'INTEGER'],
             ['post_comments', 'moderation_status', "TEXT NOT NULL DEFAULT 'approved'"],
             ['post_comments', 'moderation_reason', 'TEXT'],
+            ['paid_public_contents', 'moderation_reason', 'TEXT'],
             ['post_comments', 'review_tag', 'TEXT'],
             ['direct_messages', 'attachment_id', 'INTEGER']
         ].forEach(([table, column, definition]) => ensureColumn(table, column, definition));
@@ -5258,15 +5271,21 @@ app.put('/api/social/events/:eventId/invitation', authenticateAccount, (req, res
 // messages are never selected by, or available to, these administrator routes.
 app.get('/api/admin/social/moderation', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
     db.all(
-        `SELECT 'post' AS content_type, p.id AS content_id, p.body, p.moderation_reason, p.review_tag, p.created_at,
+        `SELECT 'post' AS content_type, p.id AS content_id, p.body, p.moderation_reason, p.review_tag, p.created_at AS created_at,
                 a.identifier, a.prenom, a.name, p.author_account_id
          FROM social_posts p JOIN platform_accounts a ON a.id = p.author_account_id
          WHERE p.moderation_status = 'pending'
          UNION ALL
-         SELECT 'comment' AS content_type, c.id AS content_id, c.body, c.moderation_reason, c.review_tag, c.created_at,
+         SELECT 'comment' AS content_type, c.id AS content_id, c.body, c.moderation_reason, c.review_tag, c.created_at AS created_at,
                 a.identifier, a.prenom, a.name, c.author_account_id
          FROM post_comments c JOIN platform_accounts a ON a.id = c.author_account_id
          WHERE c.moderation_status = 'pending'
+         UNION ALL
+         SELECT 'paid_content' AS content_type, c.id AS content_id,
+                COALESCE(c.title || ': ', '') || c.body AS body, c.moderation_reason, NULL AS review_tag, c.created_at AS created_at,
+                a.identifier, a.prenom, a.name, c.author_account_id
+         FROM paid_public_contents c JOIN platform_accounts a ON a.id = c.author_account_id
+         WHERE c.publication_status = 'pending_review' AND c.payment_status = 'succeeded'
          ORDER BY created_at ASC`,
         [],
         (err, items) => err ? res.status(500).json({ error: err.message }) : res.json({
@@ -5280,25 +5299,35 @@ app.post('/api/admin/social/moderation/:contentType/:contentId', authenticateTok
     const contentType = String(req.params.contentType);
     const action = String(req.body.action || '');
     const reason = safeText(req.body.reason, 500);
-    if (!['post', 'comment'].includes(contentType) || !['approve', 'remove', 'ban'].includes(action) || !reason) {
+    if (!['post', 'comment', 'paid_content'].includes(contentType) || !['approve', 'remove', 'ban'].includes(action) || !reason) {
         return res.status(400).json({ error: 'Type, décision (approve, remove ou ban) et motif d’examen manuel requis' });
     }
-    const table = contentType === 'post' ? 'social_posts' : 'post_comments';
+    const table = contentType === 'post' ? 'social_posts' : contentType === 'comment' ? 'post_comments' : 'paid_public_contents';
     db.get(`SELECT id, author_account_id FROM ${table} WHERE id = ?`, [req.params.contentId], (lookupErr, content) => {
         if (lookupErr) return res.status(500).json({ error: lookupErr.message });
         if (!content) return res.status(404).json({ error: 'Contenu introuvable' });
         const status = action === 'approve' ? 'approved' : 'removed';
+        const statusColumn = contentType === 'paid_content' ? 'publication_status' : 'moderation_status';
+        const publishedAt = contentType === 'paid_content' && action === 'approve' ? ', published_at = CURRENT_TIMESTAMP' : '';
         db.run(
-            `UPDATE ${table} SET moderation_status = ?, moderation_reason = ? WHERE id = ?`,
+            `UPDATE ${table} SET ${statusColumn} = ?, moderation_reason = ?${publishedAt} WHERE id = ?`,
             [status, reason, content.id],
             updateErr => {
                 if (updateErr) return res.status(500).json({ error: updateErr.message });
-                const audit = () => db.run(
-                    `INSERT INTO social_moderation_audit (audit_id, content_type, content_id, action, actor_member_id, reason)
-                     VALUES (?, ?, ?, ?, ?, ?)`,
-                    [newSecureId(), contentType, content.id, action === 'approve' ? 'approved' : action === 'remove' ? 'removed' : 'banned', req.user.id, reason],
-                    auditErr => auditErr ? res.status(500).json({ error: auditErr.message }) : res.json({ action, content_type: contentType, content_id: content.id })
-                );
+                const auditAction = action === 'approve' ? 'approved' : action === 'remove' ? 'removed' : 'banned';
+                const audit = () => {
+                    const query = contentType === 'paid_content'
+                        ? `INSERT INTO paid_public_content_moderation_audit (audit_id, content_id, action, actor_member_id, reason)
+                           VALUES (?, ?, ?, ?, ?)`
+                        : `INSERT INTO social_moderation_audit (audit_id, content_type, content_id, action, actor_member_id, reason)
+                           VALUES (?, ?, ?, ?, ?, ?)`;
+                    const values = contentType === 'paid_content'
+                        ? [newSecureId(), content.id, auditAction, req.user.id, reason]
+                        : [newSecureId(), contentType, content.id, auditAction, req.user.id, reason];
+                    db.run(query, values, auditErr => auditErr
+                        ? res.status(500).json({ error: auditErr.message })
+                        : res.json({ action, content_type: contentType, content_id: content.id }));
+                };
                 if (action !== 'ban') return audit();
                 db.run('UPDATE platform_accounts SET status = ? WHERE id = ?', ['suspended', content.author_account_id], banErr => banErr ? res.status(500).json({ error: banErr.message }) : audit());
             }
