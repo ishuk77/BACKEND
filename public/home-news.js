@@ -7,13 +7,46 @@
     const mediaUrl = (item, id) => item.source === 'platform'
         ? `/api/public/news/media/${encodeURIComponent(id)}`
         : `/api/public/news/social-media/${encodeURIComponent(id)}`;
+    const demoItems = [
+        {
+            type: 'Actualité locale',
+            title: 'Bienvenue dans l’espace AVEC',
+            body: 'Retrouvez les annonces utiles, les initiatives des membres et les informations de votre communauté.'
+        },
+        {
+            type: 'Exemple de publicité',
+            title: 'Produits et services de proximité',
+            body: 'Les membres peuvent présenter leurs produits, leurs prix, leur disponibilité et leurs coordonnées après validation du paiement SANDBOX.'
+        },
+        {
+            type: 'Exemple de contenu culturel',
+            title: 'Musique, photos et vidéos',
+            body: 'Partagez uniquement des contenus dont vous détenez les droits. Les contenus réels apparaîtront ici après publication et approbation.'
+        }
+    ];
+    const renderDemoItems = () => {
+        feed.replaceChildren();
+        demoItems.forEach(item => {
+            const article = document.createElement('article');
+            article.className = 'feed-post public-news-item';
+            const heading = document.createElement('h3');
+            heading.textContent = item.title;
+            const meta = document.createElement('p');
+            meta.className = 'field-hint';
+            meta.textContent = `${item.type} · Exemple`;
+            const body = document.createElement('p');
+            body.textContent = item.body;
+            article.append(heading, meta, body);
+            feed.appendChild(article);
+        });
+    };
 
     fetch('/api/public/news?limit=6').then(async response => {
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || 'Impossible de charger les actualités.');
         feed.replaceChildren();
         if (!data.items.length) {
-            feed.textContent = 'Aucune actualité ou publicité publique pour le moment.';
+            renderDemoItems();
             return;
         }
         data.items.forEach(item => {
