@@ -8,6 +8,7 @@ const ASSETS = [
   'script.js',
   'admin.js',
   'news.js',
+  'home-news.js',
   'platform.html',
   'platform.js',
   'manifest.json',

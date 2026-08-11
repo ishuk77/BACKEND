@@ -10,10 +10,10 @@
         return value ? new Date(value).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '';
     }
 
-    function mediaUrl(item) {
+    function mediaUrl(item, mediaId) {
         return item.source === 'platform'
-            ? `/api/public/news/media/${encodeURIComponent(item.media_id)}`
-            : `/api/public/news/social-media/${encodeURIComponent(item.media_id)}`;
+            ? `/api/public/news/media/${encodeURIComponent(mediaId)}`
+            : `/api/public/news/social-media/${encodeURIComponent(mediaId)}`;
     }
 
     function card(item) {
@@ -29,14 +29,27 @@
         const body = document.createElement('p');
         body.textContent = item.body;
         article.append(heading, meta, body);
-        if (item.media_id) {
+        if (item.content_type === 'advertisement') {
+            const details = document.createElement('div');
+            details.className = 'product-details';
+            [
+                ['Prix', item.product_price], ['Total', item.product_total], ['Disponibilité', item.availability],
+                ['Adresse', item.address], ['Téléphone', item.contact_phone], ['E-mail', item.contact_email]
+            ].filter(([, value]) => value).forEach(([label, value]) => {
+                const line = document.createElement('span');
+                line.textContent = `${label} : ${value}`;
+                details.appendChild(line);
+            });
+            if (details.childElementCount) article.appendChild(details);
+        }
+        (item.media_ids || (item.media_id ? [item.media_id] : [])).forEach(mediaId => {
             const image = document.createElement('img');
             image.className = 'feed-image';
-            image.src = mediaUrl(item);
+            image.src = mediaUrl(item, mediaId);
             image.alt = item.title ? `Illustration : ${item.title}` : 'Média partagé avec la publication';
             image.loading = 'lazy';
             article.appendChild(image);
-        }
+        });
         return article;
     }
 

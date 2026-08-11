@@ -20,9 +20,11 @@ Les images de profil et du fil sont limitées à 3 Mo, contrôlées par type et 
 
 ## Actualités & publicités publiques
 
-`news.html` présente un fil public, accessible sans connexion, avec filtres de date et pagination. Les annonces et publicités sont créées, modifiées, planifiées, désactivées ou archivées uniquement depuis **Actualités & publicités** dans `admin.html`; chaque action est ajoutée à un journal d’audit immuable. Les textes sont rendus comme du texte brut, jamais comme du HTML.
+`index.html` intègre les derniers éléments approuvés et renvoie vers `news.html`, le fil public complet avec filtres et pagination. Les annonces et publicités plateforme sont créées, modifiées, planifiées, désactivées ou archivées depuis **Actualités & publicités** dans `admin.html`; chaque action est ajoutée à un journal d’audit immuable. Les textes sont rendus comme du texte brut, jamais comme du HTML.
 
 Une publication de membre ne rejoint ce fil que lorsque son auteur choisit explicitement l’audience **Public AVEC** *et* que la modération est `approved`. Les publications réservées aux contacts, privées, en attente d’examen et retirées sont systématiquement exclues. Le fil ne renvoie aucun téléphone, identité, portefeuille ou autre donnée sensible ; le nom d’auteur n’est montré que si son profil est public. Les images publiques d’annonce sont limitées à 3 Mo et validées par type et signature.
+
+Depuis **Publier du contenu public** dans `platform.html`, un membre dispose de formulaires distincts pour un post, une annonce avec pièce jointe facultative et une publicité produit/service (jusqu’à quatre photos, coordonnées validées côté serveur). Les tarifs déterministes SANDBOX sont affichés avant validation. Un portefeuille interne suffisamment approvisionné est débité immédiatement **uniquement en SANDBOX**; Momo crée seulement un intent SANDBOX et le membre doit déclencher la confirmation simulée. Aucun paiement Momo réel n’est tenté : une confirmation de production nécessiterait un webhook officiel du fournisseur. Les reçus, écritures de répartition et audits sont append-only et les clés `Idempotency-Key` sont obligatoires.
 
 ## 👥 Rôles et fonctionnalités
 
@@ -254,6 +256,9 @@ Les fonctions existantes sont conservées comme titulaires **bootstrap** pendant
 - `GET /api/public/news/media/:mediaId`, `GET /api/public/news/social-media/:mediaId` — médias contrôlés des éléments actuellement publics.
 - `GET/POST /api/admin/public-content`, `PUT /api/admin/public-content/:contentId`, `POST /api/admin/public-content/:contentId/archive` — gestion réservée à l’administrateur plateforme.
 - `POST /api/admin/public-content/media` — image d’annonce validée (JPEG, PNG, GIF ou WebP, 3 Mo maximum), réservée à l’administrateur plateforme.
+- `GET /api/member-content/prices` — table de prix déterministe SANDBOX pour les contenus membres.
+- `POST /api/member-content` — crée un post, une annonce ou une publicité membre payante; `Idempotency-Key` obligatoire. Le portefeuille interne est le seul débit immédiat et reste SANDBOX.
+- `POST /api/member-content/payments/:paymentId/simulate-confirmation` — confirme explicitement un intent Momo **SANDBOX**; cette route ne remplace pas un webhook fournisseur réel.
 
 ### Autres
 - `GET /api/stats` - Statistiques

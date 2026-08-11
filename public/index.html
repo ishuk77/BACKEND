@@ -30,6 +30,13 @@
                 <button id="btnConnectGroup" class="btn btn-secondary" type="button">Se connecter à votre groupe AVEC</button>
             </div>
         </section>
+        <section class="card" aria-labelledby="homeNewsTitle">
+            <div class="dashboard-heading">
+                <div><h2 id="homeNewsTitle">Actualités, annonces et publicités</h2><p>Les contenus membres sont visibles seulement après validation de leur paiement SANDBOX et approbation.</p></div>
+                <a class="btn btn-secondary" href="news.html">Voir toutes les actualités</a>
+            </div>
+            <div id="homeNewsFeed" class="feed-list" aria-live="polite"><p class="field-hint">Chargement des actualités…</p></div>
+        </section>
 
         <section id="createGroupSection" class="card" hidden>
             <h2>Préparer un nouveau groupe AVEC</h2>
@@ -247,6 +254,7 @@
     <script src="momo-countries.js"></script>
     <script src="data.js"></script>
     <script src="script.js"></script>
+    <script src="home-news.js"></script>
     <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 </body>
 </html>

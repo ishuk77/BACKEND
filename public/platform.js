@@ -5,6 +5,8 @@ let account = null;
 let friends = [];
 let selectedDm = null;
 let selectedDmAttachment = null;
+let paidContentPrices = null;
+let pendingMomoPaymentId = null;
 const mediaUrls = new Map();
 const PHONE_VERIFICATION_SESSION_KEY = 'platformPhoneVerificationSession';
 const phoneVerificationTokens = { register: null, profile: null };
@@ -69,6 +71,7 @@ function show(screen) {
     if (screen === 'groupsScreen') loadGroups().catch(error => alert(error.message));
     if (screen === 'friendsScreen') loadFriends().catch(error => alert(error.message));
     if (screen === 'feedScreen') loadFeed().catch(error => alert(error.message));
+    if (screen === 'contentScreen') loadPaidContentPrices().catch(error => notice(error.message));
     if (screen === 'calendarScreen') loadEvents().catch(error => alert(error.message));
 }
 function browserVerificationSessionId() {
@@ -463,6 +466,74 @@ function updatePostPrice() {
     const file = $p('postImage').files[0];
     $p('postPrice').textContent = `Prix avant publication : ${money(postPriceMinor(file))} (${file ? (file.type.startsWith('video/') ? 'vidéo' : 'image') : 'texte'}). Aucun transfert ni conversion réelle.`;
 }
+function paidMoney(minor) { return `${(minor / 100).toFixed(2).replace('.', ',')} USD-équivalent SANDBOX`; }
+function renderPaidContentPrices() {
+    if (!paidContentPrices) return;
+    const prices = paidContentPrices.prices;
+    $p('contentPriceTable').textContent = `Post texte : ${paidMoney(prices.post_text_minor)} · Post avec média : ${paidMoney(prices.post_media_minor)} · Annonce : ${paidMoney(prices.announcement_minor)} · Publicité : ${paidMoney(prices.advertisement_base_minor)} + ${paidMoney(prices.advertisement_per_photo_minor)} par photo (maximum ${prices.max_advertisement_photos}).`;
+    $p('paidPostPrice').textContent = `Prix avant paiement : ${paidMoney($p('paidPostMedia').files.length ? prices.post_media_minor : prices.post_text_minor)}.`;
+    $p('announcementPrice').textContent = `Prix avant paiement : ${paidMoney(prices.announcement_minor)}.`;
+    const count = $p('advertisementPhotos').files.length;
+    $p('advertisementPrice').textContent = `Prix avant paiement : ${paidMoney(prices.advertisement_base_minor + (count * prices.advertisement_per_photo_minor))} (${count} photo(s)).`;
+}
+async function loadPaidContentPrices() {
+    paidContentPrices = await request('/api/member-content/prices');
+    renderPaidContentPrices();
+}
+async function uploadPublicContentMedia(files) {
+    return Promise.all([...files].map(async file => {
+        const data = await request('/api/social/uploads', {
+            method: 'POST', headers: { 'Content-Type': file.type, 'X-File-Name': file.name }, body: file
+        });
+        return data.media.id;
+    }));
+}
+async function submitPaidContent(event, contentType) {
+    event.preventDefault();
+    const form = event.target;
+    let payload;
+    let files;
+    if (contentType === 'post') {
+        files = $p('paidPostMedia').files;
+        payload = { content_type: 'post', body: $p('paidPostBody').value.trim(), payment_method: $p('paidPostPayment').value };
+    } else if (contentType === 'announcement') {
+        files = $p('announcementMedia').files;
+        payload = { content_type: 'announcement', body: $p('announcementBody').value.trim(), payment_method: $p('announcementPayment').value };
+    } else {
+        files = $p('advertisementPhotos').files;
+        if (files.length > 4) throw new Error('Une publicité peut contenir au maximum quatre photos.');
+        payload = {
+            content_type: 'advertisement', title: $p('advertisementTitle').value.trim(), body: $p('advertisementBody').value.trim(),
+            product_price: $p('advertisementPriceValue').value.trim(), product_total: $p('advertisementTotal').value.trim(),
+            availability: $p('advertisementAvailability').value.trim(), address: $p('advertisementAddress').value.trim(),
+            contact_phone: $p('advertisementPhone').value.trim(), contact_email: $p('advertisementEmail').value.trim(),
+            payment_method: $p('advertisementPayment').value
+        };
+    }
+    payload.media_ids = await uploadPublicContentMedia(files);
+    const data = await request('/api/member-content', {
+        method: 'POST', headers: { 'Idempotency-Key': idempotencyKey(`public-${contentType}`) }, body: JSON.stringify(payload)
+    });
+    form.reset();
+    renderPaidContentPrices();
+    $p('contentPaymentStatus').textContent = `Reçu ${data.receipt.payment_id} : ${data.receipt.display}. ${data.receipt.notice}`;
+    pendingMomoPaymentId = data.receipt.provider === 'momo_sandbox' && data.receipt.status === 'pending' ? data.receipt.payment_id : null;
+    $p('simulateMomoConfirmation').hidden = !pendingMomoPaymentId;
+    if (!pendingMomoPaymentId) {
+        await loadProfile();
+        notice('Contenu public créé et validé. Il apparaît dans le fil public lorsqu’il est approuvé.');
+    }
+}
+async function simulateMomoConfirmation() {
+    if (!pendingMomoPaymentId) return;
+    const data = await request(`/api/member-content/payments/${encodeURIComponent(pendingMomoPaymentId)}/simulate-confirmation`, {
+        method: 'POST', headers: { 'Idempotency-Key': idempotencyKey('momo-sandbox-confirmation') }, body: '{}'
+    });
+    $p('contentPaymentStatus').textContent = `Confirmation simulée réussie. Reçu ${data.receipt.payment_id}. ${data.receipt.notice}`;
+    pendingMomoPaymentId = null;
+    $p('simulateMomoConfirmation').hidden = true;
+    notice('Le contenu est maintenant admissible au fil public, sous réserve de son état d’approbation.');
+}
 async function publish(event) {
     event.preventDefault();
     const file = $p('postImage').files[0];
@@ -558,6 +629,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     $p('postForm').addEventListener('submit', event => publish(event).catch(error => alert(error.message)));
     $p('postImage').addEventListener('change', updatePostPrice);
+    $p('paidPostForm').addEventListener('submit', event => submitPaidContent(event, 'post').catch(error => alert(error.message)));
+    $p('announcementForm').addEventListener('submit', event => submitPaidContent(event, 'announcement').catch(error => alert(error.message)));
+    $p('advertisementForm').addEventListener('submit', event => submitPaidContent(event, 'advertisement').catch(error => alert(error.message)));
+    $p('paidPostMedia').addEventListener('change', renderPaidContentPrices);
+    $p('advertisementPhotos').addEventListener('change', renderPaidContentPrices);
+    $p('simulateMomoConfirmation').addEventListener('click', () => simulateMomoConfirmation().catch(error => alert(error.message)));
     $p('feedList').addEventListener('click', event => reactOrComment(event).catch(error => alert(error.message)));
     $p('feedList').addEventListener('submit', event => submitComment(event).catch(error => alert(error.message)));
     $p('eventForm').addEventListener('submit', event => createEvent(event).catch(error => alert(error.message)));

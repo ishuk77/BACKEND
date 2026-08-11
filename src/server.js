@@ -40,6 +40,15 @@ const SOCIAL_SANDBOX_PRICING = Object.freeze({
     video_per_started_mebibyte_minor: 10,
     video_cap_minor: 10000
 });
+const PAID_PUBLIC_CONTENT_PRICING = Object.freeze({
+    currency: 'USD',
+    post_text_minor: 10,
+    post_media_minor: 20,
+    announcement_minor: 50,
+    advertisement_base_minor: 100,
+    advertisement_per_photo_minor: 10,
+    max_advertisement_photos: 4
+});
 const UPLOADS_DIRECTORY = process.env.UPLOADS_DIRECTORY || path.join(__dirname, '..', 'uploads');
 const DEPLOYMENT_HOSTING_PROVIDERS = new Set(['self_hosted', 'render', 'railway', 'fly_io', 'heroku', 'other']);
 const DEPLOYMENT_SMS_PROVIDERS = new Set(['sandbox', 'twilio', 'africastalking', 'infobip', 'other']);
@@ -524,6 +533,80 @@ function initDatabase(onReady) {
         db.run(`CREATE TRIGGER IF NOT EXISTS public_content_audit_immutable_delete
                 BEFORE DELETE ON public_content_audit BEGIN SELECT RAISE(ABORT, 'public_content_audit is append-only'); END`,
         logDatabaseError('protecting public content audit deletes'));
+        db.run(`CREATE TABLE IF NOT EXISTS paid_public_contents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            author_account_id INTEGER NOT NULL,
+            content_type TEXT NOT NULL CHECK (content_type IN ('post', 'announcement', 'advertisement')),
+            body TEXT NOT NULL,
+            title TEXT,
+            product_price TEXT,
+            product_total TEXT,
+            availability TEXT,
+            address TEXT,
+            contact_phone TEXT,
+            contact_email TEXT,
+            media_ids_json TEXT NOT NULL DEFAULT '[]',
+            publication_status TEXT NOT NULL CHECK (publication_status IN ('payment_pending', 'pending_review', 'approved', 'removed')),
+            payment_status TEXT NOT NULL CHECK (payment_status IN ('pending', 'succeeded', 'failed')),
+            payment_method TEXT NOT NULL CHECK (payment_method IN ('internal_wallet', 'momo_sandbox')),
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            published_at DATETIME,
+            FOREIGN KEY (author_account_id) REFERENCES platform_accounts(id)
+        )`, logDatabaseError('creating paid public contents table'));
+        db.run(`CREATE TABLE IF NOT EXISTS paid_public_content_payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            payment_id TEXT NOT NULL UNIQUE,
+            idempotency_key TEXT NOT NULL UNIQUE,
+            content_id INTEGER NOT NULL UNIQUE,
+            account_id INTEGER NOT NULL,
+            provider TEXT NOT NULL CHECK (provider IN ('internal_wallet', 'momo_sandbox')),
+            amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+            currency TEXT NOT NULL DEFAULT 'USD',
+            status TEXT NOT NULL CHECK (status IN ('pending', 'succeeded', 'failed')),
+            external_reference TEXT,
+            confirmed_at DATETIME,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (content_id) REFERENCES paid_public_contents(id),
+            FOREIGN KEY (account_id) REFERENCES platform_accounts(id)
+        )`, logDatabaseError('creating paid public content payments table'));
+        db.run(`CREATE TABLE IF NOT EXISTS paid_public_content_ledger (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id TEXT NOT NULL UNIQUE,
+            payment_id TEXT NOT NULL UNIQUE,
+            content_id INTEGER NOT NULL,
+            account_id INTEGER NOT NULL,
+            platform_amount_minor INTEGER NOT NULL CHECK (platform_amount_minor >= 0),
+            currency TEXT NOT NULL DEFAULT 'USD',
+            sandbox INTEGER NOT NULL DEFAULT 1 CHECK (sandbox = 1),
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (payment_id) REFERENCES paid_public_content_payments(payment_id),
+            FOREIGN KEY (content_id) REFERENCES paid_public_contents(id),
+            FOREIGN KEY (account_id) REFERENCES platform_accounts(id)
+        )`, logDatabaseError('creating paid public content ledger table'));
+        db.run(`CREATE TABLE IF NOT EXISTS paid_public_content_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            audit_id TEXT NOT NULL UNIQUE,
+            content_id INTEGER NOT NULL,
+            payment_id TEXT,
+            actor_account_id INTEGER NOT NULL,
+            action TEXT NOT NULL CHECK (action IN ('created', 'wallet_deducted', 'momo_intent_created', 'momo_confirmed', 'published', 'pending_review', 'removed')),
+            details_json TEXT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (content_id) REFERENCES paid_public_contents(id),
+            FOREIGN KEY (actor_account_id) REFERENCES platform_accounts(id)
+        )`, logDatabaseError('creating paid public content audit table'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS paid_public_content_ledger_immutable_update
+                BEFORE UPDATE ON paid_public_content_ledger BEGIN SELECT RAISE(ABORT, 'paid_public_content_ledger is append-only'); END`,
+        logDatabaseError('protecting paid public content ledger updates'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS paid_public_content_ledger_immutable_delete
+                BEFORE DELETE ON paid_public_content_ledger BEGIN SELECT RAISE(ABORT, 'paid_public_content_ledger is append-only'); END`,
+        logDatabaseError('protecting paid public content ledger deletes'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS paid_public_content_audit_immutable_update
+                BEFORE UPDATE ON paid_public_content_audit BEGIN SELECT RAISE(ABORT, 'paid_public_content_audit is append-only'); END`,
+        logDatabaseError('protecting paid public content audit updates'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS paid_public_content_audit_immutable_delete
+                BEFORE DELETE ON paid_public_content_audit BEGIN SELECT RAISE(ABORT, 'paid_public_content_audit is append-only'); END`,
+        logDatabaseError('protecting paid public content audit deletes'));
         [
             'CREATE INDEX IF NOT EXISTS idx_memberships_account_group ON platform_account_memberships(account_id, group_id)',
             'CREATE INDEX IF NOT EXISTS idx_join_requests_group_status ON group_join_requests(group_id, status)',
@@ -534,7 +617,8 @@ function initDatabase(onReady) {
             'CREATE INDEX IF NOT EXISTS idx_post_comments_post ON post_comments(post_id, created_at)',
             'CREATE INDEX IF NOT EXISTS idx_social_sandbox_ledger_content ON social_sandbox_ledger(content_type, content_id)',
             'CREATE INDEX IF NOT EXISTS idx_social_moderation_pending ON social_posts(moderation_status, created_at)',
-            'CREATE INDEX IF NOT EXISTS idx_public_content_feed ON public_content(audience, active, archived_at, starts_at, ends_at)'
+            'CREATE INDEX IF NOT EXISTS idx_public_content_feed ON public_content(audience, active, archived_at, starts_at, ends_at)',
+            'CREATE INDEX IF NOT EXISTS idx_paid_public_content_feed ON paid_public_contents(publication_status, payment_status, created_at DESC)'
         ].forEach(sql => db.run(sql, logDatabaseError('creating social index')));
 
         db.run(`CREATE TABLE IF NOT EXISTS platform_momo (
@@ -5314,6 +5398,247 @@ app.post('/api/admin/public-content/:contentId/archive', authenticateToken, auth
     );
 });
 
+function paidPublicContentPrice(contentType, mediaCount) {
+    if (contentType === 'post') return mediaCount ? PAID_PUBLIC_CONTENT_PRICING.post_media_minor : PAID_PUBLIC_CONTENT_PRICING.post_text_minor;
+    if (contentType === 'announcement') return PAID_PUBLIC_CONTENT_PRICING.announcement_minor;
+    return PAID_PUBLIC_CONTENT_PRICING.advertisement_base_minor + (mediaCount * PAID_PUBLIC_CONTENT_PRICING.advertisement_per_photo_minor);
+}
+
+function paidPublicContentReceipt(payment) {
+    return {
+        payment_id: payment.paymentId,
+        status: payment.status,
+        provider: payment.provider,
+        amount_minor: payment.amountMinor,
+        currency: PAID_PUBLIC_CONTENT_PRICING.currency,
+        display: `${(payment.amountMinor / 100).toFixed(2)} USD-équivalent SANDBOX`,
+        sandbox: true,
+        notice: payment.provider === 'momo_sandbox'
+            ? 'Intent Momo SANDBOX créé : aucune somme réelle n’est débitée. La publication attend une confirmation simulée; un vrai Momo exige un webhook officiel du fournisseur.'
+            : 'Débit immédiat du portefeuille interne SANDBOX uniquement : aucune somme réelle n’est débitée.'
+    };
+}
+
+function paidContentAudit(contentId, paymentId, accountId, action, details, callback) {
+    db.run(
+        `INSERT INTO paid_public_content_audit (audit_id, content_id, payment_id, actor_account_id, action, details_json)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [newSecureId(), contentId, paymentId || null, accountId, action, json(details)],
+        callback
+    );
+}
+
+function paidPublicContentInput(raw) {
+    const contentType = String(raw.content_type || '');
+    const paymentMethod = String(raw.payment_method || '');
+    const body = safeText(raw.body || '', 1500) || '';
+    const title = safeText(raw.title || '', 160) || null;
+    const mediaIds = Array.isArray(raw.media_ids) ? raw.media_ids.map(Number) : [];
+    const uniqueMediaIds = [...new Set(mediaIds)];
+    if (!['post', 'announcement', 'advertisement'].includes(contentType) ||
+        !['internal_wallet', 'momo_sandbox'].includes(paymentMethod) ||
+        uniqueMediaIds.some(id => !Number.isInteger(id) || id < 1)) return null;
+    if ((contentType === 'post' && !body && !uniqueMediaIds.length) || (contentType !== 'post' && !body)) return null;
+    if ((contentType === 'post' || contentType === 'announcement') && uniqueMediaIds.length > 1) return null;
+    if (contentType === 'advertisement' && uniqueMediaIds.length > PAID_PUBLIC_CONTENT_PRICING.max_advertisement_photos) return null;
+    const result = { contentType, paymentMethod, body, title, mediaIds: uniqueMediaIds };
+    if (contentType === 'advertisement') {
+        result.title = title;
+        result.productPrice = safeText(raw.product_price || '', 80) || '';
+        result.productTotal = safeText(raw.product_total || '', 80) || '';
+        result.availability = safeText(raw.availability || '', 120) || '';
+        result.address = safeText(raw.address || '', 250) || '';
+        result.contactPhone = String(raw.contact_phone || '').trim();
+        result.contactEmail = String(raw.contact_email || '').trim().toLowerCase();
+        if (!title || !result.productPrice || !result.productTotal || !result.availability || !result.address ||
+            !/^\+?[0-9][0-9 ()-]{5,30}$/.test(result.contactPhone) ||
+            !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(result.contactEmail)) return null;
+    }
+    return result;
+}
+
+function verifyPaidContentMedia(accountId, input, callback) {
+    if (!input.mediaIds.length) return callback(null);
+    db.all(
+        `SELECT id, mime_type FROM media_files WHERE owner_account_id = ? AND purpose = 'post'
+         AND id IN (${input.mediaIds.map(() => '?').join(',')})`,
+        [accountId, ...input.mediaIds],
+        (err, media) => {
+            if (err) return callback(err);
+            if (media.length !== input.mediaIds.length) return callback(new Error('Un média est introuvable ou ne vous appartient pas.'));
+            if (input.contentType === 'advertisement' && media.some(item => !item.mime_type.startsWith('image/'))) {
+                return callback(new Error('Les photos de produit doivent être des images JPEG, PNG, GIF ou WebP.'));
+            }
+            callback(null);
+        }
+    );
+}
+
+function rollbackPaidContent(err, complete) {
+    db.run('ROLLBACK', () => complete(err.status || 500, { error: err.message || String(err) }));
+}
+
+app.get('/api/member-content/prices', authenticateAccount, (_req, res) => {
+    res.json({
+        sandbox: true,
+        currency: PAID_PUBLIC_CONTENT_PRICING.currency,
+        prices: PAID_PUBLIC_CONTENT_PRICING,
+        explanation: 'Les prix sont déterministes et affichés avant paiement. Momo est exclusivement un intent SANDBOX; un webhook officiel est requis avant toute intégration réelle.'
+    });
+});
+
+app.post('/api/member-content', authenticateAccount, (req, res) => {
+    const input = paidPublicContentInput(req.body || {});
+    if (!input) return res.status(400).json({ error: 'Contenu invalide : vérifiez le texte, les coordonnées et le nombre de médias.' });
+    verifyPaidContentMedia(req.account.id, input, mediaErr => {
+        if (mediaErr) return res.status(400).json({ error: mediaErr.message });
+        beginIdempotentMutation(req, res, 'paid_public_content', (idempotencyKey, complete) => {
+            const amountMinor = paidPublicContentPrice(input.contentType, input.mediaIds.length);
+            const paymentId = `SANDBOX-CONTENT-${crypto.createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 18).toUpperCase()}`;
+            const classification = moderationClassification(`${input.title || ''} ${input.body}`);
+            const publishStatus = classification.status === 'pending' ? 'pending_review' : 'approved';
+            const pendingMomo = input.paymentMethod === 'momo_sandbox';
+            const contentValues = [
+                req.account.id, input.contentType, input.body, input.title, input.productPrice || null, input.productTotal || null,
+                input.availability || null, input.address || null, input.contactPhone || null, input.contactEmail || null,
+                JSON.stringify(input.mediaIds), pendingMomo ? 'payment_pending' : publishStatus, pendingMomo ? 'pending' : 'succeeded',
+                input.paymentMethod
+            ];
+            db.serialize(() => {
+                db.run('BEGIN IMMEDIATE', beginErr => {
+                    if (beginErr) return complete(500, { error: beginErr.message });
+                    const createContent = callback => db.run(
+                        `INSERT INTO paid_public_contents
+                         (author_account_id, content_type, body, title, product_price, product_total, availability, address, contact_phone, contact_email, media_ids_json, publication_status, payment_status, payment_method, published_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'approved' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
+                        [...contentValues, pendingMomo ? 'payment_pending' : publishStatus],
+                        function insertContent(err) { callback(err, this.lastID); }
+                    );
+                    const createPayment = (contentId, status, callback) => db.run(
+                        `INSERT INTO paid_public_content_payments
+                         (payment_id, idempotency_key, content_id, account_id, provider, amount_minor, currency, status, external_reference, confirmed_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'succeeded' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
+                        [paymentId, idempotencyKey, contentId, req.account.id, input.paymentMethod, amountMinor,
+                            PAID_PUBLIC_CONTENT_PRICING.currency, status,
+                            pendingMomo ? `SANDBOX-MOMO-INTENT-${paymentId.slice(-8)}` : `SANDBOX-WALLET-${paymentId.slice(-8)}`, status],
+                        callback
+                    );
+                    const finish = (contentId, status) => {
+                        const receipt = paidPublicContentReceipt({ paymentId, status, provider: input.paymentMethod, amountMinor });
+                        db.run('COMMIT', commitErr => {
+                            if (commitErr) return complete(500, { error: commitErr.message });
+                            complete(pendingMomo ? 202 : 201, {
+                                content: { id: contentId, publication_status: pendingMomo ? 'payment_pending' : publishStatus, payment_status: status },
+                                receipt
+                            });
+                        });
+                    };
+                    const auditCreated = (contentId, action, next) => paidContentAudit(contentId, paymentId, req.account.id, action, {
+                        sandbox: true, amount_minor: amountMinor, payment_method: input.paymentMethod, content_type: input.contentType
+                    }, next);
+                    if (pendingMomo) {
+                        return createContent((contentErr, contentId) => {
+                            if (contentErr) return rollbackPaidContent(contentErr, complete);
+                            createPayment(contentId, 'pending', paymentErr => {
+                                if (paymentErr) return rollbackPaidContent(paymentErr, complete);
+                                auditCreated(contentId, 'momo_intent_created', auditErr => {
+                                    if (auditErr) return rollbackPaidContent(auditErr, complete);
+                                    finish(contentId, 'pending');
+                                });
+                            });
+                        });
+                    }
+                    db.get('SELECT internal_wallet FROM platform_accounts WHERE id = ?', [req.account.id], (walletErr, account) => {
+                        if (walletErr) return rollbackPaidContent(walletErr, complete);
+                        const balanceMinor = Math.round(Number(account && account.internal_wallet) * 100);
+                        if (!account || balanceMinor < amountMinor) {
+                            return rollbackPaidContent({ status: 402, message: 'Solde insuffisant dans le portefeuille interne SANDBOX.' }, complete);
+                        }
+                        createContent((contentErr, contentId) => {
+                            if (contentErr) return rollbackPaidContent(contentErr, complete);
+                            db.run('UPDATE platform_accounts SET internal_wallet = ? WHERE id = ?', [(balanceMinor - amountMinor) / 100, req.account.id], updateErr => {
+                                if (updateErr) return rollbackPaidContent(updateErr, complete);
+                                createPayment(contentId, 'succeeded', paymentErr => {
+                                    if (paymentErr) return rollbackPaidContent(paymentErr, complete);
+                                    db.run(
+                                        `INSERT INTO paid_public_content_ledger (entry_id, payment_id, content_id, account_id, platform_amount_minor, currency)
+                                         VALUES (?, ?, ?, ?, ?, ?)`,
+                                        [newSecureId(), paymentId, contentId, req.account.id, amountMinor, PAID_PUBLIC_CONTENT_PRICING.currency],
+                                        ledgerErr => {
+                                            if (ledgerErr) return rollbackPaidContent(ledgerErr, complete);
+                                            auditCreated(contentId, 'created', createdAuditErr => {
+                                                if (createdAuditErr) return rollbackPaidContent(createdAuditErr, complete);
+                                                paidContentAudit(contentId, paymentId, req.account.id, 'wallet_deducted', { sandbox: true, amount_minor: amountMinor, balance_after_minor: balanceMinor - amountMinor }, walletAuditErr => {
+                                                    if (walletAuditErr) return rollbackPaidContent(walletAuditErr, complete);
+                                                    paidContentAudit(contentId, paymentId, req.account.id, publishStatus === 'approved' ? 'published' : 'pending_review', { sandbox: true }, publishAuditErr => {
+                                                        if (publishAuditErr) return rollbackPaidContent(publishAuditErr, complete);
+                                                        finish(contentId, 'succeeded');
+                                                    });
+                                                });
+                                            });
+                                        }
+                                    );
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
+
+app.post('/api/member-content/payments/:paymentId/simulate-confirmation', authenticateAccount, (req, res) => {
+    beginIdempotentMutation(req, res, 'paid_public_content_momo_confirmation', (_idempotencyKey, complete) => {
+        db.get(
+            `SELECT p.*, c.content_type, c.body, c.title, c.author_account_id FROM paid_public_content_payments p
+             JOIN paid_public_contents c ON c.id = p.content_id WHERE p.payment_id = ? AND p.account_id = ?`,
+            [req.params.paymentId, req.account.id],
+            (lookupErr, payment) => {
+                if (lookupErr) return complete(500, { error: lookupErr.message });
+                if (!payment || payment.provider !== 'momo_sandbox') return complete(404, { error: 'Intent Momo SANDBOX introuvable.' });
+                if (payment.status === 'succeeded') return complete(200, { receipt: paidPublicContentReceipt({ paymentId: payment.payment_id, status: 'succeeded', provider: payment.provider, amountMinor: payment.amount_minor }) });
+                const classification = moderationClassification(`${payment.title || ''} ${payment.body}`);
+                const publicationStatus = classification.status === 'pending' ? 'pending_review' : 'approved';
+                db.serialize(() => {
+                    db.run('BEGIN IMMEDIATE', beginErr => {
+                        if (beginErr) return complete(500, { error: beginErr.message });
+                        db.run(`UPDATE paid_public_content_payments SET status = 'succeeded', confirmed_at = CURRENT_TIMESTAMP,
+                                external_reference = ? WHERE payment_id = ? AND status = 'pending'`,
+                        [`SANDBOX-MOMO-CONFIRMED-${payment.payment_id.slice(-8)}`, payment.payment_id], function paymentUpdate(err) {
+                            if (err) return rollbackPaidContent(err, complete);
+                            if (!this.changes) return rollbackPaidContent({ status: 409, message: 'Intent déjà traité.' }, complete);
+                            db.run(`UPDATE paid_public_contents SET payment_status = 'succeeded', publication_status = ?, published_at =
+                                    CASE WHEN ? = 'approved' THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id = ?`,
+                            [publicationStatus, publicationStatus, payment.content_id], contentErr => {
+                                if (contentErr) return rollbackPaidContent(contentErr, complete);
+                                db.run(`INSERT INTO paid_public_content_ledger (entry_id, payment_id, content_id, account_id, platform_amount_minor, currency)
+                                        VALUES (?, ?, ?, ?, ?, ?)`,
+                                [newSecureId(), payment.payment_id, payment.content_id, req.account.id, payment.amount_minor, payment.currency], ledgerErr => {
+                                    if (ledgerErr) return rollbackPaidContent(ledgerErr, complete);
+                                    paidContentAudit(payment.content_id, payment.payment_id, req.account.id, 'momo_confirmed', { sandbox: true, simulated: true }, auditErr => {
+                                        if (auditErr) return rollbackPaidContent(auditErr, complete);
+                                        paidContentAudit(payment.content_id, payment.payment_id, req.account.id, publicationStatus === 'approved' ? 'published' : 'pending_review', { sandbox: true }, publicationAuditErr => {
+                                            if (publicationAuditErr) return rollbackPaidContent(publicationAuditErr, complete);
+                                            db.run('COMMIT', commitErr => {
+                                                if (commitErr) return complete(500, { error: commitErr.message });
+                                                complete(200, {
+                                                    content: { id: payment.content_id, publication_status: publicationStatus, payment_status: 'succeeded' },
+                                                    receipt: paidPublicContentReceipt({ paymentId: payment.payment_id, status: 'succeeded', provider: payment.provider, amountMinor: payment.amount_minor })
+                                                });
+                                            });
+                                        });
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            }
+        );
+    });
+});
+
 app.get('/api/public/news', (req, res) => {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 50);
     const offset = Math.max(Number.parseInt(req.query.offset, 10) || 0, 0);
@@ -5331,21 +5656,36 @@ app.get('/api/public/news', (req, res) => {
     const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
     db.all(
         `SELECT * FROM (
-            SELECT c.id, c.content_type, c.title, c.body, c.placement, c.media_id, c.starts_at, c.ends_at,
-                   c.created_at AS published_at, 'platform' AS source, NULL AS author_name
+            SELECT c.id, c.content_type, c.title, c.body, c.placement, c.media_id, NULL AS media_ids_json, c.starts_at, c.ends_at,
+                   c.created_at AS published_at, 'platform' AS source, NULL AS author_name,
+                   NULL AS product_price, NULL AS product_total, NULL AS availability, NULL AS address, NULL AS contact_phone, NULL AS contact_email
             FROM public_content c
             WHERE c.audience = 'public' AND c.placement = 'news' AND c.active = 1 AND c.archived_at IS NULL
               AND datetime(c.starts_at) <= datetime('now') AND (c.ends_at IS NULL OR datetime(c.ends_at) >= datetime('now'))
             UNION ALL
-            SELECT p.id, 'member_publication' AS content_type, NULL AS title, p.body, 'news' AS placement, p.media_id,
+            SELECT p.id, 'member_publication' AS content_type, NULL AS title, p.body, 'news' AS placement, p.media_id, NULL AS media_ids_json,
                    p.created_at AS starts_at, NULL AS ends_at, p.created_at AS published_at, 'social' AS source,
-                   CASE WHEN a.visibility = 'public' THEN trim(a.prenom || ' ' || a.name) ELSE 'Membre AVEC' END AS author_name
+                   CASE WHEN a.visibility = 'public' THEN trim(a.prenom || ' ' || a.name) ELSE 'Membre AVEC' END AS author_name,
+                   NULL AS product_price, NULL AS product_total, NULL AS availability, NULL AS address, NULL AS contact_phone, NULL AS contact_email
             FROM social_posts p JOIN platform_accounts a ON a.id = p.author_account_id
             WHERE p.visibility = 'public' AND p.moderation_status = 'approved' AND p.deleted_at IS NULL
+            UNION ALL
+            SELECT c.id, c.content_type, c.title, c.body, 'news' AS placement, NULL AS media_id, c.media_ids_json,
+                   c.created_at AS starts_at, NULL AS ends_at, c.published_at, 'member_content' AS source,
+                   CASE WHEN a.visibility = 'public' THEN trim(a.prenom || ' ' || a.name) ELSE 'Membre AVEC' END AS author_name,
+                   c.product_price, c.product_total, c.availability, c.address, c.contact_phone, c.contact_email
+            FROM paid_public_contents c JOIN platform_accounts a ON a.id = c.author_account_id
+            WHERE c.publication_status = 'approved' AND c.payment_status = 'succeeded'
         ) public_feed ${where}
         ORDER BY datetime(published_at) DESC, id DESC LIMIT ? OFFSET ?`,
         [...values, limit, offset],
-        (err, items) => err ? res.status(500).json({ error: err.message }) : res.json({ items, limit, offset })
+        (err, items) => {
+            if (err) return res.status(500).json({ error: err.message });
+            items.forEach(item => {
+                try { item.media_ids = item.media_ids_json ? JSON.parse(item.media_ids_json) : (item.media_id ? [item.media_id] : []); } catch (_) { item.media_ids = []; }
+            });
+            res.json({ items, limit, offset });
+        }
     );
 });
 
@@ -5365,8 +5705,13 @@ app.get('/api/public/news/media/:mediaId', (req, res) => {
 
 app.get('/api/public/news/social-media/:mediaId', (req, res) => {
     db.get(
-        `SELECT m.* FROM media_files m JOIN social_posts p ON p.media_id = m.id
-         WHERE m.id = ? AND p.visibility = 'public' AND p.moderation_status = 'approved' AND p.deleted_at IS NULL`,
+        `SELECT m.* FROM media_files m WHERE m.id = ? AND (
+           EXISTS (SELECT 1 FROM social_posts p WHERE p.media_id = m.id AND p.visibility = 'public' AND p.moderation_status = 'approved' AND p.deleted_at IS NULL)
+           OR EXISTS (
+               SELECT 1 FROM paid_public_contents c, json_each(c.media_ids_json) media
+               WHERE media.value = m.id AND c.publication_status = 'approved' AND c.payment_status = 'succeeded'
+           )
+        )`,
         [req.params.mediaId],
         (err, media) => {
             if (err) return res.status(500).json({ error: err.message });
