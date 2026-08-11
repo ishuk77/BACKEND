@@ -227,6 +227,19 @@ function initDatabase(onReady) {
             refresh_token TEXT,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )`, logDatabaseError('creating platform accounts table'));
+        db.run(`CREATE TABLE IF NOT EXISTS wallet_topups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            payment_id TEXT NOT NULL UNIQUE,
+            idempotency_key TEXT NOT NULL UNIQUE,
+            account_id INTEGER NOT NULL,
+            provider TEXT NOT NULL CHECK (provider IN ('momo_sandbox', 'card_sandbox')),
+            amount_minor INTEGER NOT NULL CHECK (amount_minor >= 100 AND amount_minor <= 100000000),
+            currency TEXT NOT NULL DEFAULT 'USD',
+            status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'succeeded', 'failed')),
+            confirmed_at DATETIME,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (account_id) REFERENCES platform_accounts(id)
+        )`, logDatabaseError('creating wallet topups table'));
         db.run(`CREATE TABLE IF NOT EXISTS platform_account_memberships (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             account_id INTEGER NOT NULL,
@@ -2620,6 +2633,61 @@ app.post('/api/platform/auth/refresh', (req, res) => {
 });
 
 app.get('/api/platform/profile', authenticateAccount, (req, res) => res.json({ account: accountPublicResponse(req.account, true) }));
+app.get('/api/wallet/topups', authenticateAccount, (req, res) => {
+    db.all(`SELECT payment_id, provider, amount_minor, currency, status, confirmed_at, created_at
+            FROM wallet_topups WHERE account_id = ? ORDER BY created_at DESC LIMIT 20`,
+    [req.account.id], (err, topups) => err ? res.status(500).json({ error: err.message }) : res.json({ topups, sandbox: true }));
+});
+app.post('/api/wallet/topups', authenticateAccount, (req, res) => {
+    const provider = String(req.body.provider || '');
+    const amountMinor = Math.round(Number(req.body.amount) * 100);
+    const idempotencyKey = String(req.get('Idempotency-Key') || '');
+    if (!['momo_sandbox', 'card_sandbox'].includes(provider) || !Number.isInteger(amountMinor)
+        || amountMinor < 100 || amountMinor > 100000000 || idempotencyKey.length < 12 || idempotencyKey.length > 200) {
+        return res.status(400).json({ error: 'Montant (minimum 1 USD), moyen de paiement et clé de demande valides requis.' });
+    }
+    db.get('SELECT payment_id, provider, amount_minor, status FROM wallet_topups WHERE idempotency_key = ? AND account_id = ?', [idempotencyKey, req.account.id], (lookupErr, existing) => {
+        if (lookupErr) return res.status(500).json({ error: lookupErr.message });
+        if (existing) return res.status(200).json({ topup: existing, idempotent_replay: true, sandbox: true });
+        const paymentId = `SANDBOX-TOPUP-${newSecureId().slice(0, 18).toUpperCase()}`;
+        db.run(`INSERT INTO wallet_topups (payment_id, idempotency_key, account_id, provider, amount_minor)
+                VALUES (?, ?, ?, ?, ?)`, [paymentId, idempotencyKey, req.account.id, provider, amountMinor], insertErr => {
+            if (insertErr) return res.status(insertErr.code === 'SQLITE_CONSTRAINT' ? 409 : 500).json({ error: insertErr.message });
+            res.status(201).json({ topup: { payment_id: paymentId, provider, amount_minor: amountMinor, status: 'pending' }, sandbox: true });
+        });
+    });
+});
+app.post('/api/wallet/topups/:paymentId/simulate-confirmation', authenticateAccount, (req, res) => {
+    db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
+        if (beginErr) return res.status(500).json({ error: beginErr.message });
+        db.get('SELECT * FROM wallet_topups WHERE payment_id = ? AND account_id = ?', [req.params.paymentId, req.account.id], (lookupErr, topup) => {
+            if (lookupErr || !topup || topup.status !== 'pending') {
+                db.run('ROLLBACK');
+                return res.status(lookupErr ? 500 : 409).json({ error: lookupErr ? lookupErr.message : 'Rechargement en attente introuvable.' });
+            }
+            db.run(`UPDATE wallet_topups SET status = 'succeeded', confirmed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'pending'`, [topup.id], updateErr => {
+                if (updateErr) {
+                    db.run('ROLLBACK');
+                    return res.status(500).json({ error: updateErr.message });
+                }
+                const momoAmount = topup.provider === 'momo_sandbox' ? topup.amount_minor / 100 : 0;
+                db.run(`UPDATE platform_accounts SET internal_wallet = internal_wallet + ?, momo_wallet = momo_wallet + ? WHERE id = ?`,
+                    [topup.amount_minor / 100, momoAmount, req.account.id], accountErr => {
+                        if (accountErr) {
+                            db.run('ROLLBACK');
+                            return res.status(500).json({ error: accountErr.message });
+                        }
+                        db.run('COMMIT', commitErr => {
+                            if (commitErr) return res.status(500).json({ error: commitErr.message });
+                            db.get('SELECT * FROM platform_accounts WHERE id = ?', [req.account.id], (profileErr, account) => profileErr
+                                ? res.status(500).json({ error: profileErr.message })
+                                : res.json({ topup: { payment_id: topup.payment_id, status: 'succeeded' }, account: accountPublicResponse(account, true), sandbox: true }));
+                        });
+                    });
+            });
+        });
+    }));
+});
 app.put('/api/platform/profile', authenticateAccount, (req, res) => {
     const prenom = safeText(req.body.prenom, 80);
     const name = safeText(req.body.name, 80);

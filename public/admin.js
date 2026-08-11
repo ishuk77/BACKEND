@@ -11,7 +11,7 @@ const ADMIN_PIN_RESET_SESSION_KEY = 'adminPinResetSession';
 function adminPinResetSessionId() {
     let value = sessionStorage.getItem(ADMIN_PIN_RESET_SESSION_KEY);
     if (!value) {
-        value = crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : `${Date.now()}${Math.random().toString(36).slice(2)}`;
+        value = window.crypto?.randomUUID ? window.crypto.randomUUID().replace(/-/g, '') : `${Date.now()}${Math.random().toString(36).slice(2)}`;
         sessionStorage.setItem(ADMIN_PIN_RESET_SESSION_KEY, value);
     }
     return value;
@@ -190,8 +190,12 @@ async function handlePlatformLogin(e) {
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Impossible de réinitialiser le PIN.');
             adminPinResetToken = null;
+            const phone = document.getElementById('adminPinResetPhone').value.trim();
+            const pin = document.getElementById('adminPinResetNewPin').value.trim();
+            document.getElementById('platformLoginPhone').value = phone;
+            document.getElementById('platformLoginPin').value = pin;
             document.getElementById('adminPinResetForm').reset();
-            setAdminPinResetStatus(data.message);
+            setAdminPinResetStatus(`${data.message} Les champs de connexion ont été remplis : cliquez sur « Se connecter ».`);
         }
 
         // Store platform tokens separately

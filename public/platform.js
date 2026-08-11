@@ -7,6 +7,7 @@ let selectedDm = null;
 let selectedDmAttachment = null;
 let paidContentPrices = null;
 let pendingMomoPaymentId = null;
+let pendingWalletTopupId = null;
 const mediaUrls = new Map();
 const PHONE_VERIFICATION_SESSION_KEY = 'platformPhoneVerificationSession';
 const phoneVerificationTokens = { register: null, profile: null, reset: null };
@@ -137,8 +138,42 @@ function renderAccount() {
     }
 }
 async function loadProfile() { account = (await request('/api/platform/profile')).account; renderAccount(); }
+async function loadWalletTopups() {
+    const data = await request('/api/wallet/topups');
+    const history = $p('walletTopupHistory');
+    history.replaceChildren();
+    data.topups.forEach(topup => {
+        const item = document.createElement('p');
+        item.className = 'field-hint';
+        item.textContent = `${topup.provider === 'momo_sandbox' ? 'Momo' : 'Visa / Mastercard'} · ${(topup.amount_minor / 100).toFixed(2)} USD · ${topup.status}`;
+        history.appendChild(item);
+    });
+}
+async function createWalletTopup(event) {
+    event.preventDefault();
+    const data = await request('/api/wallet/topups', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey('wallet-topup') },
+        body: JSON.stringify({ amount: $p('walletTopupAmount').value, provider: $p('walletTopupProvider').value })
+    });
+    pendingWalletTopupId = data.topup.payment_id;
+    $p('walletTopupStatus').textContent = 'Rechargement créé. Confirmez-le en SANDBOX pour créditer votre portefeuille.';
+    $p('simulateWalletTopup').hidden = false;
+    await loadWalletTopups();
+}
+async function confirmWalletTopup() {
+    if (!pendingWalletTopupId) throw new Error('Créez d’abord un rechargement.');
+    const data = await request(`/api/wallet/topups/${encodeURIComponent(pendingWalletTopupId)}/simulate-confirmation`, { method: 'POST', body: '{}' });
+    account = data.account;
+    renderAccount();
+    pendingWalletTopupId = null;
+    $p('simulateWalletTopup').hidden = true;
+    $p('walletTopupStatus').textContent = 'Portefeuille crédité en SANDBOX.';
+    await loadWalletTopups();
+}
 async function enter() {
     await loadProfile();
+    await loadWalletTopups();
     $p('authSection').hidden = true;
     $p('portalSection').hidden = false;
     // Every member, including a migrated legacy member, lands in the same
@@ -632,6 +667,8 @@ document.addEventListener('DOMContentLoaded', () => {
     $p('pinResetRequestCode').addEventListener('click', () => requestPhoneVerification('reset', 'pinResetPhone', 'pinResetStatus').catch(error => showVerificationStatus('pinResetStatus', error.message)));
     $p('pinResetVerifyCode').addEventListener('click', () => verifyPhoneVerification('reset', 'pinResetPhone', 'pinResetCode', 'pinResetStatus').catch(error => showVerificationStatus('pinResetStatus', error.message)));
     $p('pinResetForm').addEventListener('submit', event => resetPin(event).catch(error => showVerificationStatus('pinResetStatus', error.message)));
+    $p('walletTopupForm').addEventListener('submit', event => createWalletTopup(event).catch(error => notice(error.message)));
+    $p('simulateWalletTopup').addEventListener('click', () => confirmWalletTopup().catch(error => notice(error.message)));
     $p('profileForm').addEventListener('submit', event => saveProfile(event).catch(error => alert(error.message)));
     $p('securityProfileForm').addEventListener('submit', event => saveSecurityProfile(event).catch(error => alert(error.message)));
     $p('avatarForm').addEventListener('submit', event => uploadAvatar(event).catch(error => alert(error.message)));

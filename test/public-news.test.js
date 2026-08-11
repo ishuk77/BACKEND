@@ -66,6 +66,22 @@ test('public news preserves social privacy and platform admins control scheduled
         body: { prenom: 'Admin', name: 'Actualités', phone: '+22990000077', idNumber: 'ADMIN-NEWS' }
     });
     assert.equal(admin.status, 201);
+    const adminResetSession = 'public-news-admin-pin-reset';
+    const adminResetCode = await request('POST', '/api/platform/phone-verifications/request', {
+        body: { phone: '+22990000077', browserSessionId: adminResetSession }
+    });
+    const adminResetVerification = await request('POST', '/api/platform/phone-verifications/verify', {
+        body: { phone: '+22990000077', browserSessionId: adminResetSession, code: adminResetCode.data.sandboxCode }
+    });
+    assert.equal((await request('POST', '/api/auth/pin-reset', {
+        body: {
+            phone: '+22990000077', pin: '8765', pinConfirmation: '8765', browserSessionId: adminResetSession,
+            phoneVerificationToken: adminResetVerification.data.verificationToken
+        }
+    })).status, 200);
+    assert.equal((await request('POST', '/api/auth/platform-login', {
+        body: { phone: '+22990000077', pin: '8765' }
+    })).status, 200);
     const member = await createAccount('+22991112222', 'Awa');
     assert.equal(member.status, 201);
     const resetSession = 'public-news-pin-reset';
@@ -84,6 +100,17 @@ test('public news preserves social privacy and platform admins control scheduled
     assert.equal((await request('POST', '/api/platform/auth/login', {
         body: { phone: '+22991112222', pin: '5678' }
     })).status, 200);
+    const walletTopup = await request('POST', '/api/wallet/topups', {
+        token: member.data.accessToken,
+        headers: { 'Idempotency-Key': 'public-news-wallet-topup-0001' },
+        body: { amount: 5, provider: 'card_sandbox' }
+    });
+    assert.equal(walletTopup.status, 201);
+    const walletConfirmation = await request('POST', `/api/wallet/topups/${walletTopup.data.topup.payment_id}/simulate-confirmation`, {
+        token: member.data.accessToken, body: {}
+    });
+    assert.equal(walletConfirmation.status, 200);
+    assert.equal(walletConfirmation.data.account.internal_wallet, 5);
 
     assert.equal((await request('GET', '/api/admin/public-content')).status, 401);
     const memberRoleToken = jwt.sign({ id: 99, role: 'membre' }, process.env.JWT_SECRET);
