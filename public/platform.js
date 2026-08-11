@@ -93,7 +93,10 @@ async function requestPhoneVerification(flow, phoneId, statusId) {
         body: JSON.stringify({ phone, browserSessionId: browserVerificationSessionId() })
     });
     phoneVerificationTokens[flow] = null;
-    showVerificationStatus(statusId, `Code SANDBOX pour cette session : ${data.sandboxCode}. Il expire le ${new Date(data.expiresAt).toLocaleTimeString('fr-FR')}.`);
+    const codeFieldByFlow = { register: 'registerVerificationCode', profile: 'profileVerificationCode', reset: 'pinResetCode' };
+    const codeField = $p(codeFieldByFlow[flow]);
+    if (data.sandbox && codeField) codeField.value = data.sandboxCode;
+    showVerificationStatus(statusId, `Code SANDBOX ajouté au champ ci-dessous : ${data.sandboxCode}. Il expire le ${new Date(data.expiresAt).toLocaleTimeString('fr-FR')}.`);
 }
 async function verifyPhoneVerification(flow, phoneId, codeId, statusId) {
     const data = await request('/api/platform/phone-verifications/verify', {

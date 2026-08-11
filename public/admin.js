@@ -157,7 +157,8 @@ async function handlePlatformLogin(e) {
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Impossible de demander le code.');
             adminPinResetToken = null;
-            setAdminPinResetStatus(`Code SANDBOX pour cette session : ${data.sandboxCode}.`);
+            if (data.sandbox) document.getElementById('adminPinResetCode').value = data.sandboxCode;
+            setAdminPinResetStatus(`Code SANDBOX ajouté au champ ci-dessous : ${data.sandboxCode}.`);
         }
         async function verifyAdminPinResetCode() {
             const response = await fetch(API_BASE + '/api/platform/phone-verifications/verify', {
