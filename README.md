@@ -2,16 +2,34 @@
 
 Ce projet est une application complète de microcrédit pour les groupes AVEC (Association Villageoise d'Épargne et de Crédit), avec trois niveaux d'accès distincts et une gestion centralisée des comptes Momo.
 
+## Nouveau parcours membre plateforme
+
+Avant de créer, demander à rejoindre ou accepter l’invitation d’un groupe AVEC, chaque personne crée puis ouvre un **compte membre plateforme** dans `platform.html`. L’inscription exige un numéro d’identité/passeport, un téléphone vérifié et un PIN choisi de **4 chiffres**, confirmé une fois à l’inscription. Seul le hash du PIN est conservé; le PIN n’est jamais inclus dans les chats ou notifications. Les anciens membres sont automatiquement reliés à un compte actif au démarrage, sans modifier les groupes, rôles, soldes ni historiques existants; leur hash de PIN existant est conservé afin que la connexion historique et la connexion plateforme ouvrent le même espace membre.
+
+`platform.html` est l’entrée membre canonique. Après connexion, **Mes groupes** affiche les groupes actifs et le bouton **Ouvrir le tableau de bord du groupe** crée une session limitée au groupe choisi. Les contrôles financiers, président et membre restent ainsi appliqués côté serveur pour le rôle de cette adhésion. L’ancien formulaire de `index.html` est seulement une entrée de compatibilité : il ouvre le même portail; quitter un tableau de bord de groupe revient au portail. `admin.html` reste séparé et réservé à l’administration plateforme.
+
+### Vérification de téléphone SANDBOX
+
+La vérification actuelle est explicitement une **SANDBOX** : demander le code ne contacte ni SMS ni chat; le code n’est disponible que dans la réponse de la session de navigateur active. Il expire après 10 minutes et accepte au plus 5 essais. En hébergement, remplacez l’adaptateur de livraison SANDBOX par une intégration d’opérateur/fournisseur SMS auditée (avec limitation, journalisation minimale et secrets hors dépôt). Ne présentez pas ce flux comme une livraison SMS réelle.
+
+Après création réussie, la session membre du président est enregistrée et redirigée vers `index.html`, le tableau de bord du groupe créé; il peut ensuite revenir à l’espace membre canonique.
+
+L’espace membre sépare explicitement le **portefeuille interne AVEC (SANDBOX)** du **portefeuille Momo affiché (SANDBOX)**. Aucun solde Momo n’est réel et aucune route ne contacte un opérateur. Il inclut profil et photo protégée, découverte selon la visibilité choisie, connexions, messages directs réservés aux contacts, fil social avec images, agenda social et notifications. Les administrateurs modèrent uniquement les publications signalées: les messages privés ne sont jamais visibles en administration.
+
+Les images de profil et du fil sont limitées à 3 Mo, contrôlées par type et signature, renommées aléatoirement et accessibles seulement par une route authentifiée. En hébergement, conservez `uploads/` sur un volume privé, persistant et sauvegardé; ne le publiez jamais comme dossier statique.
+
 ## 👥 Rôles et fonctionnalités
 
 ### 🔧 Administrateur de la plateforme
 - **Accès global** : Voir tous les groupes et membres
-- **Gestion des comptes Momo** : Ajouter/supprimer des comptes Momo par pays
-- **Blocage de groupes** : Intervention sur alertes de fraude
+- **Gestion des comptes Momo** : Ajouter/supprimer des comptes Momo par pays et opérateur
+- **Révision des groupes bloqués** : Traiter les demandes du président et réactiver après examen
+- **Messagerie privée** : Échanger avec le président de chaque groupe, sans exposer la conversation aux autres membres
 - **Pas de modification directe** des données (sauf blocage)
 
-### 👨‍💼 Administrateur de groupe (Président/Secrétaire/Comptable)
-- **Gestion des membres** : Ajouter de nouveaux membres
+### 👨‍💼 Personnel de groupe (Président/Vice-président/Secrétaire/Comptable)
+- **Gestion des membres** : rechercher un compte plateforme actif, envoyer une invitation ou admettre une demande; aucune création de profil brut n’est disponible
+- **Fonctions élues** : président·e, vice-président·e, secrétaire et comptable sont attribués uniquement par un vote plénier. Une candidature doit obtenir la majorité absolue de tous les membres actifs (pas seulement des suffrages exprimés).
 - **Gestion du cycle** : Définir la durée, clôturer/distribuer
 - **Suivi des contributions** : Voir les statistiques du groupe
 - **Accès complet** aux données du groupe
@@ -27,12 +45,12 @@ Ce projet est une application complète de microcrédit pour les groupes AVEC (A
 - **Page d'accueil** avec choix : Créer groupe / Se connecter
 - **Interface admin séparée** : `admin.html` pour l'administration de la plateforme
 - **Visibilité conditionnelle** : Éléments affichés seulement quand nécessaire
-- **Création de groupe** : Formulaire géographique avec pays filtrés par comptes Momo
+- **Création de groupe** : Pays africain, opérateur et portefeuille Momo du groupe validés ensemble
 - **Liste des membres** : Visible après connexion au groupe
 
 ### 💰 Système Momo intégré
-- **Comptes centraux** : Un compte Momo par pays pour encaisser les recharges
-- **Filtrage des pays** : Seuls les pays avec compte Momo apparaissent dans la liste
+- **Comptes centraux** : Un compte Momo par couple pays/opérateur pour encaisser les recharges
+- **Pays et opérateurs** : Liste unique des pays africains couverts par Airtel, MTN, Orange ou Vodacom
 - **Gestion admin** : Interface pour ajouter/supprimer des comptes Momo
 
 ### 🔐 Sécurité et authentification
@@ -44,13 +62,14 @@ Ce projet est une application complète de microcrédit pour les groupes AVEC (A
 - **Cycle de cotisation** : Distribution automatique (commission 1% plateforme)
 - **Limite retraits** : 2 retraits Momo maximum par jour
 - **Suivi historique** : Toutes les transactions enregistrées
-- **Alertes automatiques** : Rappels de paiement, blocage sur fraude
+- **Alertes automatiques** : Un signalement bloque le groupe, est historisé et notifie tous ses membres; seule la plateforme le réactive
 
 ## 🚀 Lancer l'application
 
 ```bash
 cd c:\Users\MB\Desktop\backend
 npm install
+set JWT_SECRET=replace-with-a-long-random-secret
 npm start
 ```
 
@@ -66,6 +85,30 @@ http://localhost:3000/admin.html
 ```
 
 **Note** : L'interface admin est complètement séparée de l'interface publique pour des raisons de sécurité.
+
+### Déploiement sécurisé (administrateur plateforme)
+
+Après la connexion à `admin.html`, ouvrez **Paramètres de déploiement**. Cette page conserve uniquement les métadonnées non secrètes (URL publique, origines frontend, étiquettes de fournisseurs, URLs TURN sans identifiants, état de maintenance et checklist). Chaque modification est historisée.
+
+**Ne saisissez jamais de clés API, jetons, mots de passe, secrets webhook ou identifiants TURN dans l’application.** Configurez-les exclusivement dans le gestionnaire de variables d’environnement de l’hébergeur, sans les mettre dans le dépôt, la base SQLite, les journaux ou le navigateur.
+
+Les indicateurs de l’administration vérifient seulement la présence des variables, jamais leurs valeurs. Préparez au minimum :
+
+```text
+JWT_SECRET
+DATABASE_PATH
+CORS_ORIGIN
+UPLOADS_DIRECTORY ou STORAGE_BUCKET
+SMS_PROVIDER, SMS_API_KEY, SMS_API_SECRET
+PAYMENT_PROVIDER_<PROVIDER>_CLIENT_SECRET
+PAYMENT_WEBHOOK_SECRET_<PROVIDER>
+TURN_USERNAME, TURN_CREDENTIAL
+VIDEO_PROVIDER_SECRET
+```
+
+Utilisez une URL publique HTTPS et des origines CORS HTTPS. Configurez un volume privé, persistant et sauvegardé pour les téléversements. Les URLs TURN non secrètes peuvent être documentées dans l’administration, mais les identifiants TURN doivent rester dans `TURN_USERNAME` et `TURN_CREDENTIAL`. Les appels WebRTC exigent aussi une signalisation autorisée, STUN/TURN et une revue de confidentialité.
+
+Les SMS, paiements Momo et vidéo ne sont pas activés par cette configuration : l’application reste en **SANDBOX** tant qu’un adaptateur officiellement validé, un contrat fournisseur, des tests et une revue sécurité ne sont pas réalisés. Vérifiez régulièrement qu’une sauvegarde peut être restaurée avant de déclarer la production prête.
 
 ## 📱 Installation PWA
 
@@ -99,8 +142,31 @@ Le projet utilise **SQLite** avec les tables suivantes :
 
 - `groups` : Groupes AVEC (nom, pays, wallet, statut blocage)
 - `members` : Membres (profil, rôle, soldes, historique)
-- `platform_momo` : Comptes Momo centraux par pays
+- `platform_momo` : Comptes Momo centraux par pays et opérateur
+- `fraud_reports` et `review_requests` : Signalements et demandes de réactivation
+- `chat_messages` : Chat de groupe et conversations privées classées `platform_president` entre la plateforme et le président
+- `message_reactions`, `chat_attachments` : Réactions et métadonnées des pièces jointes du chat
+- `meetings`, `meeting_invites` : Calendrier de groupe et réponses aux invitations
 - `history` : Historique des transactions
+
+## 🤝 Suite de collaboration AVEC
+
+La suite locale ajoute au chat : profils avec identifiant AVEC et disponibilité persistante (en ligne, occupé·e, hors ligne), indicateurs de présence, liste des membres, réactions emoji, calendrier et invitations. Les présidents, secrétaires et comptables peuvent planifier une réunion pour des membres de leur groupe. Les ressources de collaboration sont vérifiées par groupe côté serveur.
+
+### Pièces jointes locales
+
+Les documents, images et vidéos sont enregistrés dans `uploads/`, créé au démarrage et exclu du service de fichiers publics. Seuls les membres autorisés du groupe peuvent les télécharger via une route authentifiée. Les fichiers sont limités à 6 Mo, à une liste de types autorisés et à des noms générés aléatoirement ; les noms d’origine restent uniquement des métadonnées SQLite. En production, configurez un volume persistant, privé et sauvegardé pour `uploads/` (ou remplacez cette couche par un stockage objet avec URLs signées). Ne montez jamais ce dossier comme répertoire statique public.
+
+### Appels et visioconférences : prérequis d’hébergement
+
+Les boutons d’appel audio, vidéo et de visio de groupe sont volontairement des **indications de configuration** : aucun média n’est envoyé et aucun appel ne fonctionne en local. Avant de les activer en production, fournissez :
+
+1. Une signalisation WebRTC authentifiée et autorisée par groupe (WebSocket ou fournisseur validé).
+2. Des serveurs STUN/TURN, avec identifiants courts générés côté serveur et journalisation minimale.
+3. HTTPS, politiques CSP/permissions caméra-micro et une revue de sécurité/confidentialité.
+4. Pour des appels de groupe robustes, un SFU ou un fournisseur de conférence officiellement intégré, ses secrets hors du dépôt et des tests de capacité.
+
+Ne déclarez pas la communication audio/vidéo disponible avant ces éléments. Les réunions, invitations et présences locales restent utilisables sans fournisseur média.
 
 ## � Fonctionnement offline et GSM
 
@@ -129,26 +195,106 @@ L'application fonctionne comme une **PWA (Progressive Web App)** :
 ### Authentification
 - `POST /api/auth/login` - Connexion
 - `POST /api/auth/refresh` - Rafraîchir token
+- `POST /api/platform/phone-verifications/request`, `POST /api/platform/phone-verifications/verify` - vérification de téléphone SANDBOX liée à la session navigateur
+- `POST /api/platform/auth/register` - inscription plateforme (identité/passeport, téléphone vérifié et PIN à 4 chiffres confirmé)
+- `PUT /api/platform/profile/security` - finalisation sécurisée identité/PIN/téléphone pour les comptes existants incomplets
+- `POST /api/platform-admin` - Initialiser l'administrateur de plateforme (une seule fois)
 
 ### Groupes
 - `GET /api/groups` - Liste des groupes (admin plateforme)
-- `POST /api/groups` - Créer groupe/membre
+- `POST /api/groups` - Créer un groupe et son président
 - `GET /api/groups/:id` - Détails d'un groupe
 
 ### Membres
 - `GET /api/members/:groupId` - Membres d'un groupe
-- `POST /api/members` - Ajouter membre
+- `POST /api/members` - Retiré (`410`) : les créations directes de profils sont interdites
 - `PUT /api/members/:id` - Modifier membre
+
+### Adhésions et gouvernance de groupe
+- `GET/POST /api/groups/:groupId/account-search|invitations` — rechercher un compte plateforme actif et envoyer une invitation d’adhésion
+- `GET/PUT /api/groups/:groupId/join-requests...` — consulter puis admettre/refuser une demande
+- `GET/POST /api/groups/:groupId/elections` — consulter ou proposer une élection avec candidatures
+- `POST /api/groups/:groupId/elections/:electionId/votes` — une voix par membre actif
+- `POST /api/groups/:groupId/elections/:electionId/close` — clôture par le personnel actif; calcule le seuil côté serveur et applique la fonction seulement en cas de majorité absolue
+
+Les fonctions existantes sont conservées comme titulaires **bootstrap** pendant la migration. Le premier président créé avec un groupe est également bootstrap transitoire; toute fonction issue d’un vote est marquée comme telle dans la liste des membres. Les élections, votes et clôtures sont historisés et les membres actifs reçoivent une notification.
 
 ### Comptes Momo
 - `GET /api/momo` - Liste des comptes Momo
 - `POST /api/momo` - Ajouter compte Momo
 - `DELETE /api/momo/:id` - Supprimer compte Momo
-- `GET /api/countries` - Pays avec comptes Momo
+- `GET /api/countries` - Pays et opérateurs Momo pris en charge
+
+### Fraude et réactivation
+- `POST /api/members/:memberId/fraud-reports` - Signaler une fraude et bloquer le groupe
+- `POST /api/groups/:groupId/review-requests` - Demande de révision (président du groupe bloqué)
+- `GET /api/blocked-groups`, `GET /api/review-requests` - Vue plateforme des dossiers à traiter
+- `POST /api/groups/:groupId/reactivate` - Réactiver un groupe (plateforme uniquement)
+
+### Messagerie privée plateforme / président
+- `GET /api/platform-conversations` - Groupes avec président accessibles à la plateforme
+- `GET /api/platform-conversations/:groupId` - Conversation privée (plateforme ou président de ce groupe uniquement)
+- `POST /api/platform-conversations/:groupId` - Envoyer un message privé (plateforme ou président de ce groupe uniquement)
+- Les notifications de fraude et de réactivation restent dans le chat de groupe et ne sont pas incluses dans cette conversation.
+
+### Collaboration de groupe
+- `GET /api/meetings/:groupId`, `POST /api/meetings` — consulter et planifier les réunions (création réservée au personnel du groupe)
+- `PUT /api/meetings/:meetingId/invitation` — répondre à son invitation
+- `POST /api/collaboration/attachments`, `GET /api/collaboration/attachments/:attachmentId/download` — téléverser/télécharger une pièce jointe autorisée
+- `POST/DELETE /api/chat/:groupId/messages/:messageId/reactions...` — ajouter ou retirer une réaction
 
 ### Autres
 - `GET /api/stats` - Statistiques
 - `GET/POST /api/history` - Historique transactions
+
+### Fondations de paiement (SANDBOX UNIQUEMENT)
+
+Les routes de paiement ne contactent **aucun** opérateur et ne provoquent aucun transfert réel. Elles créent uniquement des écritures de test auditables en unités mineures entières :
+
+- `POST /api/payments/intents` — crée une collecte simulée (`type: "collection"`) ou une demande de décaissement de prêt (`type: "loan_disbursement"`). Un en-tête `Idempotency-Key` est obligatoire.
+- `POST /api/payment-operations/:operationId/approve` — président, personnel autorisé ou plateforme uniquement ; le demandeur ne peut jamais approuver son propre prêt.
+- `GET /api/payments`, `GET /api/payments/:transactionId`, `GET /api/payment-operations` — suivi de réconciliation SANDBOX selon le rôle et le groupe.
+- `POST /api/webhooks/:provider` — réception d'architecture webhook signée, pour `mtn`, `orange`, `airtel` ou `vodacom`. La signature HMAC SHA-256 est attendue dans `X-Payment-Signature` (avec ou sans préfixe `sha256=`). Les identifiants d'événement sont dédupliqués.
+
+Le registre `financial_ledger`, les tentatives et événements de paiement, ainsi que le journal d'audit sont append-only : il n'existe aucune API publique permettant leur édition ou leur suppression. Les références externes commençant par `SANDBOX-` sont simulées et ne sont pas des références opérateur.
+
+## Configuration future des opérateurs — ne pas activer sans contrat
+
+Cette version reste **strictement SANDBOX** même si des variables sont présentes. Elle n'implémente volontairement ni URL ni appel API d'un opérateur. Utilisez uniquement les variables d'environnement du système (aucune dépendance `dotenv` n'est requise) :
+
+```text
+# Secrets webhook utilisés par l'architecture de test/reception signée
+PAYMENT_WEBHOOK_SECRET_MTN
+PAYMENT_WEBHOOK_SECRET_ORANGE
+PAYMENT_WEBHOOK_SECRET_AIRTEL
+PAYMENT_WEBHOOK_SECRET_VODACOM
+
+# Noms réservés pour une future intégration officiellement validée (non lus par le SANDBOX)
+PAYMENT_PROVIDER_MTN_CLIENT_ID
+PAYMENT_PROVIDER_MTN_CLIENT_SECRET
+PAYMENT_PROVIDER_MTN_MERCHANT_ID
+PAYMENT_PROVIDER_ORANGE_CLIENT_ID
+PAYMENT_PROVIDER_ORANGE_CLIENT_SECRET
+PAYMENT_PROVIDER_ORANGE_MERCHANT_ID
+PAYMENT_PROVIDER_AIRTEL_CLIENT_ID
+PAYMENT_PROVIDER_AIRTEL_CLIENT_SECRET
+PAYMENT_PROVIDER_AIRTEL_MERCHANT_ID
+PAYMENT_PROVIDER_VODACOM_CLIENT_ID
+PAYMENT_PROVIDER_VODACOM_CLIENT_SECRET
+PAYMENT_PROVIDER_VODACOM_MERCHANT_ID
+```
+
+Sans `PAYMENT_WEBHOOK_SECRET_<PROVIDER>`, le webhook correspondant est refusé ; une signature invalide est toujours refusée. Ne mettez jamais ces secrets dans le dépôt, les journaux ou le navigateur.
+
+### Checklist avant toute intégration réelle
+
+1. Obtenir un contrat marchand, des identifiants et la documentation officielle à jour de chaque opérateur/pays.
+2. Confirmer les pays, devises, numéros et flux collecte/décaissement avec l'opérateur ; ne pas déduire d'URL ou de protocole.
+3. Faire réaliser une revue de sécurité (gestion de secrets, signatures, idempotence, autorisations et rapprochement comptable).
+4. Implémenter puis tester l'adaptateur certifié de chaque opérateur dans un environnement officiel de test.
+5. Obtenir une validation métier, juridique et sécurité écrite avant de remplacer le simulateur SANDBOX.
+
+**Avertissement : aucun déploiement ne doit être considéré prêt pour les paiements réels tant qu'un contrat opérateur officiel, des identifiants officiels et une revue de sécurité n'ont pas été obtenus.**
 
 ## 🎯 Utilisation typique
 

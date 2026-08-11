@@ -29,19 +29,51 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Se connecter</button>
             </form>
+            <button id="btnShowPlatformSetup" type="button" class="btn btn-secondary">Initialiser l'administrateur plateforme</button>
+        </section>
+
+        <section id="platformSetupSection" class="card" style="display:none;">
+            <h2>Initialiser l'administrateur plateforme</h2>
+            <p>Cette opération est disponible une seule fois.</p>
+            <form id="platformSetupForm">
+                <div class="form-group">
+                    <label for="setupPrenom">Prénom</label>
+                    <input type="text" id="setupPrenom" required>
+                </div>
+                <div class="form-group">
+                    <label for="setupNom">Nom</label>
+                    <input type="text" id="setupNom" required>
+                </div>
+                <div class="form-group">
+                    <label for="setupPhone">Téléphone</label>
+                    <input type="tel" id="setupPhone" required>
+                </div>
+                <div class="form-group">
+                    <label for="setupIdNumber">N° carte d'identité / passeport</label>
+                    <input type="text" id="setupIdNumber" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Créer l'administrateur</button>
+                <button id="btnBackToPlatformLogin" type="button" class="btn btn-secondary">Retour</button>
+            </form>
         </section>
 
         <!-- Platform Admin Dashboard -->
         <section id="platformDashboard" class="card" style="display:none;">
             <h2>Tableau de bord - <span id="platformAdminName"></span></h2>
+            <p class="notifications" style="display:block;"><strong>PAIEMENTS : SANDBOX UNIQUEMENT.</strong> Aucune transaction réelle n’est envoyée à un opérateur.</p>
             <button onclick="platformLogout()" class="btn btn-secondary">Déconnexion</button>
 
             <div class="button-grid">
                 <button id="btnViewAllGroups" class="btn btn-primary">Voir tous les groupes</button>
                 <button id="btnViewAllMembers" class="btn btn-secondary">Voir tous les membres</button>
                 <button id="btnViewAlerts" class="btn btn-warning">Voir les alertes</button>
+                <button id="btnReviewRequests" class="btn btn-danger">Groupes bloqués et révisions</button>
+                <button id="btnPlatformMessages" class="btn btn-info">Messages privés aux présidents</button>
                 <button id="btnManageMomo" class="btn btn-info">Gérer comptes Momo</button>
+                <button id="btnPaymentLedger" class="btn btn-warning">Registre de paiements SANDBOX</button>
+                <button id="btnSocialModeration" class="btn btn-danger">Modération des publications</button>
                 <button id="btnPlatformStats" class="btn btn-success">Statistiques globales</button>
+                <button id="btnDeploymentSettings" class="btn btn-secondary">Paramètres de déploiement</button>
             </div>
 
             <div id="platformContent"></div>
@@ -51,38 +83,165 @@
         <section id="momoSection" class="card" style="display:none;">
             <h2>Gestion des comptes Momo</h2>
             <div class="form-group">
-                <input type="text" id="momoCountry" placeholder="Pays (ex: Bénin)" required>
-                <input type="tel" id="momoPhone" placeholder="Numéro Momo" required>
+                <label for="momoCountry">Pays</label>
+                <select id="momoCountry" required>
+                    <option value="">Sélectionner un pays</option>
+                </select>
+                <label for="momoProvider">Opérateur</label>
+                <select id="momoProvider" required disabled>
+                    <option value="">Choisissez d'abord un pays</option>
+                </select>
+                <label for="momoPhone">Numéro Momo</label>
+                <div class="phone-field">
+                    <span id="momoDialCode" aria-live="polite">+--</span>
+                    <input type="tel" id="momoPhone" inputmode="tel" placeholder="Numéro sans l'indicatif" required>
+                </div>
+                <p class="field-hint">L'indicatif est ajouté automatiquement. Saisissez le numéro local.</p>
                 <button id="btnAddMomo" class="btn btn-primary">Ajouter compte Momo</button>
             </div>
             <div id="momoList"></div>
+            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
         </section>
 
         <!-- Groups List Section -->
         <section id="groupsSection" class="card" style="display:none;">
             <h2>Tous les groupes AVEC</h2>
             <div id="allGroupsList"></div>
+            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
         </section>
 
         <!-- Members List Section -->
         <section id="membersSection" class="card" style="display:none;">
             <h2>Tous les membres</h2>
             <div id="allMembersList"></div>
+            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
         </section>
 
         <!-- Alerts Section -->
         <section id="alertsSection" class="card" style="display:none;">
             <h2>Alertes et signalements</h2>
             <div id="alertsList"></div>
+            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+        </section>
+
+        <section id="reviewRequestsSection" class="card" style="display:none;">
+            <h2>Groupes bloqués et demandes de révision</h2>
+            <p>Seule la plateforme peut réactiver un groupe après examen.</p>
+            <div id="reviewRequestsList"></div>
+            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+        </section>
+
+        <section id="platformMessagesSection" class="card" style="display:none;">
+            <h2>Messages privés aux présidents</h2>
+            <p>Échangez uniquement avec le président du groupe sélectionné. Les membres ordinaires n’y ont pas accès.</p>
+            <div class="form-group">
+                <label for="platformConversationSearch">Rechercher un groupe ou un président</label>
+                <input id="platformConversationSearch" type="search" autocomplete="off" placeholder="Nom du groupe ou du président">
+            </div>
+            <div class="form-group">
+                <label for="platformConversationSelect">Conversation</label>
+                <select id="platformConversationSelect" size="6" aria-describedby="platformConversationHelp">
+                    <option value="">Chargement des groupes…</option>
+                </select>
+                <p id="platformConversationHelp" class="field-hint">Choisissez un groupe pour consulter et envoyer des messages.</p>
+            </div>
+            <h3 id="platformConversationTitle">Sélectionnez un groupe</h3>
+            <div id="platformConversationWindow" class="chat-window" role="log" aria-live="polite" aria-label="Messages privés avec la plateforme">
+                <p>Sélectionnez un groupe avec un président pour ouvrir la conversation.</p>
+            </div>
+            <form id="platformConversationForm">
+                <div class="form-group">
+                    <label for="platformConversationInput">Votre message au président</label>
+                    <textarea id="platformConversationInput" rows="3" maxlength="1000" disabled required></textarea>
+                </div>
+                <button id="platformConversationSend" class="btn btn-primary" type="submit" disabled>Envoyer le message</button>
+            </form>
+            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
         </section>
 
         <!-- Platform Stats Section -->
         <section id="platformStatsSection" class="card" style="display:none;">
             <h2>Statistiques de la plateforme</h2>
             <div id="platformStats"></div>
+            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+        </section>
+
+        <section id="paymentLedgerSection" class="card" style="display:none;">
+            <h2>Registre de paiements — SANDBOX UNIQUEMENT</h2>
+            <p>Identifiants, statuts et références simulées pour la réconciliation de test. Aucun transfert réel n’est effectué.</p>
+            <div id="paymentLedgerList"></div>
+            <div id="paymentOperationsList"></div>
+            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+        </section>
+
+        <section id="deploymentSettingsSection" class="card" style="display:none;">
+            <h2>Paramètres de déploiement</h2>
+            <p class="notifications"><strong>Secrets exclus.</strong> Cette page ne reçoit, n’affiche et n’enregistre jamais de clé API, jeton, mot de passe ou identifiant TURN. Configurez-les uniquement dans les variables d’environnement de l’hébergeur.</p>
+            <div id="deploymentReadiness" aria-live="polite"></div>
+            <form id="deploymentSettingsForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="deploymentPublicBaseUrl">URL publique de l’application</label>
+                        <input id="deploymentPublicBaseUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://app.exemple.org" required>
+                        <p class="field-hint">HTTPS est requis hors environnement local.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="deploymentHostingProvider">Hébergeur</label>
+                        <select id="deploymentHostingProvider" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="deploymentSmsProvider">Fournisseur SMS</label>
+                        <select id="deploymentSmsProvider" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="deploymentVideoProvider">Fournisseur vidéo</label>
+                        <select id="deploymentVideoProvider" required></select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="deploymentAllowedOrigins">Origines frontend autorisées</label>
+                    <textarea id="deploymentAllowedOrigins" rows="3" maxlength="20480" placeholder="https://app.exemple.org&#10;https://admin.exemple.org" required></textarea>
+                    <p class="field-hint">Une origine HTTPS par ligne, sans chemin, clé ni paramètre.</p>
+                </div>
+                <div class="form-group">
+                    <label for="deploymentTurnUrls">URLs TURN publiques (sans identifiants)</label>
+                    <textarea id="deploymentTurnUrls" rows="3" maxlength="3000" placeholder="turn:turn.exemple.org:3478&#10;turns:turn.exemple.org:5349?transport=tcp"></textarea>
+                    <p class="field-hint">Les identifiants TURN courts restent uniquement dans TURN_USERNAME et TURN_CREDENTIAL côté hébergeur.</p>
+                </div>
+                <fieldset class="form-group">
+                    <legend>Fournisseurs Momo prévus</legend>
+                    <div id="deploymentMomoProviders" class="deployment-checkboxes"></div>
+                    <p class="field-hint">Activer ici n’active aucune API ni transaction réelle.</p>
+                </fieldset>
+                <fieldset class="form-group">
+                    <legend>État opérationnel</legend>
+                    <label class="deployment-check"><input id="deploymentMaintenanceMode" type="checkbox"> Mode maintenance annoncé</label>
+                    <label class="deployment-check"><input id="deploymentBackupVerified" type="checkbox"> Sauvegarde restaurable vérifiée</label>
+                    <label class="deployment-check"><input id="deploymentSandboxAcknowledged" type="checkbox"> Je confirme que paiements et SMS restent en SANDBOX tant qu’une intégration certifiée n’est pas livrée</label>
+                    <label class="deployment-check"><input id="deploymentProductionReady" type="checkbox"> La checklist de mise en production a été revue</label>
+                </fieldset>
+                <p id="deploymentSaveMessage" class="field-hint" role="status"></p>
+                <button class="btn btn-primary" type="submit">Enregistrer les paramètres non secrets</button>
+            </form>
+            <section class="deployment-checklist" aria-labelledby="deploymentChecklistTitle">
+                <h3 id="deploymentChecklistTitle">Checklist avant mise en production</h3>
+                <ol>
+                    <li>Configurer HTTPS, le domaine et CORS_ORIGIN sur l’hébergeur.</li>
+                    <li>Stocker JWT_SECRET, identifiants SMS, paiement, TURN et vidéo uniquement dans le gestionnaire de secrets.</li>
+                    <li>Monter un stockage privé et persistant pour les téléversements, avec sauvegardes testées.</li>
+                    <li>Configurer STUN/TURN, signalisation autorisée et revue confidentialité avant tout appel vidéo.</li>
+                    <li>Conserver le SANDBOX de paiement jusqu’au contrat opérateur, à la revue sécurité et aux tests certifiés.</li>
+                </ol>
+            </section>
+            <section class="deployment-history" aria-labelledby="deploymentHistoryTitle">
+                <h3 id="deploymentHistoryTitle">Historique des paramètres</h3>
+                <div id="deploymentHistory"></div>
+            </section>
+            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
         </section>
     </main>
 
+    <script src="momo-countries.js"></script>
     <script src="data.js"></script>
     <script src="admin.js"></script>
     <script>
