@@ -73,7 +73,7 @@ test('paid public content debits only the internal sandbox wallet and confirms M
     assert.equal(walletPost.status, 201);
     assert.equal(walletPost.data.receipt.sandbox, true);
     const profile = await request('GET', '/api/platform/profile', { token: registration.data.accessToken });
-    assert.equal(profile.data.account.internal_wallet, 1.9);
+    assert.equal(profile.data.account.internal_wallet, 1.75);
     assert.equal((await request('POST', '/api/member-content', {
         token: registration.data.accessToken, headers: { 'Idempotency-Key': 'paid-content-wallet-0001' },
         body: { content_type: 'post', body: 'Publication payée par portefeuille', payment_method: 'internal_wallet' }

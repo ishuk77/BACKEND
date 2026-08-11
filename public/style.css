@@ -189,6 +189,27 @@ header {
 .empty-state { padding: 20px 0; color: #495057; }
 .news-filter-action { justify-content: end; }
 .news-filter-action .btn { margin-top: auto; }
+.publish-portal-action { font-weight: 700; box-shadow: 0 5px 14px rgba(0, 86, 179, 0.22); }
+.flash-panel { background: #f6faff; }
+.flash-filters, .social-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.flash-filter.is-active { background: #173f67; }
+.flash-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 16px; }
+.flash-card { padding: 15px; border: 1px solid #b8d4ed; border-radius: 8px; background: #fff; box-shadow: 0 4px 12px rgba(23, 63, 103, 0.08); }
+.flash-card h3 { color: #173f67; font-size: 1.05rem; }
+.flash-sport { background: #f3fbf5; border-color: #a9d9b4; }
+.flash-international { background: #f7f5ff; border-color: #cdc6f1; }
+.flash-local { background: #fff8ee; border-color: #edca96; }
+.public-comments { display: grid; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-color); }
+.public-comments h4 { color: #173f67; }
+.comment-list { display: grid; gap: 5px; color: #343a40; }
+.comment-list p { padding: 7px 10px; background: #f5f9ff; border-radius: 5px; }
+.public-comment-form { display: grid; gap: 8px; }
+.public-comment-form small { color: #495057; }
+.public-comment-link { display: inline-block; margin-top: 12px; color: #0056b3; font-weight: 600; }
+.public-footer { max-width: 1200px; display: flex; justify-content: space-between; align-items: start; gap: 20px; margin: 26px auto 0; padding: 20px 4px; color: #244460; }
+.public-footer p { max-width: 65ch; font-size: .9rem; }
+.social-links a { padding: 5px 9px; border: 1px solid #9ec5fe; border-radius: 999px; color: #0056b3; background: #fff; font-weight: 600; text-decoration: none; }
+.social-links a:hover { background: #e7f1ff; }
 .member-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
 .profile-photo-placeholder img, img.profile-photo-placeholder { object-fit: cover; }
 .emoji-picker { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }

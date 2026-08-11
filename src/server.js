@@ -34,7 +34,7 @@ const phoneVerificationSessions = new Map();
 const SOCIAL_SANDBOX_PRICING = Object.freeze({
     currency: 'USD',
     text_post_minor: 10,
-    comment_minor: 5,
+    comment_minor: 25,
     image_post_minor: 20,
     video_base_minor: 50,
     video_per_started_mebibyte_minor: 10,
@@ -42,12 +42,14 @@ const SOCIAL_SANDBOX_PRICING = Object.freeze({
 });
 const PAID_PUBLIC_CONTENT_PRICING = Object.freeze({
     currency: 'USD',
-    post_text_minor: 10,
-    post_media_minor: 20,
-    announcement_minor: 50,
-    advertisement_base_minor: 100,
-    advertisement_per_photo_minor: 10,
-    max_advertisement_photos: 4
+    text_or_photo_advertisement_minor: 25,
+    video_per_started_mebibyte_per_day_minor: 10,
+    minimum_duration_days: 1,
+    max_duration_days: 365,
+    max_advertisement_photos: 4,
+    paid_comment_minor: 25,
+    comment_platform_minor: 12.5,
+    comment_author_minor: 12.5
 });
 const UPLOADS_DIRECTORY = process.env.UPLOADS_DIRECTORY || path.join(__dirname, '..', 'uploads');
 const DEPLOYMENT_HOSTING_PROVIDERS = new Set(['self_hosted', 'render', 'railway', 'fly_io', 'heroku', 'other']);
@@ -546,6 +548,7 @@ function initDatabase(onReady) {
             contact_phone TEXT,
             contact_email TEXT,
             media_ids_json TEXT NOT NULL DEFAULT '[]',
+            duration_days INTEGER NOT NULL DEFAULT 1,
             publication_status TEXT NOT NULL CHECK (publication_status IN ('payment_pending', 'pending_review', 'approved', 'removed')),
             payment_status TEXT NOT NULL CHECK (payment_status IN ('pending', 'succeeded', 'failed')),
             payment_method TEXT NOT NULL CHECK (payment_method IN ('internal_wallet', 'momo_sandbox')),
@@ -607,6 +610,63 @@ function initDatabase(onReady) {
         db.run(`CREATE TRIGGER IF NOT EXISTS paid_public_content_audit_immutable_delete
                 BEFORE DELETE ON paid_public_content_audit BEGIN SELECT RAISE(ABORT, 'paid_public_content_audit is append-only'); END`,
         logDatabaseError('protecting paid public content audit deletes'));
+        db.run(`CREATE TABLE IF NOT EXISTS public_item_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL CHECK (source IN ('member_content')),
+            content_id INTEGER NOT NULL,
+            author_account_id INTEGER NOT NULL,
+            body TEXT NOT NULL,
+            moderation_status TEXT NOT NULL DEFAULT 'approved' CHECK (moderation_status IN ('approved', 'pending', 'removed')),
+            moderation_reason TEXT,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (author_account_id) REFERENCES platform_accounts(id),
+            FOREIGN KEY (content_id) REFERENCES paid_public_contents(id)
+        )`, logDatabaseError('creating public item comments table'));
+        db.run(`CREATE TABLE IF NOT EXISTS public_comment_receipts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            payment_id TEXT NOT NULL UNIQUE,
+            idempotency_key TEXT NOT NULL UNIQUE,
+            comment_id INTEGER NOT NULL UNIQUE,
+            charged_account_id INTEGER NOT NULL,
+            content_author_account_id INTEGER NOT NULL,
+            amount_minor INTEGER NOT NULL CHECK (amount_minor = 25),
+            platform_amount_minor REAL NOT NULL CHECK (platform_amount_minor = 12.5),
+            author_amount_minor REAL NOT NULL CHECK (author_amount_minor = 12.5),
+            currency TEXT NOT NULL DEFAULT 'USD',
+            sandbox INTEGER NOT NULL DEFAULT 1 CHECK (sandbox = 1),
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (comment_id) REFERENCES public_item_comments(id),
+            FOREIGN KEY (charged_account_id) REFERENCES platform_accounts(id),
+            FOREIGN KEY (content_author_account_id) REFERENCES platform_accounts(id)
+        )`, logDatabaseError('creating public comment receipts table'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS public_comment_receipts_immutable_update
+                BEFORE UPDATE ON public_comment_receipts BEGIN SELECT RAISE(ABORT, 'public_comment_receipts are append-only'); END`,
+        logDatabaseError('protecting public comment receipt updates'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS public_comment_receipts_immutable_delete
+                BEFORE DELETE ON public_comment_receipts BEGIN SELECT RAISE(ABORT, 'public_comment_receipts are append-only'); END`,
+        logDatabaseError('protecting public comment receipt deletes'));
+        db.run(`CREATE TABLE IF NOT EXISTS public_flashes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL CHECK (category IN ('sport', 'international', 'local')),
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            locality_tag TEXT,
+            audience_tag TEXT,
+            active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+            starts_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            ends_at DATETIME,
+            created_by_member_id INTEGER NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by_member_id) REFERENCES members(id)
+        )`, logDatabaseError('creating public flashes table'));
+        db.run(`CREATE TABLE IF NOT EXISTS social_channel_links (
+            network TEXT PRIMARY KEY CHECK (network IN ('facebook', 'instagram', 'youtube', 'tiktok')),
+            url TEXT NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+            updated_by_member_id INTEGER NOT NULL,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (updated_by_member_id) REFERENCES members(id)
+        )`, logDatabaseError('creating social channel links table'));
         [
             'CREATE INDEX IF NOT EXISTS idx_memberships_account_group ON platform_account_memberships(account_id, group_id)',
             'CREATE INDEX IF NOT EXISTS idx_join_requests_group_status ON group_join_requests(group_id, status)',
@@ -827,7 +887,7 @@ function initDatabase(onReady) {
             ['post_comments', 'review_tag', 'TEXT'],
             ['direct_messages', 'attachment_id', 'INTEGER']
         ].forEach(([table, column, definition]) => ensureColumn(table, column, definition));
-        migrateMemberCollaborationFields(() => migratePlatformAccountSecurityFields(() => migratePlatformAccounts(onReady)));
+        migrateMemberCollaborationFields(() => migratePlatformAccountSecurityFields(() => migratePaidPublicContentFields(() => migratePlatformAccounts(onReady))));
     });
 }
 
@@ -837,6 +897,7 @@ function migratePlatformAccountSecurityFields(onComplete) {
             console.error('Error reading platform account security schema:', err.message);
             return onComplete();
         }
+
         const missing = [
             ['identity_number', 'TEXT'],
             ['phone_verified_at', 'DATETIME'],
@@ -859,6 +920,16 @@ function migratePlatformAccountSecurityFields(onComplete) {
             });
         };
         addNext(0);
+    });
+}
+
+function migratePaidPublicContentFields(onComplete) {
+    db.all('PRAGMA table_info(paid_public_contents)', [], (err, columns) => {
+        if (err || columns.some(column => column.name === 'duration_days')) return onComplete();
+        db.run('ALTER TABLE paid_public_contents ADD COLUMN duration_days INTEGER NOT NULL DEFAULT 1', alterErr => {
+            if (alterErr) console.error('Error adding paid_public_contents.duration_days:', alterErr.message);
+            onComplete();
+        });
     });
 }
 
@@ -2270,7 +2341,7 @@ function socialReceipt(paymentId, amountMinor, platformAmountMinor, authorAmount
 }
 
 function writeSocialSandboxCharge({ idempotencyKey, contentType, contentId, chargedAccountId, postAuthorAccountId, amountMinor }, callback) {
-    const authorAmountMinor = contentType === 'comment' ? Math.floor(amountMinor / 2) : 0;
+    const authorAmountMinor = contentType === 'comment' ? amountMinor / 2 : 0;
     const platformAmountMinor = amountMinor - authorAmountMinor;
     const paymentId = `SANDBOX-SOCIAL-${crypto.createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 18).toUpperCase()}`;
     db.run(
@@ -5026,21 +5097,25 @@ app.post('/api/social/posts/:postId/comments', authenticateAccount, (req, res) =
                         function commentErr(insertErr) {
                             if (insertErr) return complete(500, { error: insertErr.message });
                             const commentId = this.lastID;
+                            const respond = receipt => {
+                                const response = { id: commentId, moderation_status: classification.status, review_tag: classification.reviewTag };
+                                if (receipt) response.receipt = receipt;
+                                if (classification.status !== 'pending') return complete(201, response);
+                                db.run(
+                                    `INSERT INTO social_moderation_audit (audit_id, content_type, content_id, action, reason)
+                                     VALUES (?, 'comment', ?, 'queued', ?)`,
+                                    [newSecureId(), commentId, classification.reason],
+                                    auditErr => auditErr ? complete(500, { error: auditErr.message }) : complete(201, response)
+                                );
+                            };
+                            // Private/contact conversations remain ordinary social comments: no paid receipt or charge.
+                            if (post.visibility !== 'public') return respond(null);
                             writeSocialSandboxCharge({
                                 idempotencyKey, contentType: 'comment', contentId: commentId, chargedAccountId: req.account.id,
                                 postAuthorAccountId: post.author_account_id, amountMinor: socialPrice('comment')
                             }, (chargeErr, receipt) => {
                                 if (chargeErr) return complete(500, { error: chargeErr.message });
-                                const respond = () => complete(201, {
-                                    id: commentId, moderation_status: classification.status, review_tag: classification.reviewTag, receipt
-                                });
-                                if (classification.status !== 'pending') return respond();
-                                db.run(
-                                    `INSERT INTO social_moderation_audit (audit_id, content_type, content_id, action, reason)
-                                     VALUES (?, 'comment', ?, 'queued', ?)`,
-                                    [newSecureId(), commentId, classification.reason],
-                                    auditErr => auditErr ? complete(500, { error: auditErr.message }) : respond()
-                                );
+                                respond(receipt);
                             });
                         }
                     );
@@ -5398,10 +5473,11 @@ app.post('/api/admin/public-content/:contentId/archive', authenticateToken, auth
     );
 });
 
-function paidPublicContentPrice(contentType, mediaCount) {
-    if (contentType === 'post') return mediaCount ? PAID_PUBLIC_CONTENT_PRICING.post_media_minor : PAID_PUBLIC_CONTENT_PRICING.post_text_minor;
-    if (contentType === 'announcement') return PAID_PUBLIC_CONTENT_PRICING.announcement_minor;
-    return PAID_PUBLIC_CONTENT_PRICING.advertisement_base_minor + (mediaCount * PAID_PUBLIC_CONTENT_PRICING.advertisement_per_photo_minor);
+function paidPublicContentPrice(input, media) {
+    const video = media.find(item => String(item.mime_type).startsWith('video/'));
+    if (!video) return PAID_PUBLIC_CONTENT_PRICING.text_or_photo_advertisement_minor;
+    const startedMebibytes = Math.max(1, Math.ceil(Number(video.size_bytes) / (1024 * 1024)));
+    return startedMebibytes * PAID_PUBLIC_CONTENT_PRICING.video_per_started_mebibyte_per_day_minor * input.durationDays;
 }
 
 function paidPublicContentReceipt(payment) {
@@ -5434,14 +5510,17 @@ function paidPublicContentInput(raw) {
     const body = safeText(raw.body || '', 1500) || '';
     const title = safeText(raw.title || '', 160) || null;
     const mediaIds = Array.isArray(raw.media_ids) ? raw.media_ids.map(Number) : [];
+    const durationDays = Number(raw.duration_days == null ? 1 : raw.duration_days);
     const uniqueMediaIds = [...new Set(mediaIds)];
     if (!['post', 'announcement', 'advertisement'].includes(contentType) ||
         !['internal_wallet', 'momo_sandbox'].includes(paymentMethod) ||
-        uniqueMediaIds.some(id => !Number.isInteger(id) || id < 1)) return null;
+        uniqueMediaIds.some(id => !Number.isInteger(id) || id < 1) ||
+        !Number.isInteger(durationDays) || durationDays < PAID_PUBLIC_CONTENT_PRICING.minimum_duration_days ||
+        durationDays > PAID_PUBLIC_CONTENT_PRICING.max_duration_days) return null;
     if ((contentType === 'post' && !body && !uniqueMediaIds.length) || (contentType !== 'post' && !body)) return null;
     if ((contentType === 'post' || contentType === 'announcement') && uniqueMediaIds.length > 1) return null;
     if (contentType === 'advertisement' && uniqueMediaIds.length > PAID_PUBLIC_CONTENT_PRICING.max_advertisement_photos) return null;
-    const result = { contentType, paymentMethod, body, title, mediaIds: uniqueMediaIds };
+    const result = { contentType, paymentMethod, body, title, mediaIds: uniqueMediaIds, durationDays };
     if (contentType === 'advertisement') {
         result.title = title;
         result.productPrice = safeText(raw.product_price || '', 80) || '';
@@ -5458,9 +5537,9 @@ function paidPublicContentInput(raw) {
 }
 
 function verifyPaidContentMedia(accountId, input, callback) {
-    if (!input.mediaIds.length) return callback(null);
+    if (!input.mediaIds.length) return callback(null, []);
     db.all(
-        `SELECT id, mime_type FROM media_files WHERE owner_account_id = ? AND purpose = 'post'
+        `SELECT id, mime_type, size_bytes FROM media_files WHERE owner_account_id = ? AND purpose = 'post'
          AND id IN (${input.mediaIds.map(() => '?').join(',')})`,
         [accountId, ...input.mediaIds],
         (err, media) => {
@@ -5469,7 +5548,7 @@ function verifyPaidContentMedia(accountId, input, callback) {
             if (input.contentType === 'advertisement' && media.some(item => !item.mime_type.startsWith('image/'))) {
                 return callback(new Error('Les photos de produit doivent être des images JPEG, PNG, GIF ou WebP.'));
             }
-            callback(null);
+            callback(null, media);
         }
     );
 }
@@ -5490,10 +5569,10 @@ app.get('/api/member-content/prices', authenticateAccount, (_req, res) => {
 app.post('/api/member-content', authenticateAccount, (req, res) => {
     const input = paidPublicContentInput(req.body || {});
     if (!input) return res.status(400).json({ error: 'Contenu invalide : vérifiez le texte, les coordonnées et le nombre de médias.' });
-    verifyPaidContentMedia(req.account.id, input, mediaErr => {
+    verifyPaidContentMedia(req.account.id, input, (mediaErr, media) => {
         if (mediaErr) return res.status(400).json({ error: mediaErr.message });
         beginIdempotentMutation(req, res, 'paid_public_content', (idempotencyKey, complete) => {
-            const amountMinor = paidPublicContentPrice(input.contentType, input.mediaIds.length);
+            const amountMinor = paidPublicContentPrice(input, media);
             const paymentId = `SANDBOX-CONTENT-${crypto.createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 18).toUpperCase()}`;
             const classification = moderationClassification(`${input.title || ''} ${input.body}`);
             const publishStatus = classification.status === 'pending' ? 'pending_review' : 'approved';
@@ -5509,9 +5588,9 @@ app.post('/api/member-content', authenticateAccount, (req, res) => {
                     if (beginErr) return complete(500, { error: beginErr.message });
                     const createContent = callback => db.run(
                         `INSERT INTO paid_public_contents
-                         (author_account_id, content_type, body, title, product_price, product_total, availability, address, contact_phone, contact_email, media_ids_json, publication_status, payment_status, payment_method, published_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'approved' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
-                        [...contentValues, pendingMomo ? 'payment_pending' : publishStatus],
+                         (author_account_id, content_type, body, title, product_price, product_total, availability, address, contact_phone, contact_email, media_ids_json, publication_status, payment_status, payment_method, duration_days, published_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'approved' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
+                        [...contentValues, input.durationDays, pendingMomo ? 'payment_pending' : publishStatus],
                         function insertContent(err) { callback(err, this.lastID); }
                     );
                     const createPayment = (contentId, status, callback) => db.run(
@@ -5639,6 +5718,175 @@ app.post('/api/member-content/payments/:paymentId/simulate-confirmation', authen
     });
 });
 
+function publicCommentReceipt(paymentId) {
+    return {
+        payment_id: paymentId,
+        sandbox: true,
+        currency: 'USD',
+        amount_minor: PAID_PUBLIC_CONTENT_PRICING.paid_comment_minor,
+        display: '0.25 USD-équivalent SANDBOX',
+        platform_amount_minor: PAID_PUBLIC_CONTENT_PRICING.comment_platform_minor,
+        post_author_amount_minor: PAID_PUBLIC_CONTENT_PRICING.comment_author_minor,
+        split: '0.125 USD-équivalent plateforme / 0.125 USD-équivalent auteur',
+        notice: 'Reçu SANDBOX idempotent : le portefeuille interne est débité uniquement dans la démonstration; aucun transfert réel n’est effectué.'
+    };
+}
+
+app.get('/api/public/news/social/:postId/comments', (req, res) => {
+    db.all(
+        `SELECT c.id, c.body, c.created_at,
+                CASE WHEN a.visibility = 'public' THEN trim(a.prenom || ' ' || a.name) ELSE 'Membre AVEC' END AS author_name
+         FROM post_comments c
+         JOIN social_posts p ON p.id = c.post_id
+         JOIN platform_accounts a ON a.id = c.author_account_id
+         WHERE c.post_id = ? AND c.moderation_status = 'approved'
+           AND p.visibility = 'public' AND p.moderation_status = 'approved' AND p.deleted_at IS NULL
+         ORDER BY c.created_at ASC`,
+        [req.params.postId],
+        (err, comments) => err ? res.status(500).json({ error: err.message }) : res.json({ comments })
+    );
+});
+
+app.get('/api/public/news/member_content/:contentId/comments', (req, res) => {
+    db.all(
+        `SELECT c.id, c.body, c.created_at,
+                CASE WHEN a.visibility = 'public' THEN trim(a.prenom || ' ' || a.name) ELSE 'Membre AVEC' END AS author_name
+         FROM public_item_comments c
+         JOIN paid_public_contents p ON p.id = c.content_id
+         JOIN platform_accounts a ON a.id = c.author_account_id
+         WHERE c.source = 'member_content' AND c.content_id = ? AND c.moderation_status = 'approved'
+           AND p.publication_status = 'approved' AND p.payment_status = 'succeeded'
+         ORDER BY c.created_at ASC`,
+        [req.params.contentId],
+        (err, comments) => err ? res.status(500).json({ error: err.message }) : res.json({ comments })
+    );
+});
+
+app.post('/api/public/news/member_content/:contentId/comments', authenticateAccount, (req, res) => {
+    const body = safeText(req.body.body, 800);
+    if (!body) return res.status(400).json({ error: 'Commentaire requis.' });
+    beginIdempotentMutation(req, res, 'public_member_content_comment', (idempotencyKey, complete) => {
+        db.get(
+            `SELECT id, author_account_id FROM paid_public_contents
+             WHERE id = ? AND publication_status = 'approved' AND payment_status = 'succeeded'`,
+            [req.params.contentId],
+            (contentErr, content) => {
+                if (contentErr) return complete(500, { error: contentErr.message });
+                if (!content) return complete(404, { error: 'Publication publique introuvable.' });
+                const classification = moderationClassification(body);
+                const paymentId = `SANDBOX-PUBLIC-COMMENT-${crypto.createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 18).toUpperCase()}`;
+                db.serialize(() => {
+                    db.run('BEGIN IMMEDIATE', beginErr => {
+                        if (beginErr) return complete(500, { error: beginErr.message });
+                        db.get('SELECT internal_wallet FROM platform_accounts WHERE id = ?', [req.account.id], (walletErr, account) => {
+                            const amountMinor = PAID_PUBLIC_CONTENT_PRICING.paid_comment_minor;
+                            const balanceMinor = Math.round(Number(account && account.internal_wallet) * 100);
+                            if (walletErr) return rollbackPaidContent(walletErr, complete);
+                            if (!account || balanceMinor < amountMinor) {
+                                return rollbackPaidContent({ status: 402, message: 'Solde insuffisant dans le portefeuille interne SANDBOX.' }, complete);
+                            }
+                            db.run(
+                                `INSERT INTO public_item_comments (source, content_id, author_account_id, body, moderation_status, moderation_reason)
+                                 VALUES ('member_content', ?, ?, ?, ?, ?)`,
+                                [content.id, req.account.id, body, classification.status, classification.reason],
+                                function insertComment(insertErr) {
+                                    if (insertErr) return rollbackPaidContent(insertErr, complete);
+                                    const commentId = this.lastID;
+                                    db.run('UPDATE platform_accounts SET internal_wallet = ? WHERE id = ?', [(balanceMinor - amountMinor) / 100, req.account.id], updateErr => {
+                                        if (updateErr) return rollbackPaidContent(updateErr, complete);
+                                        db.run(
+                                            `INSERT INTO public_comment_receipts
+                                             (payment_id, idempotency_key, comment_id, charged_account_id, content_author_account_id, amount_minor, platform_amount_minor, author_amount_minor)
+                                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                                            [paymentId, idempotencyKey, commentId, req.account.id, content.author_account_id, amountMinor,
+                                                PAID_PUBLIC_CONTENT_PRICING.comment_platform_minor, PAID_PUBLIC_CONTENT_PRICING.comment_author_minor],
+                                            receiptErr => {
+                                                if (receiptErr) return rollbackPaidContent(receiptErr, complete);
+                                                db.run('COMMIT', commitErr => {
+                                                    if (commitErr) return complete(500, { error: commitErr.message });
+                                                    complete(201, {
+                                                        id: commentId,
+                                                        moderation_status: classification.status,
+                                                        receipt: publicCommentReceipt(paymentId)
+                                                    });
+                                                });
+                                            }
+                                        );
+                                    });
+                                }
+                            );
+                        });
+                    });
+                });
+            }
+        );
+    });
+});
+
+function validSocialChannelUrl(value) {
+    try {
+        const url = new URL(String(value || ''));
+        return url.protocol === 'https:' && /(^|\.)((facebook|instagram|youtube|tiktok)\.com)$/i.test(url.hostname) ? url.toString() : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+app.get('/api/public/flashes', (req, res) => {
+    const category = req.query.category ? String(req.query.category) : null;
+    const locality = safeText(req.query.locality || '', 120);
+    if (category && !['sport', 'international', 'local'].includes(category)) return res.status(400).json({ error: 'Catégorie invalide.' });
+    const filters = [`active = 1`, `datetime(starts_at) <= datetime('now')`, `(ends_at IS NULL OR datetime(ends_at) >= datetime('now'))`];
+    const values = [];
+    if (category) { filters.push('category = ?'); values.push(category); }
+    if (locality) { filters.push(`(locality_tag IS NULL OR locality_tag = '' OR lower(locality_tag) = lower(?))`); values.push(locality); }
+    db.all(`SELECT id, category, title, body, locality_tag, audience_tag, starts_at FROM public_flashes
+            WHERE ${filters.join(' AND ')} ORDER BY datetime(starts_at) DESC, id DESC LIMIT 50`,
+    values, (err, flashes) => err ? res.status(500).json({ error: err.message }) : res.json({ flashes }));
+});
+
+app.get('/api/public/social-links', (_req, res) => {
+    db.all(`SELECT network, url FROM social_channel_links WHERE active = 1 ORDER BY network`,
+        (err, links) => err ? res.status(500).json({ error: err.message }) : res.json({ links }));
+});
+
+app.get('/api/admin/flashes', authenticateToken, authorizeRole(['plateforme']), (_req, res) => {
+    db.all('SELECT * FROM public_flashes ORDER BY datetime(created_at) DESC, id DESC', (err, flashes) => err ? res.status(500).json({ error: err.message }) : res.json({ flashes }));
+});
+
+app.post('/api/admin/flashes', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    const category = String(req.body.category || '');
+    const title = safeText(req.body.title, 160);
+    const body = safeText(req.body.body, 1500);
+    const localityTag = safeText(req.body.locality_tag || '', 120) || null;
+    const audienceTag = safeText(req.body.audience_tag || '', 120) || null;
+    if (!['sport', 'international', 'local'].includes(category) || !title || !body) return res.status(400).json({ error: 'Flash invalide.' });
+    db.run(`INSERT INTO public_flashes (category, title, body, locality_tag, audience_tag, created_by_member_id)
+            VALUES (?, ?, ?, ?, ?, ?)`, [category, title, body, localityTag, audienceTag, req.user.id],
+    function insertFlash(err) { return err ? res.status(500).json({ error: err.message }) : res.status(201).json({ id: this.lastID }); });
+});
+
+app.post('/api/admin/flashes/:flashId/archive', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    db.run('UPDATE public_flashes SET active = 0 WHERE id = ?', [req.params.flashId],
+        function archiveFlash(err) { return err ? res.status(500).json({ error: err.message }) : this.changes ? res.json({ archived: true }) : res.status(404).json({ error: 'Flash introuvable.' }); });
+});
+
+app.get('/api/admin/social-links', authenticateToken, authorizeRole(['plateforme']), (_req, res) => {
+    db.all('SELECT network, url, active FROM social_channel_links ORDER BY network', (err, links) => err ? res.status(500).json({ error: err.message }) : res.json({ links }));
+});
+
+app.put('/api/admin/social-links/:network', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    const network = String(req.params.network || '').toLowerCase();
+    const url = validSocialChannelUrl(req.body.url);
+    const active = req.body.active === false ? 0 : 1;
+    if (!['facebook', 'instagram', 'youtube', 'tiktok'].includes(network) || !url) return res.status(400).json({ error: 'Lien social HTTPS invalide pour ce réseau.' });
+    db.run(`INSERT INTO social_channel_links (network, url, active, updated_by_member_id)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(network) DO UPDATE SET url = excluded.url, active = excluded.active,
+                updated_by_member_id = excluded.updated_by_member_id, updated_at = CURRENT_TIMESTAMP`,
+    [network, url, active, req.user.id], err => err ? res.status(500).json({ error: err.message }) : res.json({ network, url, active: Boolean(active) }));
+});
+
 app.get('/api/public/news', (req, res) => {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 50);
     const offset = Math.max(Number.parseInt(req.query.offset, 10) || 0, 0);
@@ -5670,7 +5918,7 @@ app.get('/api/public/news', (req, res) => {
             FROM social_posts p JOIN platform_accounts a ON a.id = p.author_account_id
             WHERE p.visibility = 'public' AND p.moderation_status = 'approved' AND p.deleted_at IS NULL
             UNION ALL
-            SELECT c.id, c.content_type, c.title, c.body, 'news' AS placement, NULL AS media_id, c.media_ids_json,
+            SELECT c.id, CASE WHEN c.content_type = 'post' THEN 'member_publication' ELSE c.content_type END AS content_type, c.title, c.body, 'news' AS placement, NULL AS media_id, c.media_ids_json,
                    c.created_at AS starts_at, NULL AS ends_at, c.published_at, 'member_content' AS source,
                    CASE WHEN a.visibility = 'public' THEN trim(a.prenom || ' ' || a.name) ELSE 'Membre AVEC' END AS author_name,
                    c.product_price, c.product_total, c.availability, c.address, c.contact_phone, c.contact_email

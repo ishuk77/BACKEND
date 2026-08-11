@@ -429,7 +429,7 @@ async function toggleDmReaction(messageId, emoji, active) {
     const friend = friends.find(item => item.member_id === selectedDm);
     if (friend) openDm({ id: selectedDm, prenom: friend.prenom, name: friend.name });
 }
-function renderComment(comment, postId) {
+function renderComment(comment, postId, isPublic) {
     const pending = comment.moderation_status === 'pending' ? ' <em>(en examen humain)</em>' : '';
     const reactions = Array.isArray(comment.reactions) ? comment.reactions : [];
     const reactionButtons = ['👍', '❤️', '😂', '🙏', '🎉'].map(emoji => {
@@ -437,14 +437,17 @@ function renderComment(comment, postId) {
         const mine = reactions.some(item => Number(item.account_id) === Number(account.id) && item.reaction === emoji);
         return `<button class="reaction-button comment-reaction${mine ? ' is-active' : ''}" type="button" data-comment="${comment.id}" data-emoji="${emoji}" aria-pressed="${mine}">${emoji}${count ? ` ${count}` : ''}</button>`;
     }).join('');
-    return `<article class="feed-comment"><strong>${esc(comment.prenom)} ${esc(comment.name)}</strong>${pending}<p>${esc(comment.body)}</p><div class="reaction-row">${reactionButtons}</div><button class="btn btn-secondary reply-comment" data-post="${postId}" data-comment="${comment.id}" type="button">Répondre</button><form class="comment-form" data-post="${postId}" data-parent="${comment.id}" hidden><label>Réponse <textarea maxlength="800" required></textarea></label><small>Prix : 0,05 USD-équivalent SANDBOX.</small><button class="btn btn-primary">Envoyer la réponse</button></form></article>`;
+    const price = isPublic ? 'Commentaire public : 0,25 USD-équivalent SANDBOX (0,125 plateforme / 0,125 auteur).' : 'Discussion privée/de contacts : gratuite.';
+    return `<article class="feed-comment"><strong>${esc(comment.prenom)} ${esc(comment.name)}</strong>${pending}<p>${esc(comment.body)}</p><div class="reaction-row">${reactionButtons}</div><button class="btn btn-secondary reply-comment" data-post="${postId}" data-comment="${comment.id}" type="button">Répondre</button><form class="comment-form" data-post="${postId}" data-parent="${comment.id}" hidden><label>Réponse <textarea maxlength="800" required></textarea></label><small>${price}</small><button class="btn btn-primary">Envoyer la réponse</button></form></article>`;
 }
 function renderComments(post) {
     const comments = post.comments || [];
     const children = new Map();
     comments.forEach(comment => { const key = comment.parent_comment_id || 0; if (!children.has(key)) children.set(key, []); children.get(key).push(comment); });
-    const branch = comment => `${renderComment(comment, post.id)}<div class="comment-replies">${(children.get(comment.id) || []).map(branch).join('')}</div>`;
-    return `<section class="post-comments"><h4>Commentaires (${comments.length})</h4>${(children.get(0) || []).map(branch).join('') || '<p>Aucun commentaire pour le moment.</p>'}<form class="comment-form" data-post="${post.id}"><label for="comment-${post.id}">Ajouter un commentaire</label><textarea id="comment-${post.id}" maxlength="800" required></textarea><small>Prix : 0,05 USD-équivalent SANDBOX.</small><button class="btn btn-primary">Commenter</button></form></section>`;
+    const isPublic = post.visibility === 'public';
+    const branch = comment => `${renderComment(comment, post.id, isPublic)}<div class="comment-replies">${(children.get(comment.id) || []).map(branch).join('')}</div>`;
+    const price = isPublic ? 'Commentaire public : 0,25 USD-équivalent SANDBOX (0,125 plateforme / 0,125 auteur).' : 'Discussion privée/de contacts : gratuite.';
+    return `<section class="post-comments"><h4>Commentaires (${comments.length})</h4>${(children.get(0) || []).map(branch).join('') || '<p>Aucun commentaire pour le moment.</p>'}<form class="comment-form" data-post="${post.id}"><label for="comment-${post.id}">Ajouter un commentaire</label><textarea id="comment-${post.id}" maxlength="800" required></textarea><small>${price}</small><button class="btn btn-primary">Commenter</button></form></section>`;
 }
 async function loadFeed() {
     await loadFriends();
@@ -467,14 +470,19 @@ function updatePostPrice() {
     $p('postPrice').textContent = `Prix avant publication : ${money(postPriceMinor(file))} (${file ? (file.type.startsWith('video/') ? 'vidéo' : 'image') : 'texte'}). Aucun transfert ni conversion réelle.`;
 }
 function paidMoney(minor) { return `${(minor / 100).toFixed(2).replace('.', ',')} USD-équivalent SANDBOX`; }
+function durationDays(id) { return Math.max(1, Number($p(id).value) || 1); }
+function paidContentPrice(file, days) {
+    if (!file || !file.type.startsWith('video/')) return 25;
+    return Math.max(1, Math.ceil(file.size / (1024 * 1024))) * 10 * days;
+}
 function renderPaidContentPrices() {
     if (!paidContentPrices) return;
     const prices = paidContentPrices.prices;
-    $p('contentPriceTable').textContent = `Post texte : ${paidMoney(prices.post_text_minor)} · Post avec média : ${paidMoney(prices.post_media_minor)} · Annonce : ${paidMoney(prices.announcement_minor)} · Publicité : ${paidMoney(prices.advertisement_base_minor)} + ${paidMoney(prices.advertisement_per_photo_minor)} par photo (maximum ${prices.max_advertisement_photos}).`;
-    $p('paidPostPrice').textContent = `Prix avant paiement : ${paidMoney($p('paidPostMedia').files.length ? prices.post_media_minor : prices.post_text_minor)}.`;
-    $p('announcementPrice').textContent = `Prix avant paiement : ${paidMoney(prices.announcement_minor)}.`;
+    $p('contentPriceTable').textContent = `Publicité texte/photo et annonce : ${paidMoney(prices.text_or_photo_advertisement_minor)}. Vidéo : ${paidMoney(prices.video_per_started_mebibyte_per_day_minor)} par Mo entamé et par jour (minimum ${prices.minimum_duration_days} jour). Commentaire public : 0,25 USD-équivalent, partagé 0,125 / 0,125.`;
+    $p('paidPostPrice').textContent = `Prix avant paiement : ${paidMoney(paidContentPrice($p('paidPostMedia').files[0], durationDays('paidPostDuration')))}.`;
+    $p('announcementPrice').textContent = `Prix avant paiement : ${paidMoney(paidContentPrice($p('announcementMedia').files[0], durationDays('announcementDuration')))}.`;
     const count = $p('advertisementPhotos').files.length;
-    $p('advertisementPrice').textContent = `Prix avant paiement : ${paidMoney(prices.advertisement_base_minor + (count * prices.advertisement_per_photo_minor))} (${count} photo(s)).`;
+    $p('advertisementPrice').textContent = `Prix avant paiement : ${paidMoney(prices.text_or_photo_advertisement_minor)} (${count} photo(s), ${durationDays('advertisementDuration')} jour(s)).`;
 }
 async function loadPaidContentPrices() {
     paidContentPrices = await request('/api/member-content/prices');
@@ -495,10 +503,10 @@ async function submitPaidContent(event, contentType) {
     let files;
     if (contentType === 'post') {
         files = $p('paidPostMedia').files;
-        payload = { content_type: 'post', body: $p('paidPostBody').value.trim(), payment_method: $p('paidPostPayment').value };
+        payload = { content_type: 'post', body: $p('paidPostBody').value.trim(), duration_days: durationDays('paidPostDuration'), payment_method: $p('paidPostPayment').value };
     } else if (contentType === 'announcement') {
         files = $p('announcementMedia').files;
-        payload = { content_type: 'announcement', body: $p('announcementBody').value.trim(), payment_method: $p('announcementPayment').value };
+        payload = { content_type: 'announcement', body: $p('announcementBody').value.trim(), duration_days: durationDays('announcementDuration'), payment_method: $p('announcementPayment').value };
     } else {
         files = $p('advertisementPhotos').files;
         if (files.length > 4) throw new Error('Une publicité peut contenir au maximum quatre photos.');
@@ -507,7 +515,7 @@ async function submitPaidContent(event, contentType) {
             product_price: $p('advertisementPriceValue').value.trim(), product_total: $p('advertisementTotal').value.trim(),
             availability: $p('advertisementAvailability').value.trim(), address: $p('advertisementAddress').value.trim(),
             contact_phone: $p('advertisementPhone').value.trim(), contact_email: $p('advertisementEmail').value.trim(),
-            payment_method: $p('advertisementPayment').value
+            duration_days: durationDays('advertisementDuration'), payment_method: $p('advertisementPayment').value
         };
     }
     payload.media_ids = await uploadPublicContentMedia(files);
@@ -633,7 +641,9 @@ document.addEventListener('DOMContentLoaded', () => {
     $p('announcementForm').addEventListener('submit', event => submitPaidContent(event, 'announcement').catch(error => alert(error.message)));
     $p('advertisementForm').addEventListener('submit', event => submitPaidContent(event, 'advertisement').catch(error => alert(error.message)));
     $p('paidPostMedia').addEventListener('change', renderPaidContentPrices);
+    $p('announcementMedia').addEventListener('change', renderPaidContentPrices);
     $p('advertisementPhotos').addEventListener('change', renderPaidContentPrices);
+    ['paidPostDuration', 'announcementDuration', 'advertisementDuration'].forEach(id => $p(id).addEventListener('input', renderPaidContentPrices));
     $p('simulateMomoConfirmation').addEventListener('click', () => simulateMomoConfirmation().catch(error => alert(error.message)));
     $p('feedList').addEventListener('click', event => reactOrComment(event).catch(error => alert(error.message)));
     $p('feedList').addEventListener('submit', event => submitComment(event).catch(error => alert(error.message)));

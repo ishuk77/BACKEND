@@ -259,6 +259,11 @@ Les fonctions existantes sont conservées comme titulaires **bootstrap** pendant
 - `GET /api/member-content/prices` — table de prix déterministe SANDBOX pour les contenus membres.
 - `POST /api/member-content` — crée un post, une annonce ou une publicité membre payante; `Idempotency-Key` obligatoire. Le portefeuille interne est le seul débit immédiat et reste SANDBOX.
 - `POST /api/member-content/payments/:paymentId/simulate-confirmation` — confirme explicitement un intent Momo **SANDBOX**; cette route ne remplace pas un webhook fournisseur réel.
+- Les annonces/publicités texte ou photo coûtent exactement **0,25 USD-équivalent SANDBOX**. Une vidéo coûte **0,10 USD-équivalent par Mo entamé et par jour** (minimum un jour). Le portefeuille interne est le seul débit immédiat de démonstration; Momo ne crée qu’un intent SANDBOX en attente, publié après confirmation simulée.
+- Un commentaire sur une publication publique coûte exactement **0,25 USD-équivalent SANDBOX**, avec reçu idempotent et répartition **0,125 plateforme / 0,125 auteur**. Les commentaires privés, entre contacts et de groupe ne sont pas facturés.
+- `GET /api/public/flashes`, `GET /api/public/social-links` — flashs éditoriaux AVEC filtrables par catégorie/localité et liens officiels. `GET/POST /api/admin/flashes`, `POST /api/admin/flashes/:flashId/archive`, `GET/PUT /api/admin/social-links/:network` sont réservés à la plateforme.
+
+Les flashs sont saisis et contrôlés par l’administration : AVEC ne récupère ni ne reproduit automatiquement de contenu sportif, international ou local de tiers et ne prétend fournir aucun flux en direct. Les liens Facebook, Instagram, YouTube et TikTok sont des liens sortants validés; l’auto-publication ne pourra être configurée qu’avec les API, contrats et identifiants officiels appropriés.
 
 ### Autres
 - `GET /api/stats` - Statistiques

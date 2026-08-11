@@ -78,7 +78,7 @@
                 </details>
                 <details class="action-menu">
                     <summary>Social <span>Modération des publications</span></summary>
-                    <div class="button-grid"><button id="btnSocialModeration" class="btn btn-danger" type="button">Modération des publications</button><button id="btnPublicContent" class="btn btn-primary" type="button">Actualités &amp; publicités</button></div>
+                    <div class="button-grid"><button id="btnSocialModeration" class="btn btn-danger" type="button">Modération des publications</button><button id="btnPublicContent" class="btn btn-primary" type="button">Actualités &amp; publicités</button><button id="btnFlashChannels" class="btn btn-info" type="button">Flashs &amp; réseaux sociaux</button></div>
                 </details>
                 <details class="action-menu">
                     <summary>Profil et paramètres <span>Configuration de la plateforme</span></summary>
@@ -207,6 +207,15 @@
                 <div class="button-grid"><button id="publicContentSave" class="btn btn-primary" type="submit">Publier l’annonce</button><button id="publicContentReset" class="btn btn-secondary" type="button">Nouvelle annonce</button></div>
             </form>
             <div id="publicContentList" class="feed-list" aria-live="polite"></div>
+            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+        </section>
+
+        <section id="flashChannelsSection" class="card" style="display:none;">
+            <h2>Flashs &amp; réseaux sociaux</h2>
+            <p class="notifications"><strong>Éditorial AVEC uniquement.</strong> Ajoutez des flashs originaux ou autorisés; aucun flux tiers, scraping ou publication automatique n’est activé. Les API et identifiants de réseaux sociaux restent une configuration future.</p>
+            <form id="flashForm"><h3>Nouveau flash</h3><div class="form-grid"><div class="form-group"><label for="flashCategory">Catégorie</label><select id="flashCategory"><option value="sport">Sport</option><option value="international">International</option><option value="local">Local</option></select></div><div class="form-group"><label for="flashLocality">Localité facultative</label><input id="flashLocality" maxlength="120"></div><div class="form-group"><label for="flashAudience">Audience facultative</label><input id="flashAudience" maxlength="120"></div><div class="form-group"><label for="flashTitle">Titre</label><input id="flashTitle" maxlength="160" required></div></div><div class="form-group"><label for="flashBody">Texte</label><textarea id="flashBody" maxlength="1500" rows="4" required></textarea></div><button class="btn btn-primary">Publier le flash</button></form>
+            <div id="flashAdminList" class="feed-list"></div>
+            <form id="socialLinksForm"><h3>Liens de canaux officiels</h3><p class="field-hint">HTTPS uniquement. L’enregistrement ne publie rien sur ces réseaux.</p><div class="form-grid"><div class="form-group"><label for="facebookLink">Facebook</label><input id="facebookLink" type="url" placeholder="https://facebook.com/..."></div><div class="form-group"><label for="instagramLink">Instagram</label><input id="instagramLink" type="url" placeholder="https://instagram.com/..."></div><div class="form-group"><label for="youtubeLink">YouTube</label><input id="youtubeLink" type="url" placeholder="https://youtube.com/..."></div><div class="form-group"><label for="tiktokLink">TikTok</label><input id="tiktokLink" type="url" placeholder="https://tiktok.com/..."></div></div><button class="btn btn-primary">Enregistrer les liens</button></form>
             <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
         </section>
 

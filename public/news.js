@@ -5,6 +5,7 @@
     const filters = document.getElementById('newsFilters');
     const PAGE_SIZE = 20;
     let offset = 0;
+    let flashCategory = '';
 
     function dateLabel(value) {
         return value ? new Date(value).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '';
@@ -50,7 +51,121 @@
             image.loading = 'lazy';
             article.appendChild(image);
         });
+        const comments = document.createElement('section');
+        comments.className = 'public-comments';
+        const commentsTitle = document.createElement('h4');
+        commentsTitle.textContent = 'Commentaires publics';
+        const commentsList = document.createElement('div');
+        commentsList.className = 'comment-list';
+        commentsList.textContent = 'Chargement des commentaires…';
+        comments.append(commentsTitle, commentsList);
+        const form = document.createElement('form');
+        form.className = 'public-comment-form';
+        const commentLabel = document.createElement('label');
+        commentLabel.textContent = 'Ajouter un commentaire';
+        const textarea = document.createElement('textarea');
+        textarea.maxLength = 800;
+        textarea.required = true;
+        textarea.rows = 2;
+        commentLabel.appendChild(textarea);
+        const hint = document.createElement('small');
+        hint.textContent = '0,25 USD-équivalent SANDBOX : 0,125 plateforme / 0,125 auteur. Les discussions privées et de groupe ne sont jamais facturées ici.';
+        const button = document.createElement('button');
+        button.className = 'btn btn-primary';
+        button.type = 'submit';
+        button.textContent = 'Commenter';
+        form.append(commentLabel, hint, button);
+        form.addEventListener('submit', event => submitComment(event, item, textarea, commentsList));
+        comments.appendChild(form);
+        article.appendChild(comments);
+        loadComments(item, commentsList).catch(error => { commentsList.textContent = error.message; });
         return article;
+    }
+
+    function authHeaders() {
+        const token = localStorage.getItem('platformAccessToken');
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    }
+
+    async function loadComments(item, target) {
+        const source = item.source === 'social' ? 'social' : item.source === 'member_content' ? 'member_content' : null;
+        if (!source) { target.textContent = 'Les commentaires sont réservés aux publications membres.'; return; }
+        const response = await fetch(`/api/public/news/${source}/${encodeURIComponent(item.id)}/comments`);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Commentaires indisponibles.');
+        target.replaceChildren();
+        if (!data.comments.length) { target.textContent = 'Aucun commentaire approuvé pour le moment.'; return; }
+        data.comments.forEach(comment => {
+            const line = document.createElement('p');
+            line.textContent = `${comment.author_name} · ${comment.body}`;
+            target.appendChild(line);
+        });
+    }
+
+    async function submitComment(event, item, textarea, target) {
+        event.preventDefault();
+        const source = item.source === 'social' ? 'social' : item.source === 'member_content' ? 'member_content' : null;
+        if (!source) return;
+        if (!localStorage.getItem('platformAccessToken')) {
+            window.location.href = 'platform.html';
+            return;
+        }
+        const endpoint = source === 'social'
+            ? `/api/social/posts/${encodeURIComponent(item.id)}/comments`
+            : `/api/public/news/member_content/${encodeURIComponent(item.id)}/comments`;
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID(), ...authHeaders() },
+            body: JSON.stringify({ body: textarea.value.trim() })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Commentaire impossible.');
+        textarea.value = '';
+        if (data.receipt) status.textContent = `Reçu SANDBOX ${data.receipt.payment_id} : ${data.receipt.display}. ${data.receipt.split || ''}`;
+        await loadComments(item, target);
+    }
+
+    async function loadFlashes() {
+        const locality = document.getElementById('newsLocality').value.trim();
+        if (locality) localStorage.setItem('avecPublicLocality', locality);
+        const params = new URLSearchParams();
+        if (flashCategory) params.set('category', flashCategory);
+        if (locality) params.set('locality', locality);
+        const response = await fetch(`/api/public/flashes?${params}`);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Flashs indisponibles.');
+        const target = document.getElementById('flashFeed');
+        target.replaceChildren();
+        if (!data.flashes.length) { target.textContent = 'Aucun flash éditorial pour cette sélection.'; return; }
+        data.flashes.forEach(flash => {
+            const article = document.createElement('article');
+            article.className = `flash-card flash-${flash.category}`;
+            const title = document.createElement('h3');
+            title.textContent = flash.title;
+            const meta = document.createElement('p');
+            meta.className = 'field-hint';
+            meta.textContent = `${flash.category}${flash.locality_tag ? ` · ${flash.locality_tag}` : ''}${flash.audience_tag ? ` · ${flash.audience_tag}` : ''}`;
+            const body = document.createElement('p');
+            body.textContent = flash.body;
+            article.append(title, meta, body);
+            target.appendChild(article);
+        });
+    }
+
+    async function loadSocialLinks() {
+        const response = await fetch('/api/public/social-links');
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) return;
+        const links = document.getElementById('socialLinks');
+        links.replaceChildren();
+        data.links.forEach(link => {
+            const anchor = document.createElement('a');
+            anchor.href = link.url;
+            anchor.target = '_blank';
+            anchor.rel = 'noopener noreferrer';
+            anchor.textContent = link.network[0].toUpperCase() + link.network.slice(1);
+            links.appendChild(anchor);
+        });
     }
 
     async function load(reset = false) {
@@ -85,8 +200,14 @@
 
     filters.addEventListener('submit', event => {
         event.preventDefault();
-        load(true).catch(error => { status.textContent = error.message; });
+        Promise.all([load(true), loadFlashes()]).catch(error => { status.textContent = error.message; });
     });
     more.addEventListener('click', () => load().catch(error => { status.textContent = error.message; }));
-    load(true).catch(error => { status.textContent = error.message; });
+    document.querySelectorAll('.flash-filter').forEach(button => button.addEventListener('click', () => {
+        flashCategory = button.dataset.category;
+        document.querySelectorAll('.flash-filter').forEach(item => item.classList.toggle('is-active', item === button));
+        loadFlashes().catch(error => { status.textContent = error.message; });
+    }));
+    document.getElementById('newsLocality').value = localStorage.getItem('avecPublicLocality') || '';
+    Promise.all([load(true), loadFlashes(), loadSocialLinks()]).catch(error => { status.textContent = error.message; });
 })();

@@ -3,7 +3,7 @@
     if (!feed) return;
     const label = item => item.content_type === 'advertisement' ? 'Publicité'
         : item.content_type === 'announcement' ? 'Annonce'
-            : item.content_type === 'post' ? 'Publication membre' : 'Actualité';
+            : (item.content_type === 'post' || item.content_type === 'member_publication') ? 'Publication membre' : 'Actualité';
     const mediaUrl = (item, id) => item.source === 'platform'
         ? `/api/public/news/media/${encodeURIComponent(id)}`
         : `/api/public/news/social-media/${encodeURIComponent(id)}`;
@@ -69,6 +69,11 @@
                 image.loading = 'lazy';
                 article.appendChild(image);
             });
+            const comments = document.createElement('a');
+            comments.className = 'public-comment-link';
+            comments.href = 'news.html';
+            comments.textContent = 'Voir et commenter dans le fil public';
+            article.appendChild(comments);
             feed.appendChild(article);
         });
     }).catch(error => { feed.textContent = error.message; });

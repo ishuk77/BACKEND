@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnPaymentLedger').addEventListener('click', showPaymentLedger);
     document.getElementById('btnSocialModeration').addEventListener('click', () => showSocialModeration().catch(error => alert(error.message)));
     document.getElementById('btnPublicContent').addEventListener('click', () => showPublicContent().catch(error => alert(error.message)));
+    document.getElementById('btnFlashChannels').addEventListener('click', () => showFlashChannels().catch(error => alert(error.message)));
     document.getElementById('btnPlatformStats').addEventListener('click', showPlatformStats);
     document.getElementById('btnDeploymentSettings').addEventListener('click', () => showDeploymentSettings().catch(error => alert(error.message)));
     document.getElementById('deploymentSettingsForm').addEventListener('submit', saveDeploymentSettings);
@@ -30,6 +31,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('publicContentSaveStatus').textContent = error.message;
     }));
     document.getElementById('publicContentReset').addEventListener('click', resetPublicContentForm);
+    document.getElementById('flashForm').addEventListener('submit', event => saveFlash(event).catch(error => alert(error.message)));
+    document.getElementById('socialLinksForm').addEventListener('submit', event => saveSocialLinks(event).catch(error => alert(error.message)));
     document.querySelectorAll('.platform-back').forEach(button => button.addEventListener('click', showPlatformDashboard));
 
     // Momo management
@@ -855,6 +858,77 @@ async function savePublicContent(event) {
     document.getElementById('publicContentSaveStatus').textContent = id ? 'Annonce mise à jour.' : 'Annonce enregistrée.';
     await loadPublicContent();
     resetPublicContentForm();
+}
+
+function renderAdminFlashes(flashes) {
+    const list = document.getElementById('flashAdminList');
+    list.replaceChildren();
+    if (!flashes.length) { list.textContent = 'Aucun flash éditorial.'; return; }
+    flashes.forEach(flash => {
+        const article = document.createElement('article');
+        article.className = 'feed-post';
+        const title = document.createElement('h3');
+        title.textContent = `${flash.category} — ${flash.title}`;
+        const body = document.createElement('p');
+        body.textContent = flash.body;
+        const meta = document.createElement('p');
+        meta.className = 'field-hint';
+        meta.textContent = `${flash.locality_tag || 'Toute localité'} · ${flash.active ? 'Actif' : 'Archivé'}`;
+        article.append(title, body, meta);
+        if (flash.active) {
+            const archive = document.createElement('button');
+            archive.className = 'btn btn-danger';
+            archive.type = 'button';
+            archive.textContent = 'Archiver';
+            archive.addEventListener('click', async () => {
+                await apiRequest(`/api/admin/flashes/${encodeURIComponent(flash.id)}/archive`, { method: 'POST', body: '{}' });
+                await loadFlashChannels();
+            });
+            article.appendChild(archive);
+        }
+        list.appendChild(article);
+    });
+}
+
+async function loadFlashChannels() {
+    const [flashes, links] = await Promise.all([apiRequest('/api/admin/flashes'), apiRequest('/api/admin/social-links')]);
+    renderAdminFlashes(flashes.flashes);
+    links.links.forEach(link => {
+        const input = document.getElementById(`${link.network}Link`);
+        if (input) input.value = link.url;
+    });
+}
+
+async function showFlashChannels() {
+    hideAllSections();
+    document.getElementById('flashChannelsSection').style.display = 'block';
+    await loadFlashChannels();
+}
+
+async function saveFlash(event) {
+    event.preventDefault();
+    await apiRequest('/api/admin/flashes', {
+        method: 'POST',
+        body: JSON.stringify({
+            category: document.getElementById('flashCategory').value,
+            title: document.getElementById('flashTitle').value.trim(),
+            body: document.getElementById('flashBody').value.trim(),
+            locality_tag: document.getElementById('flashLocality').value.trim(),
+            audience_tag: document.getElementById('flashAudience').value.trim()
+        })
+    });
+    event.target.reset();
+    await loadFlashChannels();
+}
+
+async function saveSocialLinks(event) {
+    event.preventDefault();
+    const networks = ['facebook', 'instagram', 'youtube', 'tiktok'];
+    await Promise.all(networks.map(network => {
+        const url = document.getElementById(`${network}Link`).value.trim();
+        return url ? apiRequest(`/api/admin/social-links/${network}`, { method: 'PUT', body: JSON.stringify({ url, active: true }) }) : Promise.resolve();
+    }));
+    await loadFlashChannels();
 }
 
 const DEPLOYMENT_PROVIDER_LABELS = {
