@@ -27,6 +27,7 @@ const ATTACHMENT_TYPES = new Set([
 const MAX_ATTACHMENT_BYTES = 6 * 1024 * 1024;
 const MAX_SOCIAL_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_SOCIAL_MEDIA_BYTES = 100 * 1024 * 1024;
+const MAX_PUBLIC_CONTENT_IMAGE_BYTES = 3 * 1024 * 1024;
 const PHONE_VERIFICATION_TTL_MS = Number(process.env.PHONE_VERIFICATION_TTL_MS || 10 * 60 * 1000);
 const PHONE_VERIFICATION_MAX_ATTEMPTS = 5;
 const phoneVerificationSessions = new Map();
@@ -59,6 +60,7 @@ app.use('/api/collaboration/attachments', express.raw({ type: '*/*', limit: `${M
 app.use('/api/platform/dm-attachments', express.raw({ type: '*/*', limit: `${MAX_ATTACHMENT_BYTES}b` }));
 app.use('/api/social/uploads', express.raw({ type: '*/*', limit: `${MAX_SOCIAL_MEDIA_BYTES}b` }));
 app.use('/api/profile/avatar', express.raw({ type: '*/*', limit: `${MAX_SOCIAL_IMAGE_BYTES}b` }));
+app.use('/api/admin/public-content/media', express.raw({ type: '*/*', limit: `${MAX_PUBLIC_CONTENT_IMAGE_BYTES}b` }));
 app.use(express.json({ limit: '256kb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -475,6 +477,53 @@ function initDatabase(onReady) {
             FOREIGN KEY (event_id) REFERENCES social_events(id) ON DELETE CASCADE,
             FOREIGN KEY (account_id) REFERENCES platform_accounts(id)
         )`, logDatabaseError('creating social event invites table'));
+        db.run(`CREATE TABLE IF NOT EXISTS public_content_media (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stored_name TEXT NOT NULL UNIQUE,
+            original_name TEXT NOT NULL,
+            mime_type TEXT NOT NULL CHECK (mime_type IN ('image/jpeg', 'image/png', 'image/gif', 'image/webp')),
+            size_bytes INTEGER NOT NULL CHECK (size_bytes > 0 AND size_bytes <= 3145728),
+            uploaded_by_member_id INTEGER NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (uploaded_by_member_id) REFERENCES members(id)
+        )`, logDatabaseError('creating public content media table'));
+        db.run(`CREATE TABLE IF NOT EXISTS public_content (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content_type TEXT NOT NULL CHECK (content_type IN ('announcement', 'advertisement')),
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            audience TEXT NOT NULL DEFAULT 'public' CHECK (audience IN ('public', 'members')),
+            placement TEXT NOT NULL DEFAULT 'news' CHECK (placement IN ('news', 'home')),
+            media_id INTEGER,
+            starts_at DATETIME NOT NULL,
+            ends_at DATETIME,
+            active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+            archived_at DATETIME,
+            created_by_member_id INTEGER NOT NULL,
+            updated_by_member_id INTEGER NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (media_id) REFERENCES public_content_media(id),
+            FOREIGN KEY (created_by_member_id) REFERENCES members(id),
+            FOREIGN KEY (updated_by_member_id) REFERENCES members(id)
+        )`, logDatabaseError('creating public content table'));
+        db.run(`CREATE TABLE IF NOT EXISTS public_content_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            audit_id TEXT NOT NULL UNIQUE,
+            content_id INTEGER,
+            actor_member_id INTEGER NOT NULL,
+            action TEXT NOT NULL CHECK (action IN ('created', 'updated', 'archived')),
+            details_json TEXT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (content_id) REFERENCES public_content(id),
+            FOREIGN KEY (actor_member_id) REFERENCES members(id)
+        )`, logDatabaseError('creating public content audit table'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS public_content_audit_immutable_update
+                BEFORE UPDATE ON public_content_audit BEGIN SELECT RAISE(ABORT, 'public_content_audit is append-only'); END`,
+        logDatabaseError('protecting public content audit updates'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS public_content_audit_immutable_delete
+                BEFORE DELETE ON public_content_audit BEGIN SELECT RAISE(ABORT, 'public_content_audit is append-only'); END`,
+        logDatabaseError('protecting public content audit deletes'));
         [
             'CREATE INDEX IF NOT EXISTS idx_memberships_account_group ON platform_account_memberships(account_id, group_id)',
             'CREATE INDEX IF NOT EXISTS idx_join_requests_group_status ON group_join_requests(group_id, status)',
@@ -484,7 +533,8 @@ function initDatabase(onReady) {
             'CREATE INDEX IF NOT EXISTS idx_posts_created ON social_posts(created_at DESC)',
             'CREATE INDEX IF NOT EXISTS idx_post_comments_post ON post_comments(post_id, created_at)',
             'CREATE INDEX IF NOT EXISTS idx_social_sandbox_ledger_content ON social_sandbox_ledger(content_type, content_id)',
-            'CREATE INDEX IF NOT EXISTS idx_social_moderation_pending ON social_posts(moderation_status, created_at)'
+            'CREATE INDEX IF NOT EXISTS idx_social_moderation_pending ON social_posts(moderation_status, created_at)',
+            'CREATE INDEX IF NOT EXISTS idx_public_content_feed ON public_content(audience, active, archived_at, starts_at, ends_at)'
         ].forEach(sql => db.run(sql, logDatabaseError('creating social index')));
 
         db.run(`CREATE TABLE IF NOT EXISTS platform_momo (
@@ -5126,6 +5176,204 @@ app.put('/api/admin/social/reports/:reportId', authenticateToken, authorizeRole(
         if (!this.changes) return res.status(404).json({ error: 'Signalement introuvable' });
         res.json({ resolved: true });
     });
+});
+
+function publicContentDate(value, required = false) {
+    if (value === null || value === undefined || value === '') return required ? null : null;
+    if (typeof value !== 'string') return null;
+    const date = new Date(value);
+    return Number.isNaN(date.valueOf()) ? null : date.toISOString();
+}
+
+function publicContentInput(input, existing = {}) {
+    const title = safeText(input.title === undefined ? existing.title : input.title, 160);
+    const body = safeText(input.body === undefined ? existing.body : input.body, 4000);
+    const contentType = String(input.content_type === undefined ? existing.content_type : input.content_type || '');
+    const audience = String(input.audience === undefined ? existing.audience : input.audience || 'public');
+    const placement = String(input.placement === undefined ? existing.placement : input.placement || 'news');
+    const startsAt = publicContentDate(input.starts_at === undefined ? existing.starts_at : input.starts_at, true);
+    const endValue = input.ends_at === undefined ? existing.ends_at : input.ends_at;
+    const endsAt = publicContentDate(endValue);
+    const active = input.active === undefined ? Number(existing.active) !== 0 : input.active === true || input.active === 1;
+    const mediaId = input.media_id === undefined
+        ? (existing.media_id || null)
+        : (input.media_id === null || input.media_id === '' ? null : Number(input.media_id));
+    if (!title || !body || !['announcement', 'advertisement'].includes(contentType)
+        || !['public', 'members'].includes(audience) || !['news', 'home'].includes(placement)
+        || !startsAt || !Number.isInteger(mediaId === null ? 0 : mediaId) || (endsAt && new Date(endsAt) <= new Date(startsAt))) {
+        return null;
+    }
+    return { title, body, contentType, audience, placement, startsAt, endsAt, active: active ? 1 : 0, mediaId };
+}
+
+function auditPublicContent(contentId, actorId, action, details, callback) {
+    db.run(
+        `INSERT INTO public_content_audit (audit_id, content_id, actor_member_id, action, details_json)
+         VALUES (?, ?, ?, ?, ?)`,
+        [newSecureId(), contentId, actorId, action, JSON.stringify(details)],
+        callback
+    );
+}
+
+function verifyPublicContentMedia(mediaId, callback) {
+    if (mediaId === null) return callback(null);
+    db.get('SELECT id FROM public_content_media WHERE id = ?', [mediaId], (err, media) => {
+        if (err) return callback(err);
+        callback(media ? null : new Error('Média public introuvable'));
+    });
+}
+
+app.post('/api/admin/public-content/media', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    const mimeType = isImageUpload(req);
+    if (!mimeType || !Buffer.isBuffer(req.body) || !req.body.length) {
+        return res.status(400).json({ error: 'Image JPEG, PNG, GIF ou WebP valide requise' });
+    }
+    const originalName = path.basename(String(req.get('X-File-Name') || 'media-public')).replace(/[^\w.\-]/g, '_').slice(0, 120) || 'media-public';
+    const extension = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp' }[mimeType];
+    const storedName = `${crypto.randomUUID()}${extension}`;
+    fs.writeFile(path.join(UPLOADS_DIRECTORY, storedName), req.body, { mode: 0o600 }, writeErr => {
+        if (writeErr) return res.status(500).json({ error: 'Téléversement impossible' });
+        db.run(
+            `INSERT INTO public_content_media (stored_name, original_name, mime_type, size_bytes, uploaded_by_member_id)
+             VALUES (?, ?, ?, ?, ?)`,
+            [storedName, originalName, mimeType, req.body.length, req.user.id],
+            function insertMedia(err) {
+                if (err) {
+                    fs.unlink(path.join(UPLOADS_DIRECTORY, storedName), () => {});
+                    return res.status(500).json({ error: err.message });
+                }
+                res.status(201).json({ media: { id: this.lastID, original_name: originalName, mime_type: mimeType, size_bytes: req.body.length } });
+            }
+        );
+    });
+});
+
+app.get('/api/admin/public-content', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    db.all(
+        `SELECT c.*, m.original_name AS media_name, m.mime_type AS media_mime_type
+         FROM public_content c LEFT JOIN public_content_media m ON m.id = c.media_id
+         ORDER BY c.archived_at IS NOT NULL, datetime(c.starts_at) DESC, c.id DESC`,
+        [],
+        (err, items) => err ? res.status(500).json({ error: err.message }) : res.json({ items })
+    );
+});
+
+app.post('/api/admin/public-content', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    const input = publicContentInput(req.body, { starts_at: new Date().toISOString(), active: 1 });
+    if (!input) return res.status(400).json({ error: 'Annonce invalide : vérifiez titre, texte, audience, emplacement et dates.' });
+    verifyPublicContentMedia(input.mediaId, mediaErr => {
+        if (mediaErr) return res.status(400).json({ error: mediaErr.message });
+        db.run(
+            `INSERT INTO public_content
+             (content_type, title, body, audience, placement, media_id, starts_at, ends_at, active, created_by_member_id, updated_by_member_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [input.contentType, input.title, input.body, input.audience, input.placement, input.mediaId, input.startsAt, input.endsAt, input.active, req.user.id, req.user.id],
+            function insertContent(err) {
+                if (err) return res.status(500).json({ error: err.message });
+                auditPublicContent(this.lastID, req.user.id, 'created', {
+                    content_type: input.contentType, audience: input.audience, placement: input.placement, active: Boolean(input.active)
+                }, auditErr => auditErr ? res.status(500).json({ error: 'Annonce créée mais audit impossible.' }) : res.status(201).json({ id: this.lastID }));
+            }
+        );
+    });
+});
+
+app.put('/api/admin/public-content/:contentId', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    db.get('SELECT * FROM public_content WHERE id = ? AND archived_at IS NULL', [req.params.contentId], (lookupErr, existing) => {
+        if (lookupErr) return res.status(500).json({ error: lookupErr.message });
+        if (!existing) return res.status(404).json({ error: 'Annonce introuvable ou archivée' });
+        const input = publicContentInput(req.body, existing);
+        if (!input) return res.status(400).json({ error: 'Annonce invalide : vérifiez titre, texte, audience, emplacement et dates.' });
+        verifyPublicContentMedia(input.mediaId, mediaErr => {
+            if (mediaErr) return res.status(400).json({ error: mediaErr.message });
+            db.run(
+                `UPDATE public_content SET content_type = ?, title = ?, body = ?, audience = ?, placement = ?, media_id = ?,
+                 starts_at = ?, ends_at = ?, active = ?, updated_by_member_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+                [input.contentType, input.title, input.body, input.audience, input.placement, input.mediaId, input.startsAt, input.endsAt, input.active, req.user.id, existing.id],
+                updateErr => {
+                    if (updateErr) return res.status(500).json({ error: updateErr.message });
+                    auditPublicContent(existing.id, req.user.id, 'updated', {
+                        content_type: input.contentType, audience: input.audience, placement: input.placement, active: Boolean(input.active)
+                    }, auditErr => auditErr ? res.status(500).json({ error: 'Annonce modifiée mais audit impossible.' }) : res.json({ id: existing.id }));
+                }
+            );
+        });
+    });
+});
+
+app.post('/api/admin/public-content/:contentId/archive', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    db.run(
+        `UPDATE public_content SET active = 0, archived_at = CURRENT_TIMESTAMP, updated_by_member_id = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND archived_at IS NULL`,
+        [req.user.id, req.params.contentId],
+        function archiveErr(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (!this.changes) return res.status(404).json({ error: 'Annonce introuvable ou déjà archivée' });
+            auditPublicContent(Number(req.params.contentId), req.user.id, 'archived', {}, auditErr => auditErr ? res.status(500).json({ error: 'Annonce archivée mais audit impossible.' }) : res.json({ archived: true }));
+        }
+    );
+});
+
+app.get('/api/public/news', (req, res) => {
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 50);
+    const offset = Math.max(Number.parseInt(req.query.offset, 10) || 0, 0);
+    const from = req.query.from ? publicContentDate(`${req.query.from}T00:00:00.000Z`) : null;
+    const to = req.query.to ? publicContentDate(`${req.query.to}T23:59:59.999Z`) : null;
+    const type = req.query.type ? String(req.query.type) : null;
+    if ((req.query.from && !from) || (req.query.to && !to) || (type && !['announcement', 'advertisement', 'member_publication'].includes(type))) {
+        return res.status(400).json({ error: 'Filtres de date ou de type invalides' });
+    }
+    const filters = [];
+    const values = [];
+    if (from) { filters.push('datetime(published_at) >= datetime(?)'); values.push(from); }
+    if (to) { filters.push('datetime(published_at) <= datetime(?)'); values.push(to); }
+    if (type) { filters.push('content_type = ?'); values.push(type); }
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    db.all(
+        `SELECT * FROM (
+            SELECT c.id, c.content_type, c.title, c.body, c.placement, c.media_id, c.starts_at, c.ends_at,
+                   c.created_at AS published_at, 'platform' AS source, NULL AS author_name
+            FROM public_content c
+            WHERE c.audience = 'public' AND c.placement = 'news' AND c.active = 1 AND c.archived_at IS NULL
+              AND datetime(c.starts_at) <= datetime('now') AND (c.ends_at IS NULL OR datetime(c.ends_at) >= datetime('now'))
+            UNION ALL
+            SELECT p.id, 'member_publication' AS content_type, NULL AS title, p.body, 'news' AS placement, p.media_id,
+                   p.created_at AS starts_at, NULL AS ends_at, p.created_at AS published_at, 'social' AS source,
+                   CASE WHEN a.visibility = 'public' THEN trim(a.prenom || ' ' || a.name) ELSE 'Membre AVEC' END AS author_name
+            FROM social_posts p JOIN platform_accounts a ON a.id = p.author_account_id
+            WHERE p.visibility = 'public' AND p.moderation_status = 'approved' AND p.deleted_at IS NULL
+        ) public_feed ${where}
+        ORDER BY datetime(published_at) DESC, id DESC LIMIT ? OFFSET ?`,
+        [...values, limit, offset],
+        (err, items) => err ? res.status(500).json({ error: err.message }) : res.json({ items, limit, offset })
+    );
+});
+
+app.get('/api/public/news/media/:mediaId', (req, res) => {
+    db.get(
+        `SELECT m.* FROM public_content_media m JOIN public_content c ON c.media_id = m.id
+         WHERE m.id = ? AND c.audience = 'public' AND c.placement = 'news' AND c.active = 1 AND c.archived_at IS NULL
+           AND datetime(c.starts_at) <= datetime('now') AND (c.ends_at IS NULL OR datetime(c.ends_at) >= datetime('now'))`,
+        [req.params.mediaId],
+        (err, media) => {
+            if (err) return res.status(500).json({ error: err.message });
+            if (!media) return res.status(404).json({ error: 'Média public introuvable' });
+            res.type(media.mime_type).set('Cache-Control', 'no-store').sendFile(path.join(UPLOADS_DIRECTORY, media.stored_name));
+        }
+    );
+});
+
+app.get('/api/public/news/social-media/:mediaId', (req, res) => {
+    db.get(
+        `SELECT m.* FROM media_files m JOIN social_posts p ON p.media_id = m.id
+         WHERE m.id = ? AND p.visibility = 'public' AND p.moderation_status = 'approved' AND p.deleted_at IS NULL`,
+        [req.params.mediaId],
+        (err, media) => {
+            if (err) return res.status(500).json({ error: err.message });
+            if (!media) return res.status(404).json({ error: 'Média public introuvable' });
+            res.type(media.mime_type).set('Cache-Control', 'no-store').sendFile(path.join(UPLOADS_DIRECTORY, media.stored_name));
+        }
+    );
 });
 
 function start(port = PORT) {

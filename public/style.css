@@ -41,6 +41,13 @@ header {
     text-align: left;
 }
 
+.header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
 .profile-button {
     border: 0;
     border-radius: 50%;
@@ -172,6 +179,11 @@ header {
 .feed-list { display: grid; gap: 16px; margin-top: 20px; }
 .feed-post { padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; }
 .feed-image { display: block; max-width: 100%; max-height: 420px; margin: 12px 0; border-radius: 6px; object-fit: contain; }
+.public-news-item h3 { color: #173f67; margin-bottom: 4px; }
+.public-news-item > p:last-child { white-space: pre-wrap; }
+.empty-state { padding: 20px 0; color: #495057; }
+.news-filter-action { justify-content: end; }
+.news-filter-action .btn { margin-top: auto; }
 .member-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
 .profile-photo-placeholder img, img.profile-photo-placeholder { object-fit: cover; }
 .emoji-picker { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }

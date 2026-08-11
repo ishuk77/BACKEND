@@ -78,7 +78,7 @@
                 </details>
                 <details class="action-menu">
                     <summary>Social <span>Modération des publications</span></summary>
-                    <div class="button-grid"><button id="btnSocialModeration" class="btn btn-danger" type="button">Modération des publications</button></div>
+                    <div class="button-grid"><button id="btnSocialModeration" class="btn btn-danger" type="button">Modération des publications</button><button id="btnPublicContent" class="btn btn-primary" type="button">Actualités &amp; publicités</button></div>
                 </details>
                 <details class="action-menu">
                     <summary>Profil et paramètres <span>Configuration de la plateforme</span></summary>
@@ -181,6 +181,32 @@
             <p>Identifiants, statuts et références simulées pour la réconciliation de test. Aucun transfert réel n’est effectué.</p>
             <div id="paymentLedgerList"></div>
             <div id="paymentOperationsList"></div>
+            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+        </section>
+
+        <section id="publicContentSection" class="card" style="display:none;">
+            <h2>Actualités &amp; publicités publiques</h2>
+            <p class="field-hint">Les annonces sont du texte brut. Seules les publications membres <strong>publiques et approuvées</strong> apparaissent automatiquement sur la page publique; les contenus de contacts, privés, en attente ou retirés n’y figurent jamais.</p>
+            <form id="publicContentForm">
+                <input id="publicContentId" type="hidden">
+                <input id="publicContentMediaId" type="hidden">
+                <div class="form-grid">
+                    <div class="form-group"><label for="publicContentType">Type</label><select id="publicContentType" required><option value="announcement">Actualité</option><option value="advertisement">Publicité</option></select></div>
+                    <div class="form-group"><label for="publicContentAudience">Audience</label><select id="publicContentAudience" required><option value="public">Public</option><option value="members">Membres connectés</option></select></div>
+                    <div class="form-group"><label for="publicContentPlacement">Emplacement</label><select id="publicContentPlacement" required><option value="news">Fil Actualités</option><option value="home">Accueil (réservé)</option></select></div>
+                    <div class="form-group"><label for="publicContentTitle">Titre</label><input id="publicContentTitle" maxlength="160" required></div>
+                </div>
+                <div class="form-group"><label for="publicContentBody">Texte</label><textarea id="publicContentBody" rows="5" maxlength="4000" required></textarea><p class="field-hint">HTML non interprété : les balises et scripts sont affichés comme du texte.</p></div>
+                <div class="form-grid">
+                    <div class="form-group"><label for="publicContentStarts">Début</label><input id="publicContentStarts" type="datetime-local" required></div>
+                    <div class="form-group"><label for="publicContentEnds">Fin facultative</label><input id="publicContentEnds" type="datetime-local"></div>
+                    <div class="form-group"><label for="publicContentMedia">Image facultative (JPEG, PNG, GIF ou WebP, 3 Mo)</label><input id="publicContentMedia" type="file" accept="image/jpeg,image/png,image/gif,image/webp"><p id="publicContentMediaStatus" class="field-hint" role="status"></p></div>
+                </div>
+                <label class="deployment-check"><input id="publicContentActive" type="checkbox" checked> Activer à la période indiquée</label>
+                <p id="publicContentSaveStatus" class="field-hint" role="status"></p>
+                <div class="button-grid"><button id="publicContentSave" class="btn btn-primary" type="submit">Publier l’annonce</button><button id="publicContentReset" class="btn btn-secondary" type="button">Nouvelle annonce</button></div>
+            </form>
+            <div id="publicContentList" class="feed-list" aria-live="polite"></div>
             <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
         </section>
 

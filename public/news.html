@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Actualités &amp; publicités - AVEC Microcredit</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007bff">
+</head>
+<body>
+    <!-- THESIS: rendre les nouvelles AVEC consultables sans compte, sans transformer le fil social en vitrine. OWN-WORLD: bleu AVEC, surfaces blanches et informations lisibles héritées de l’application. STORY: lire une annonce, distinguer l’information plateforme des publications membres, puis choisir d’ouvrir son compte. FIRST VIEWPORT: titre, explication de confidentialité et filtres avant le fil chronologique. FORM: page de lecture opérationnelle, avec des articles au fil de leur publication et non une grille promotionnelle. -->
+    <header class="app-header">
+        <div>
+            <h1>Actualités &amp; publicités</h1>
+            <p>Les informations publiques de la communauté AVEC.</p>
+        </div>
+        <a class="btn btn-secondary" href="platform.html">Accéder à mon compte membre</a>
+    </header>
+    <main class="container">
+        <section class="card news-intro" aria-labelledby="newsTitle">
+            <h2 id="newsTitle">Suivre la vie publique d’AVEC</h2>
+            <p>Les annonces et publicités sont publiées par l’administration de la plateforme. Une publication membre apparaît ici seulement si son auteur la choisit explicitement <strong>publique</strong> et qu’elle est <strong>approuvée</strong>.</p>
+            <p class="field-hint">Les publications réservées aux contacts, privées, en attente d’examen ou retirées restent hors de cette page. Le nom d’un membre n’est affiché que lorsque son profil est public.</p>
+        </section>
+        <section class="card" aria-labelledby="filterTitle">
+            <h2 id="filterTitle">Filtrer les actualités</h2>
+            <form id="newsFilters" class="form-grid">
+                <div class="form-group"><label for="newsType">Type</label><select id="newsType"><option value="">Tout afficher</option><option value="announcement">Actualités plateforme</option><option value="advertisement">Publicités</option><option value="member_publication">Publications membres</option></select></div>
+                <div class="form-group"><label for="newsFrom">Depuis le</label><input id="newsFrom" type="date"></div>
+                <div class="form-group"><label for="newsTo">Jusqu’au</label><input id="newsTo" type="date"></div>
+                <div class="form-group news-filter-action"><button class="btn btn-primary" type="submit">Appliquer les filtres</button></div>
+            </form>
+        </section>
+        <section class="card" aria-labelledby="feedTitle">
+            <h2 id="feedTitle">Fil public</h2>
+            <p id="newsStatus" class="field-hint" role="status">Chargement des actualités…</p>
+            <div id="newsFeed" class="feed-list" aria-live="polite"></div>
+            <button id="newsMore" class="btn btn-secondary" type="button" hidden>Afficher plus</button>
+        </section>
+    </main>
+    <script src="news.js"></script>
+    <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
+</body>
+</html>

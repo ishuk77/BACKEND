@@ -18,6 +18,12 @@ L’espace membre sépare explicitement le **portefeuille interne AVEC (SANDBOX)
 
 Les images de profil et du fil sont limitées à 3 Mo, contrôlées par type et signature, renommées aléatoirement et accessibles seulement par une route authentifiée. En hébergement, conservez `uploads/` sur un volume privé, persistant et sauvegardé; ne le publiez jamais comme dossier statique.
 
+## Actualités & publicités publiques
+
+`news.html` présente un fil public, accessible sans connexion, avec filtres de date et pagination. Les annonces et publicités sont créées, modifiées, planifiées, désactivées ou archivées uniquement depuis **Actualités & publicités** dans `admin.html`; chaque action est ajoutée à un journal d’audit immuable. Les textes sont rendus comme du texte brut, jamais comme du HTML.
+
+Une publication de membre ne rejoint ce fil que lorsque son auteur choisit explicitement l’audience **Public AVEC** *et* que la modération est `approved`. Les publications réservées aux contacts, privées, en attente d’examen et retirées sont systématiquement exclues. Le fil ne renvoie aucun téléphone, identité, portefeuille ou autre donnée sensible ; le nom d’auteur n’est montré que si son profil est public. Les images publiques d’annonce sont limitées à 3 Mo et validées par type et signature.
+
 ## 👥 Rôles et fonctionnalités
 
 ### 🔧 Administrateur de la plateforme
@@ -242,6 +248,12 @@ Les fonctions existantes sont conservées comme titulaires **bootstrap** pendant
 - `PUT /api/meetings/:meetingId/invitation` — répondre à son invitation
 - `POST /api/collaboration/attachments`, `GET /api/collaboration/attachments/:attachmentId/download` — téléverser/télécharger une pièce jointe autorisée
 - `POST/DELETE /api/chat/:groupId/messages/:messageId/reactions...` — ajouter ou retirer une réaction
+
+### Actualités et publicités
+- `GET /api/public/news?limit=&offset=&from=YYYY-MM-DD&to=YYYY-MM-DD&type=` — fil public en lecture seule; `type` accepte `announcement`, `advertisement` ou `member_publication`.
+- `GET /api/public/news/media/:mediaId`, `GET /api/public/news/social-media/:mediaId` — médias contrôlés des éléments actuellement publics.
+- `GET/POST /api/admin/public-content`, `PUT /api/admin/public-content/:contentId`, `POST /api/admin/public-content/:contentId/archive` — gestion réservée à l’administrateur plateforme.
+- `POST /api/admin/public-content/media` — image d’annonce validée (JPEG, PNG, GIF ou WebP, 3 Mo maximum), réservée à l’administrateur plateforme.
 
 ### Autres
 - `GET /api/stats` - Statistiques

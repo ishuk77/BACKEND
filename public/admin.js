@@ -22,9 +22,14 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnManageMomo').addEventListener('click', showMomoManagement);
     document.getElementById('btnPaymentLedger').addEventListener('click', showPaymentLedger);
     document.getElementById('btnSocialModeration').addEventListener('click', () => showSocialModeration().catch(error => alert(error.message)));
+    document.getElementById('btnPublicContent').addEventListener('click', () => showPublicContent().catch(error => alert(error.message)));
     document.getElementById('btnPlatformStats').addEventListener('click', showPlatformStats);
     document.getElementById('btnDeploymentSettings').addEventListener('click', () => showDeploymentSettings().catch(error => alert(error.message)));
     document.getElementById('deploymentSettingsForm').addEventListener('submit', saveDeploymentSettings);
+    document.getElementById('publicContentForm').addEventListener('submit', event => savePublicContent(event).catch(error => {
+        document.getElementById('publicContentSaveStatus').textContent = error.message;
+    }));
+    document.getElementById('publicContentReset').addEventListener('click', resetPublicContentForm);
     document.querySelectorAll('.platform-back').forEach(button => button.addEventListener('click', showPlatformDashboard));
 
     // Momo management
@@ -719,6 +724,137 @@ async function showPaymentLedger() {
         console.error(err);
         ledger.textContent = 'Erreur lors du chargement du registre de paiements.';
     }
+}
+
+function publicContentDateTime(value) {
+    return value ? new Date(value).toISOString().slice(0, 16) : '';
+}
+
+function resetPublicContentForm() {
+    const form = document.getElementById('publicContentForm');
+    form.reset();
+    document.getElementById('publicContentId').value = '';
+    document.getElementById('publicContentMediaId').value = '';
+    document.getElementById('publicContentStarts').value = publicContentDateTime(new Date().toISOString());
+    document.getElementById('publicContentActive').checked = true;
+    document.getElementById('publicContentMediaStatus').textContent = '';
+    document.getElementById('publicContentSaveStatus').textContent = '';
+    document.getElementById('publicContentSave').textContent = 'Publier l’annonce';
+}
+
+function publicContentSummary(item) {
+    const period = item.ends_at
+        ? `Du ${new Date(item.starts_at).toLocaleString('fr-FR')} au ${new Date(item.ends_at).toLocaleString('fr-FR')}`
+        : `À partir du ${new Date(item.starts_at).toLocaleString('fr-FR')}`;
+    return `${item.content_type === 'advertisement' ? 'Publicité' : 'Actualité'} · ${item.audience === 'public' ? 'Public' : 'Membres'} · ${item.placement === 'news' ? 'Fil Actualités' : 'Accueil'} · ${period}`;
+}
+
+function renderPublicContent(items) {
+    const list = document.getElementById('publicContentList');
+    list.replaceChildren();
+    if (!items.length) {
+        const empty = document.createElement('p');
+        empty.textContent = 'Aucune actualité ou publicité n’est encore enregistrée.';
+        list.appendChild(empty);
+        return;
+    }
+    items.forEach(item => {
+        const article = document.createElement('article');
+        article.className = 'feed-post';
+        const title = document.createElement('h3');
+        title.textContent = item.title;
+        const summary = document.createElement('p');
+        summary.className = 'field-hint';
+        summary.textContent = publicContentSummary(item);
+        const body = document.createElement('p');
+        body.textContent = item.body;
+        const state = document.createElement('p');
+        state.className = 'field-hint';
+        state.textContent = item.archived_at ? 'Archivée' : item.active ? 'Active' : 'Inactive';
+        const edit = document.createElement('button');
+        edit.className = 'btn btn-secondary';
+        edit.type = 'button';
+        edit.textContent = 'Modifier';
+        edit.disabled = Boolean(item.archived_at);
+        edit.addEventListener('click', () => {
+            document.getElementById('publicContentId').value = item.id;
+            document.getElementById('publicContentMediaId').value = item.media_id || '';
+            document.getElementById('publicContentType').value = item.content_type;
+            document.getElementById('publicContentAudience').value = item.audience;
+            document.getElementById('publicContentPlacement').value = item.placement;
+            document.getElementById('publicContentTitle').value = item.title;
+            document.getElementById('publicContentBody').value = item.body;
+            document.getElementById('publicContentStarts').value = publicContentDateTime(item.starts_at);
+            document.getElementById('publicContentEnds').value = publicContentDateTime(item.ends_at);
+            document.getElementById('publicContentActive').checked = Boolean(item.active);
+            document.getElementById('publicContentMediaStatus').textContent = item.media_name ? `Image actuelle : ${item.media_name}` : 'Aucune image.';
+            document.getElementById('publicContentSave').textContent = 'Enregistrer les modifications';
+            document.getElementById('publicContentSaveStatus').textContent = '';
+            document.getElementById('publicContentTitle').focus();
+        });
+        const archive = document.createElement('button');
+        archive.className = 'btn btn-danger';
+        archive.type = 'button';
+        archive.textContent = 'Archiver';
+        archive.disabled = Boolean(item.archived_at);
+        archive.addEventListener('click', async () => {
+            await apiRequest(`/api/admin/public-content/${encodeURIComponent(item.id)}/archive`, { method: 'POST', body: JSON.stringify({}) });
+            await loadPublicContent();
+            resetPublicContentForm();
+        });
+        article.append(title, summary, body, state, edit, archive);
+        list.appendChild(article);
+    });
+}
+
+async function loadPublicContent() {
+    const data = await apiRequest('/api/admin/public-content');
+    renderPublicContent(data.items);
+}
+
+async function showPublicContent() {
+    hideAllSections();
+    document.getElementById('publicContentSection').style.display = 'block';
+    resetPublicContentForm();
+    await loadPublicContent();
+}
+
+async function uploadPublicContentMedia(file) {
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024) {
+        throw new Error('Utilisez une image JPEG, PNG, GIF ou WebP de 3 Mo maximum.');
+    }
+    const response = await fetch(`${API_BASE}/api/admin/public-content/media`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('platformAccessToken')}`, 'Content-Type': file.type, 'X-File-Name': file.name },
+        body: file
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Téléversement impossible');
+    return data.media.id;
+}
+
+async function savePublicContent(event) {
+    event.preventDefault();
+    const file = document.getElementById('publicContentMedia').files[0];
+    const mediaId = file ? await uploadPublicContentMedia(file) : (document.getElementById('publicContentMediaId').value || null);
+    const id = document.getElementById('publicContentId').value;
+    const payload = {
+        content_type: document.getElementById('publicContentType').value,
+        audience: document.getElementById('publicContentAudience').value,
+        placement: document.getElementById('publicContentPlacement').value,
+        title: document.getElementById('publicContentTitle').value.trim(),
+        body: document.getElementById('publicContentBody').value.trim(),
+        starts_at: new Date(document.getElementById('publicContentStarts').value).toISOString(),
+        ends_at: document.getElementById('publicContentEnds').value ? new Date(document.getElementById('publicContentEnds').value).toISOString() : null,
+        active: document.getElementById('publicContentActive').checked,
+        media_id: mediaId ? Number(mediaId) : null
+    };
+    await apiRequest(id ? `/api/admin/public-content/${encodeURIComponent(id)}` : '/api/admin/public-content', {
+        method: id ? 'PUT' : 'POST', body: JSON.stringify(payload)
+    });
+    document.getElementById('publicContentSaveStatus').textContent = id ? 'Annonce mise à jour.' : 'Annonce enregistrée.';
+    await loadPublicContent();
+    resetPublicContentForm();
 }
 
 const DEPLOYMENT_PROVIDER_LABELS = {
