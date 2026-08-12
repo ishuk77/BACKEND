@@ -2110,7 +2110,10 @@ async function deliverPhoneVerificationCode(phone, code) {
     const apiKey = String(process.env.SMS_API_KEY || '');
     const username = String(process.env.SMS_USERNAME || '');
     if (!apiKey || !username) throw new Error('Africa’s Talking n’est pas complètement configuré.');
-    const response = await fetch('https://api.africastalking.com/version1/messaging', {
+    const endpoint = username === 'sandbox'
+        ? 'https://api.sandbox.africastalking.com/version1/messaging'
+        : 'https://api.africastalking.com/version1/messaging';
+    const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
             Accept: 'application/json',
