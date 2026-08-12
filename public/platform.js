@@ -97,7 +97,9 @@ async function requestPhoneVerification(flow, phoneId, statusId) {
     const codeFieldByFlow = { register: 'registerVerificationCode', profile: 'profileVerificationCode', reset: 'pinResetCode' };
     const codeField = $p(codeFieldByFlow[flow]);
     if (data.sandbox && codeField) codeField.value = data.sandboxCode;
-    showVerificationStatus(statusId, `Code SANDBOX ajouté au champ ci-dessous : ${data.sandboxCode}. Il expire le ${new Date(data.expiresAt).toLocaleTimeString('fr-FR')}.`);
+    showVerificationStatus(statusId, data.sandbox
+        ? `Code SANDBOX ajouté au champ ci-dessous : ${data.sandboxCode}. Il expire le ${new Date(data.expiresAt).toLocaleTimeString('fr-FR')}.`
+        : `Code envoyé par SMS. Il expire le ${new Date(data.expiresAt).toLocaleTimeString('fr-FR')}.`);
 }
 async function verifyPhoneVerification(flow, phoneId, codeId, statusId) {
     const data = await request('/api/platform/phone-verifications/verify', {

@@ -158,7 +158,9 @@ async function handlePlatformLogin(e) {
             if (!response.ok) throw new Error(data.error || 'Impossible de demander le code.');
             adminPinResetToken = null;
             if (data.sandbox) document.getElementById('adminPinResetCode').value = data.sandboxCode;
-            setAdminPinResetStatus(`Code SANDBOX ajouté au champ ci-dessous : ${data.sandboxCode}.`);
+            setAdminPinResetStatus(data.sandbox
+                ? `Code SANDBOX ajouté au champ ci-dessous : ${data.sandboxCode}.`
+                : 'Code envoyé par SMS. Saisissez-le ci-dessous.');
         }
         async function verifyAdminPinResetCode() {
             const response = await fetch(API_BASE + '/api/platform/phone-verifications/verify', {

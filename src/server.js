@@ -2097,15 +2097,37 @@ function phoneVerificationKey(phone, sessionId) {
     return `${sessionId}:${phone}`;
 }
 
-// This delivery adapter is intentionally local-only. Replace it with an audited provider
-// adapter at hosting time; it must never route a code through chat or notifications.
 const SANDBOX_PHONE_DELIVERY = Object.freeze({
     deliver({ code }) {
         return { sandbox: true, sandboxCode: code };
     }
 });
 
-function requestSandboxPhoneVerification(phone, sessionId) {
+async function deliverPhoneVerificationCode(phone, code) {
+    if (String(process.env.SMS_PROVIDER || '').toLowerCase() !== 'africastalking') {
+        return SANDBOX_PHONE_DELIVERY.deliver({ code });
+    }
+    const apiKey = String(process.env.SMS_API_KEY || '');
+    const username = String(process.env.SMS_USERNAME || '');
+    if (!apiKey || !username) throw new Error('Africa’s Talking n’est pas complètement configuré.');
+    const response = await fetch('https://api.africastalking.com/version1/messaging', {
+        method: 'POST',
+        headers: {
+            Accept: 'application/json',
+            apiKey,
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+            username,
+            to: phone,
+            message: `Votre code AVEC est ${code}. Il expire dans 10 minutes. Ne le partagez avec personne.`
+        })
+    });
+    if (!response.ok) throw new Error('Africa’s Talking a refusé l’envoi du SMS.');
+    return { sandbox: false, provider: 'africastalking' };
+}
+
+async function requestSandboxPhoneVerification(phone, sessionId) {
     const now = Date.now();
     for (const [key, verification] of phoneVerificationSessions) {
         if (verification.expiresAt <= now) phoneVerificationSessions.delete(key);
@@ -2121,7 +2143,7 @@ function requestSandboxPhoneVerification(phone, sessionId) {
     };
     phoneVerificationSessions.set(phoneVerificationKey(phone, sessionId), verification);
     return {
-        ...SANDBOX_PHONE_DELIVERY.deliver({ phone, code }),
+        ...await deliverPhoneVerificationCode(phone, code),
         expiresAt: new Date(verification.expiresAt).toISOString(),
         attemptsRemaining: verification.attemptsRemaining
     };
@@ -2562,18 +2584,24 @@ app.post('/api/platform/auth/register', (req, res) => {
     );
 });
 
-app.post('/api/platform/phone-verifications/request', (req, res) => {
+app.post('/api/platform/phone-verifications/request', async (req, res) => {
     const phone = safeText(req.body.phone, 30);
     const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
     if (!validPlatformPhone(phone) || !browserSessionId) {
         return res.status(400).json({ error: 'Téléphone et session navigateur valides requis.' });
     }
-    const delivery = requestSandboxPhoneVerification(phone, browserSessionId);
-    res.status(201).json({
-        delivery: 'sandbox',
-        message: 'Code disponible uniquement dans cette réponse SANDBOX de la session active; aucun SMS ni message de chat n’a été envoyé.',
-        ...delivery
-    });
+    try {
+        const delivery = await requestSandboxPhoneVerification(phone, browserSessionId);
+        res.status(201).json({
+            delivery: delivery.provider || 'sandbox',
+            message: delivery.sandbox
+                ? 'Code disponible uniquement dans cette réponse SANDBOX de la session active; aucun SMS ni message de chat n’a été envoyé.'
+                : 'Code envoyé par SMS. Il expire dans 10 minutes.',
+            ...delivery
+        });
+    } catch (error) {
+        res.status(502).json({ error: error.message });
+    }
 });
 
 app.post('/api/platform/phone-verifications/verify', (req, res) => {
