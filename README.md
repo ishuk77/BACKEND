@@ -98,13 +98,13 @@ http://localhost:3000/admin.html
 
 Après la connexion à `admin.html`, ouvrez **Paramètres de déploiement**. Cette page conserve uniquement les métadonnées non secrètes (URL publique, origines frontend, étiquettes de fournisseurs, URLs TURN sans identifiants, état de maintenance et checklist). Chaque modification est historisée.
 
-**Ne saisissez jamais de clés API, jetons, mots de passe, secrets webhook ou identifiants TURN dans l’application.** Configurez-les exclusivement dans le gestionnaire de variables d’environnement de l’hébergeur, sans les mettre dans le dépôt, la base SQLite, les journaux ou le navigateur.
+**Ne saisissez jamais de clés API, jetons, mots de passe, secrets webhook ou identifiants TURN dans l’application.** Configurez-les exclusivement dans le gestionnaire de variables d’environnement de l’hébergeur, sans les mettre dans le dépôt, la base de données, les journaux ou le navigateur.
 
 Les indicateurs de l’administration vérifient seulement la présence des variables, jamais leurs valeurs. Préparez au minimum :
 
 ```text
 JWT_SECRET
-DATABASE_PATH
+DATABASE_URL (PostgreSQL de production) ou DATABASE_PATH (SQLite local uniquement)
 CORS_ORIGIN
 UPLOADS_DIRECTORY ou STORAGE_BUCKET
 SMS_PROVIDER, SMS_API_KEY, SMS_API_SECRET
@@ -117,6 +117,19 @@ VIDEO_PROVIDER_SECRET
 Utilisez une URL publique HTTPS et des origines CORS HTTPS. Configurez un volume privé, persistant et sauvegardé pour les téléversements. Les URLs TURN non secrètes peuvent être documentées dans l’administration, mais les identifiants TURN doivent rester dans `TURN_USERNAME` et `TURN_CREDENTIAL`. Les appels WebRTC exigent aussi une signalisation autorisée, STUN/TURN et une revue de confidentialité.
 
 Les SMS, paiements Momo et vidéo ne sont pas activés par cette configuration : l’application reste en **SANDBOX** tant qu’un adaptateur officiellement validé, un contrat fournisseur, des tests et une revue sécurité ne sont pas réalisés. Vérifiez régulièrement qu’une sauvegarde peut être restaurée avant de déclarer la production prête.
+
+### PostgreSQL sur Render
+
+Lorsque `DATABASE_URL` est définie, le serveur utilise exclusivement PostgreSQL; `DATABASE_PATH` est alors ignorée. Au démarrage, les migrations versionnées de `migrations/` sont protégées par un verrou PostgreSQL et appliquées avant que le serveur n’accepte du trafic. Ne placez jamais l’URL, son mot de passe ou une copie de ses valeurs dans le dépôt, les journaux ou les paramètres enregistrés par l’application.
+
+Pour une base Render neuve, définissez `DATABASE_URL` et `JWT_SECRET` dans le tableau de bord Render, puis déployez normalement. Pour déplacer les données d’une base SQLite existante :
+
+1. Arrêtez l’ancienne application et sauvegardez séparément la base SQLite et le répertoire privé `uploads/`.
+2. Installez les dépendances, définissez `DATABASE_URL` uniquement dans votre environnement de terminal, puis exécutez `npm run migrate:sqlite-to-postgres -- <chemin-vers-la-base-sqlite>`.
+3. Le script ouvre SQLite en lecture seule, refuse une cible PostgreSQL non vide, vérifie les clés étrangères, copie les données dans une transaction et réaligne les séquences d’identifiants. Il ne copie pas les fichiers d’`uploads/`; restaurez-les dans un volume privé séparé.
+4. Vérifiez les comptes, soldes et fichiers restaurés avant de diriger le trafic vers Render. Conservez SQLite comme sauvegarde jusqu’à validation de la restauration.
+
+La source SQLite doit avoir été démarrée une fois avec cette version de l’application afin que ses migrations locales historiques soient appliquées avant l’export. Pour les tests et le développement local, laissez `DATABASE_URL` non définie et utilisez `DATABASE_PATH`.
 
 ## 📱 Installation PWA
 
@@ -146,7 +159,7 @@ npx cap open android
 
 ## 🗄️ Base de données
 
-Le projet utilise **SQLite** avec les tables suivantes :
+Le projet utilise **PostgreSQL** quand `DATABASE_URL` est défini; SQLite reste disponible pour le développement local et les tests via `DATABASE_PATH`. Les deux schémas couvrent les tables suivantes :
 
 - `groups` : Groupes AVEC (nom, pays, wallet, statut blocage)
 - `members` : Membres (profil, rôle, soldes, historique)
@@ -193,7 +206,7 @@ L'application fonctionne comme une **PWA (Progressive Web App)** :
 - **Connexion minimale** : 2G suffit pour les transactions de base
 - **Synchronisation** : Les données sont synchronisées automatiquement
 - **Cache intelligent** : L'app se souvient de votre session
-- **Base de données** : SQLite3
+- **Base de données** : PostgreSQL en production, SQLite3 en local
 - **Authentification** : JWT + bcrypt
 - **PWA** : Service Worker + Web App Manifest
 - **Mobile** : Capacitor (optionnel)

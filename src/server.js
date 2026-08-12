@@ -1,5 +1,5 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { createDatabase } = require('./database');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -11,6 +11,7 @@ const MOMO_COUNTRIES = require(path.join(__dirname, '..', 'public', 'momo-countr
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
+const DATABASE_URL = process.env.DATABASE_URL;
 const DATABASE_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'microcredit.db');
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY = '7d';
@@ -76,26 +77,47 @@ app.use(express.json({ limit: '256kb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 let resolveDatabaseReady;
-const databaseReady = new Promise(resolve => { resolveDatabaseReady = resolve; });
-const db = new sqlite3.Database(DATABASE_PATH, err => {
-    if (err) {
+let rejectDatabaseReady;
+const databaseReady = new Promise((resolve, reject) => {
+    resolveDatabaseReady = resolve;
+    rejectDatabaseReady = reject;
+});
+const db = createDatabase({ databaseUrl: DATABASE_URL, databasePath: DATABASE_PATH });
+
+db.ready
+    .then(async () => {
+        if (db.dialect === 'postgres') {
+            await db.migrate();
+            console.log('Connected to PostgreSQL database.');
+            initPostgresDatabase(resolveDatabaseReady);
+            return;
+        }
+        console.log('Connected to SQLite database.');
+        initDatabase(resolveDatabaseReady);
+    })
+    .catch(err => {
         console.error('Error opening database:', err.message);
         process.exitCode = 1;
-        return;
-    }
+        rejectDatabaseReady(err);
+    });
 
-    console.log('Connected to SQLite database.');
-    initDatabase(resolveDatabaseReady);
-});
+function ensureUploadsDirectory() {
+    try {
+        fs.mkdirSync(UPLOADS_DIRECTORY, { recursive: true, mode: 0o700 });
+    } catch (err) {
+        console.error('Error creating uploads directory:', err.message);
+    }
+}
+
+function initPostgresDatabase(onReady) {
+    ensureUploadsDirectory();
+    onReady();
+}
 
 function initDatabase(onReady) {
     db.serialize(() => {
         db.run('PRAGMA foreign_keys = ON');
-        try {
-            fs.mkdirSync(UPLOADS_DIRECTORY, { recursive: true, mode: 0o700 });
-        } catch (err) {
-            console.error('Error creating uploads directory:', err.message);
-        }
+        ensureUploadsDirectory();
         db.run(`CREATE TABLE IF NOT EXISTS groups (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -1183,6 +1205,10 @@ function logDatabaseError(operation) {
     };
 }
 
+function isConstraintError(err) {
+    return Boolean(err && (err.code === 'SQLITE_CONSTRAINT' || /^23/.test(String(err.code || ''))));
+}
+
 function ensureColumn(table, column, definition) {
     db.all(`PRAGMA table_info(${table})`, [], (err, rows) => {
         if (err) {
@@ -1445,7 +1471,7 @@ function deploymentSettingsResponse(row) {
     const configured = (...names) => names.some(name => Boolean(process.env[name]));
     const environment = [
         { id: 'jwt', label: 'JWT_SECRET', configured: configured('JWT_SECRET') },
-        { id: 'database', label: 'DATABASE_PATH (base de données de production)', configured: configured('DATABASE_PATH') },
+        { id: 'database', label: 'DATABASE_URL (PostgreSQL de production) ou DATABASE_PATH (SQLite local)', configured: configured('DATABASE_URL', 'DATABASE_PATH') },
         { id: 'cors', label: 'CORS_ORIGIN', configured: configured('CORS_ORIGIN') },
         { id: 'sms', label: 'SMS_PROVIDER et identifiants SMS', configured: configured('SMS_PROVIDER', 'SMS_API_KEY', 'SMS_API_SECRET') },
         { id: 'paymentCredentials', label: 'Identifiants de paiement Momo (PAYMENT_PROVIDER_*)', configured: configured('PAYMENT_PROVIDER_MTN_CLIENT_SECRET', 'PAYMENT_PROVIDER_ORANGE_CLIENT_SECRET', 'PAYMENT_PROVIDER_AIRTEL_CLIENT_SECRET', 'PAYMENT_PROVIDER_VODACOM_CLIENT_SECRET') },
@@ -1535,7 +1561,7 @@ function beginIdempotentMutation(req, res, scope, callback) {
                     );
                 });
             }
-            if (err.code !== 'SQLITE_CONSTRAINT') return res.status(500).json({ error: err.message });
+            if (!isConstraintError(err)) return res.status(500).json({ error: err.message });
             db.get(
                 'SELECT response_status, response_json FROM payment_idempotency WHERE idempotency_key = ?',
                 [key],
@@ -1700,7 +1726,7 @@ function handlePaymentWebhook(req, res) {
             [newSecureId(), transactionId, ledger ? ledger.group_id : null, provider.toLowerCase(),
                 String(payload.status || 'received').slice(0, 30), providerEventId, json(payload)],
             function addWebhookReceipt(err) {
-                if (err && err.code === 'SQLITE_CONSTRAINT') return res.json({ received: true, duplicate: true, sandbox: true });
+                if (isConstraintError(err)) return res.json({ received: true, duplicate: true, sandbox: true });
                 if (err) return res.status(500).json({ error: err.message });
                 auditFinancialChange({
                     transactionId,
@@ -2521,7 +2547,7 @@ app.post('/api/platform/auth/register', (req, res) => {
          VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 1)`,
         [identifier, prenom, name, phone, bcrypt.hashSync(pin, 10), identityNumber],
         function registerAccount(err) {
-            if (err && err.code === 'SQLITE_CONSTRAINT') return res.status(409).json({ error: 'Un compte existe déjà avec ce téléphone ou cette identité/passeport' });
+            if (isConstraintError(err)) return res.status(409).json({ error: 'Un compte existe déjà avec ce téléphone ou cette identité/passeport' });
             if (err) return res.status(500).json({ error: err.message });
             consumeVerifiedPhoneClaim(phone, browserSessionId);
             db.get('SELECT * FROM platform_accounts WHERE id = ?', [this.lastID], (lookupErr, account) => {
@@ -2652,7 +2678,7 @@ app.post('/api/wallet/topups', authenticateAccount, (req, res) => {
         const paymentId = `SANDBOX-TOPUP-${newSecureId().slice(0, 18).toUpperCase()}`;
         db.run(`INSERT INTO wallet_topups (payment_id, idempotency_key, account_id, provider, amount_minor)
                 VALUES (?, ?, ?, ?, ?)`, [paymentId, idempotencyKey, req.account.id, provider, amountMinor], insertErr => {
-            if (insertErr) return res.status(insertErr.code === 'SQLITE_CONSTRAINT' ? 409 : 500).json({ error: insertErr.message });
+            if (insertErr) return res.status(isConstraintError(insertErr) ? 409 : 500).json({ error: insertErr.message });
             res.status(201).json({ topup: { payment_id: paymentId, provider, amount_minor: amountMinor, status: 'pending' }, sandbox: true });
         });
     });
@@ -2729,7 +2755,7 @@ app.put('/api/platform/profile/security', authenticateAccount, (req, res) => {
          WHERE id = ?`,
         [identityNumber, needsPin ? bcrypt.hashSync(pin, 10) : null, req.account.id],
         err => {
-            if (err && err.code === 'SQLITE_CONSTRAINT') return res.status(409).json({ error: 'Cette identité/passeport est déjà utilisée.' });
+            if (isConstraintError(err)) return res.status(409).json({ error: 'Cette identité/passeport est déjà utilisée.' });
             if (err) return res.status(500).json({ error: err.message });
             if (needsPhoneVerification) consumeVerifiedPhoneClaim(req.account.phone, browserSessionId);
             db.get('SELECT * FROM platform_accounts WHERE id = ?', [req.account.id], (lookupErr, account) => {
@@ -3827,7 +3853,7 @@ app.post('/api/momo', authenticateToken, authorizeRole(['plateforme']), (req, re
         [country, provider, momoSelection.normalizedPhone, momoSelection.countryInfo.currency, description || null],
         function addMomo(err) {
             if (err) {
-                if (err.code === 'SQLITE_CONSTRAINT') {
+                if (isConstraintError(err)) {
                     return res.status(409).json({ error: 'Un compte existe déjà pour ce pays et cet opérateur' });
                 }
                 return res.status(500).json({ error: err.message });
@@ -4508,7 +4534,7 @@ app.post('/api/groups/:groupId/elections/:electionId/votes', authenticateToken, 
                      VALUES (?, ?, ?)`,
                     [election.id, voter.id, candidateId],
                     function vote(voteErr) {
-                        if (voteErr) return res.status(voteErr.message.includes('UNIQUE') ? 409 : 500).json({ error: voteErr.message.includes('UNIQUE') ? 'Vous avez déjà voté pour cette élection.' : voteErr.message });
+                        if (voteErr) return res.status(isConstraintError(voteErr) ? 409 : 500).json({ error: isConstraintError(voteErr) ? 'Vous avez déjà voté pour cette élection.' : voteErr.message });
                         recordElectionAudit(election.id, req.params.groupId, voter.id, 'voted', { candidate_member_id: candidateId });
                         res.status(201).json({ id: this.lastID, voted: true });
                     }
@@ -5299,7 +5325,7 @@ app.post('/api/social/posts/:postId/reports', authenticateAccount, (req, res) =>
     const reason = safeText(req.body.reason, 500);
     if (!reason) return res.status(400).json({ error: 'Motif de signalement requis' });
     db.run('INSERT INTO post_reports (post_id, reporter_account_id, reason) VALUES (?, ?, ?)', [req.params.postId, req.account.id, reason], function reportErr(err) {
-        if (err && err.code === 'SQLITE_CONSTRAINT') return res.status(409).json({ error: 'Cette publication est déjà signalée par votre compte' });
+        if (isConstraintError(err)) return res.status(409).json({ error: 'Cette publication est déjà signalée par votre compte' });
         if (err) return res.status(500).json({ error: err.message });
         res.status(201).json({ id: this.lastID });
     });
