@@ -14,6 +14,8 @@ const phoneVerificationTokens = { register: null, profile: null, reset: null };
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
 const countryByName = name => (window.MOMO_COUNTRIES || []).find(country => country.name === name);
+const MEMBER_COUNTRIES = () => [...(window.MOMO_COUNTRIES || []), { name: 'Haïti', dialCode: '+509' }]
+    .sort((first, second) => first.name.localeCompare(second.name, 'fr'));
 function tokenHeaders(extra = {}) {
     const token = localStorage.getItem('platformAccessToken');
     return { ...extra, ...(token ? { Authorization: `Bearer ${token}` } : {}) };
@@ -88,7 +90,8 @@ function showVerificationStatus(statusId, message) {
     $p(statusId).textContent = message;
 }
 async function requestPhoneVerification(flow, phoneId, statusId) {
-    const phone = $p(phoneId).value.trim();
+    const phone = phoneId === 'registerPhone' ? normalizeRegisterPhone() : $p(phoneId).value.trim();
+    if (phoneId === 'registerPhone') $p(phoneId).value = phone;
     const data = await request('/api/platform/phone-verifications/request', {
         method: 'POST',
         body: JSON.stringify({ phone, browserSessionId: browserVerificationSessionId() })
@@ -102,10 +105,12 @@ async function requestPhoneVerification(flow, phoneId, statusId) {
         : `Code envoyé par SMS. Il expire le ${new Date(data.expiresAt).toLocaleTimeString('fr-FR')}.`);
 }
 async function verifyPhoneVerification(flow, phoneId, codeId, statusId) {
+    const phone = phoneId === 'registerPhone' ? normalizeRegisterPhone() : $p(phoneId).value.trim();
+    if (phoneId === 'registerPhone') $p(phoneId).value = phone;
     const data = await request('/api/platform/phone-verifications/verify', {
         method: 'POST',
         body: JSON.stringify({
-            phone: $p(phoneId).value.trim(),
+            phone,
             code: $p(codeId).value.trim(),
             browserSessionId: browserVerificationSessionId()
         })
@@ -188,7 +193,7 @@ async function register(event) {
     const data = await request('/api/platform/auth/register', { method: 'POST', body: JSON.stringify({
         prenom: $p('registerFirstName').value.trim(), name: $p('registerName').value.trim(),
         identityNumber: $p('registerIdentityNumber').value.trim(),
-        phone: $p('registerPhone').value.trim(), pin: $p('registerPin').value.trim(),
+        phone: normalizeRegisterPhone(), pin: $p('registerPin').value.trim(),
         pinConfirmation: $p('registerPinConfirmation').value.trim(),
         phoneVerificationToken: phoneVerificationTokens.register,
         browserSessionId: browserVerificationSessionId()
@@ -266,6 +271,27 @@ function populateGroupCountries() {
     select.replaceChildren(new Option('Sélectionner un pays', ''));
     (window.MOMO_COUNTRIES || []).forEach(country => select.add(new Option(country.name, country.name)));
     updateGroupMomoFields();
+}
+function populateRegisterCountries() {
+    const select = $p('registerCountry');
+    select.replaceChildren(new Option('Sélectionner un pays', ''));
+    MEMBER_COUNTRIES().forEach(country => select.add(new Option(`${country.name} (${country.dialCode})`, country.name)));
+    updateRegisterDialCode();
+}
+function updateRegisterDialCode() {
+    const country = MEMBER_COUNTRIES().find(item => item.name === $p('registerCountry').value);
+    $p('registerDialCode').textContent = country ? country.dialCode : '+--';
+}
+function normalizeRegisterPhone() {
+    const country = MEMBER_COUNTRIES().find(item => item.name === $p('registerCountry').value);
+    const raw = $p('registerPhone').value.trim();
+    if (!country || !raw) return raw;
+    if (raw.startsWith('+')) return raw;
+    const digits = raw.replace(/\D/g, '');
+    const local = digits.startsWith(country.dialCode.slice(1))
+        ? digits.slice(country.dialCode.length - 1)
+        : digits.replace(/^0+/, '');
+    return `${country.dialCode}${local}`;
 }
 function updateGroupMomoFields() {
     const country = countryByName($p('groupCountry').value);
@@ -659,7 +685,9 @@ function logout() {
 }
 document.addEventListener('DOMContentLoaded', () => {
     populateGroupCountries();
+    populateRegisterCountries();
     $p('groupCountry').addEventListener('change', updateGroupMomoFields);
+    $p('registerCountry').addEventListener('change', updateRegisterDialCode);
     $p('registerRequestCode').addEventListener('click', () => requestPhoneVerification('register', 'registerPhone', 'registerVerificationStatus').catch(error => showVerificationStatus('registerVerificationStatus', error.message)));
     $p('registerVerifyCode').addEventListener('click', () => verifyPhoneVerification('register', 'registerPhone', 'registerVerificationCode', 'registerVerificationStatus').catch(error => showVerificationStatus('registerVerificationStatus', error.message)));
     $p('profileRequestCode').addEventListener('click', () => requestPhoneVerification('profile', 'profileSecurityPhone', 'profileVerificationStatus').catch(error => showVerificationStatus('profileVerificationStatus', error.message)));
