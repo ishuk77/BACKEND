@@ -153,6 +153,9 @@ test('dashboard, staff, chat, fraud review, Momo, and platform contracts work on
     })).status, 200);
     assert.equal((await request('GET', `/api/members/${memberId}`, { token: memberToken })).data.availability, 'busy');
     await run('UPDATE platform_accounts SET internal_wallet = 100 WHERE id = ?', [memberAccount.data.account.id]);
+    assert.equal((await request('POST', `/api/members/${memberId}/fund-from-platform-wallet`, {
+        token: memberToken, body: { amount: 30 }
+    })).status, 201);
     assert.equal((await request('POST', `/api/members/${memberId}/contributions`, {
         token: memberToken, body: { amount: 30 }
     })).status, 201);

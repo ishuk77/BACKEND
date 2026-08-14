@@ -3598,6 +3598,61 @@ app.get('/api/payment-operations', authenticateToken, (req, res) => {
     );
 });
 
+app.post('/api/members/:memberId/fund-from-platform-wallet', authenticateToken, (req, res) => {
+    const amountMinor = minorAmount(req.body.amount);
+    if (!amountMinor) {
+        return res.status(400).json({ error: 'Montant de transfert invalide' });
+    }
+    const amount = amountMinor / 100;
+
+    requireFinancialMember(req, res, req.params.memberId, (member, group) => {
+        if (!isPlatform(req.user) && String(req.user.id) !== String(member.id)) {
+            return res.status(403).json({ error: 'Vous ne pouvez alimenter que votre propre wallet AVEC' });
+        }
+        db.serialize(() => {
+            db.run('BEGIN IMMEDIATE', beginErr => {
+                if (beginErr) return res.status(500).json({ error: beginErr.message });
+                db.run(
+                    `UPDATE platform_accounts
+                     SET internal_wallet = internal_wallet - ?,
+                         internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) - ?
+                     WHERE id = (SELECT account_id FROM platform_account_memberships
+                                 WHERE member_id = ? AND group_id = ? AND status = 'active')
+                       AND CAST(ROUND(internal_wallet * 100) AS INTEGER) >= ?`,
+                    [amount, amountMinor, member.id, group.id, amountMinor],
+                    function debitPlatformWallet(debitErr) {
+                        if (debitErr || !this.changes) {
+                            db.run('ROLLBACK');
+                            return res.status(debitErr ? 500 : 409).json({
+                                error: debitErr ? debitErr.message : 'Solde insuffisant dans votre wallet plateforme.'
+                            });
+                        }
+                        db.run(
+                            'UPDATE members SET wallet = wallet + ? WHERE id = ?',
+                            [amount, member.id],
+                            updateMemberErr => {
+                                if (updateMemberErr) {
+                                    db.run('ROLLBACK');
+                                    return res.status(500).json({ error: updateMemberErr.message });
+                                }
+                                recordHistory(group.id, member.id, `Alimentation du wallet AVEC depuis la plateforme : ${amount}`, historyErr => {
+                                    if (historyErr) {
+                                        db.run('ROLLBACK');
+                                        return res.status(500).json({ error: historyErr.message });
+                                    }
+                                    db.run('COMMIT', commitErr => commitErr
+                                        ? res.status(500).json({ error: commitErr.message })
+                                        : res.status(201).json({ amount, amount_minor: amountMinor, sandbox: true }));
+                                });
+                            }
+                        );
+                    }
+                );
+            });
+        });
+    });
+});
+
 app.post('/api/members/:memberId/contributions', authenticateToken, (req, res) => {
     const amountMinor = minorAmount(req.body.amount);
     if (!amountMinor) {
@@ -3610,18 +3665,15 @@ app.post('/api/members/:memberId/contributions', authenticateToken, (req, res) =
             db.run('BEGIN IMMEDIATE', beginErr => {
                 if (beginErr) return res.status(500).json({ error: beginErr.message });
                 db.run(
-                    `UPDATE platform_accounts
-                     SET internal_wallet = internal_wallet - ?,
-                         internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) - ?
-                     WHERE id = (SELECT account_id FROM platform_account_memberships
-                                 WHERE member_id = ? AND status = 'active')
-                       AND CAST(ROUND(internal_wallet * 100) AS INTEGER) >= ?`,
-                    [amount, amountMinor, member.id, amountMinor],
+                    `UPDATE members
+                     SET wallet = wallet - ?
+                     WHERE id = ? AND wallet >= ?`,
+                    [amount, member.id, amount],
                     function debitWallet(debitErr) {
                         if (debitErr || !this.changes) {
                             db.run('ROLLBACK');
                             return res.status(debitErr ? 500 : 409).json({
-                                error: debitErr ? debitErr.message : `Solde interne insuffisant : ${(amountMinor / 100).toFixed(2)} USD SANDBOX requis pour cette contribution.`
+                                error: debitErr ? debitErr.message : `Solde insuffisant dans votre wallet AVEC : ${(amountMinor / 100).toFixed(2)} USD SANDBOX requis pour cette contribution.`
                             });
                         }
                         db.run(
@@ -3746,8 +3798,8 @@ app.post('/api/members/:memberId/repayments', authenticateToken, (req, res) => {
             db.run('BEGIN IMMEDIATE', beginErr => {
                 if (beginErr) return res.status(500).json({ error: beginErr.message });
                 db.run(
-                    'UPDATE members SET credit = credit - ?, repayment = repayment + ? WHERE id = ? AND credit >= ?',
-                    [amount, amount, member.id, amount],
+                    'UPDATE members SET wallet = wallet - ?, credit = credit - ?, repayment = repayment + ? WHERE id = ? AND wallet >= ? AND credit >= ?',
+                    [amount, amount, amount, member.id, amount, amount],
                     function updateMember(updateErr) {
                         if (updateErr) {
                             db.run('ROLLBACK');

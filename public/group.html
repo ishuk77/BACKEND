@@ -3,18 +3,63 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AVEC — Tableau de bord du groupe</title>
+    <title>AVEC — Espace membre du groupe</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header class="app-header"><div><h1 id="groupTitle">Mon AVEC</h1><p id="groupStatus" role="status">Chargement du compte AVEC…</p></div><div class="header-actions"><a class="btn btn-secondary" href="platform.html">Retour à mon espace membre</a><button id="groupLogout" class="btn btn-secondary" type="button">Déconnexion</button></div></header>
+    <header class="app-header">
+        <div><h1 id="groupTitle">Mon AVEC</h1><p id="groupStatus" role="status">Chargement de votre espace membre AVEC…</p></div>
+        <div class="header-actions"><a class="btn btn-secondary" href="platform.html">Espace plateforme</a><button id="groupLogout" class="btn btn-secondary" type="button">Déconnexion</button></div>
+    </header>
     <main class="container">
-        <section class="card">
-            <div class="wallet-grid"><div class="wallet-card"><strong>Wallet personnel AVEC</strong><span id="memberWallet">0</span><small>Solde disponible dans ce groupe</small><button class="btn btn-secondary" data-action="withdrawal" type="button">Retirer</button></div><div class="wallet-card"><strong>Compte AVEC</strong><span id="groupWallet">0</span><small id="groupRole">Membre</small></div></div>
-            <nav class="group-action-nav" aria-label="Actions du groupe"><button class="btn btn-primary" data-action="contribution" type="button">Contribuer</button><button class="btn btn-secondary" data-action="credit" type="button">Crédit</button><button class="btn btn-secondary" data-action="repayment" type="button">Rembourser</button><button id="showMovements" class="btn btn-secondary" type="button">Vos mouvements</button><button class="btn btn-danger" data-action="fraud" type="button">Fraude</button><button id="showChat" class="btn btn-secondary" type="button">Discussion du groupe</button></nav>
+        <nav class="group-dashboard-nav" aria-label="Espaces du groupe">
+            <button id="showMemberDashboard" class="btn btn-primary" type="button">Mon espace membre AVEC</button>
+            <button id="showGroupAdminDashboard" class="btn btn-secondary" type="button" hidden>Gérer le compte AVEC</button>
+        </nav>
+
+        <section id="memberDashboard" class="card">
+            <h2>Mon espace membre — <span id="memberGroupName">AVEC</span></h2>
+            <p class="field-hint">Votre rôle dans le groupe : <strong id="memberRole">Membre</strong>. Cet espace existe aussi pour le président, le vice-président et le comptable.</p>
+            <div class="wallet-grid">
+                <div class="wallet-card"><strong>Mon wallet personnel AVEC</strong><span id="memberWallet">0</span><small>Pour cotiser, rembourser, payer les intérêts et retirer vers votre Momo.</small></div>
+                <div class="wallet-card"><strong>Wallet AVEC — <span id="memberGroupWalletName">Groupe</span></strong><span id="memberGroupWallet">0</span><small>Solde collectif, affiché en lecture seule.</small></div>
+            </div>
+            <section class="group-member-panel">
+                <h3>Alimenter mon wallet AVEC</h3>
+                <p class="field-hint">Transférez un montant de votre wallet plateforme vers votre wallet personnel de ce groupe. Rechargez d’abord le wallet plateforme si nécessaire.</p>
+                <form id="memberWalletFundingForm" class="form-grid"><div class="form-group"><label for="memberWalletFundingAmount">Montant (USD)</label><input id="memberWalletFundingAmount" type="number" min="0.01" step="0.01" required></div><div class="form-group"><label>&nbsp;</label><button class="btn btn-primary">Transférer vers mon wallet AVEC</button></div></form>
+            </section>
+            <nav class="group-action-nav" aria-label="Actions membre">
+                <button class="btn btn-primary" data-action="contribution" type="button">Contribuer</button>
+                <button class="btn btn-secondary" data-action="credit" type="button">Demander un crédit</button>
+                <button class="btn btn-secondary" data-action="repayment" type="button">Rembourser</button>
+                <button class="btn btn-secondary" data-action="withdrawal" type="button">Retirer vers Momo</button>
+                <button id="showMemberMovements" class="btn btn-secondary" type="button">Mon registre</button>
+                <button id="showFraudReport" class="btn btn-danger" type="button">Alerter la plateforme</button>
+                <button id="showChat" class="btn btn-secondary" type="button">Discussion du groupe</button>
+            </nav>
         </section>
+
+        <section id="groupAdminDashboard" class="card" hidden>
+            <h2>Gestion du compte AVEC — <span id="adminGroupName">Groupe</span></h2>
+            <p class="field-hint">Réservé au président, vice-président et comptable. Cet espace gère les fonds communs ; il ne remplace pas votre espace membre.</p>
+            <div class="wallet-grid"><div class="wallet-card"><strong>Wallet AVEC — <span id="adminGroupWalletName">Groupe</span></strong><span id="groupWallet">0</span><small id="groupRole">Personnel autorisé</small></div></div>
+            <nav class="group-action-nav" aria-label="Gestion AVEC">
+                <button id="showGroupMovements" class="btn btn-secondary" type="button">Registre du groupe</button>
+                <button id="showCreditRequests" class="btn btn-secondary" type="button">Demandes de crédit</button>
+                <button id="closeCycle" class="btn btn-warning" type="button">Clôturer le cycle</button>
+                <button id="distributeCycle" class="btn btn-primary" type="button">Partager le cycle</button>
+                <button id="showGroupSettings" class="btn btn-secondary" type="button">Paramètres et règles</button>
+            </nav>
+            <section id="groupSettingsSection" class="group-member-panel" hidden>
+                <h3>Paramètres et règles de gestion</h3>
+                <form id="groupSettingsForm"><div class="form-group"><label for="cycleLength">Durée du cycle (mois)</label><input id="cycleLength" type="number" min="1" max="36" required></div><button class="btn btn-primary">Enregistrer les règles</button></form>
+            </section>
+            <section id="creditRequestsSection" class="group-member-panel" hidden><h3>Demandes de crédit des membres</h3><div id="creditRequestsList" class="member-list"></div></section>
+        </section>
+
         <section id="actionSection" class="card" hidden><h2 id="actionTitle">Opération</h2><form id="actionForm"><div id="amountField" class="form-group"><label for="actionAmount">Montant</label><input id="actionAmount" type="number" min="0.01" step="0.01" required></div><div id="reasonField" class="form-group" hidden><label for="actionReason">Motif</label><textarea id="actionReason" maxlength="500"></textarea></div><button class="btn btn-primary">Valider</button></form></section>
-        <section id="movementSection" class="card" hidden><h2>Vos mouvements</h2><p class="field-hint">Les opérations sont classées par mois et par année.</p><div id="movementList" class="member-list"></div></section>
+        <section id="movementSection" class="card" hidden><h2 id="movementTitle">Registre</h2><p class="field-hint">Les opérations sont classées par mois et année.</p><div id="movementList" class="member-list"></div></section>
         <section id="chatSection" class="card" hidden><h2>Discussion de l’AVEC</h2><div id="groupChat" class="chat-window" aria-live="polite"></div><form id="groupChatForm"><label for="groupMessage">Message</label><textarea id="groupMessage" maxlength="1000" required></textarea><button class="btn btn-primary">Envoyer</button></form></section>
     </main>
     <script src="group.js"></script>
