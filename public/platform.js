@@ -108,7 +108,9 @@ function show(screen, { history = true } = {}) {
         heading.focus({ preventScroll: true });
     }
     if (screen === 'groupsScreen') loadGroups().catch(error => alert(error.message));
-    if (screen === 'walletScreen') loadWalletTopups().catch(error => notice(error.message));
+    if (screen === 'walletScreen') {
+        Promise.all([loadWalletTopups(), loadAccountHistory()]).catch(error => notice(error.message));
+    }
     if (screen === 'friendsScreen') loadFriends().catch(error => alert(error.message));
     if (screen === 'feedScreen') loadFeed().catch(error => alert(error.message));
     if (screen === 'contentScreen') loadPaidContentPrices().catch(error => notice(error.message));
@@ -192,6 +194,36 @@ async function loadWalletTopups() {
         history.appendChild(item);
     });
 }
+function historyBlock(container, title, entries) {
+    if (!entries.length) return;
+    const heading = document.createElement('h5');
+    heading.textContent = title;
+    container.appendChild(heading);
+    entries.forEach(entry => {
+        const row = document.createElement('p');
+        row.className = 'field-hint';
+        row.textContent = entry;
+        container.appendChild(row);
+    });
+}
+async function loadAccountHistory() {
+    const data = await request('/api/platform/account-history');
+    const history = $p('platformAccountHistory');
+    history.replaceChildren();
+    historyBlock(history, 'Rechargements', data.topups.map(topup =>
+        `${topup.provider === 'momo_sandbox' ? 'Momo' : 'Carte'} · +${(topup.amount_minor / 100).toFixed(2)} USD · ${topup.status}`
+    ));
+    historyBlock(history, 'Publications et publicités', data.contentPayments.map(payment =>
+        `${payment.content_type} : ${payment.title || 'sans titre'} · -${(payment.amount_minor / 100).toFixed(2)} USD · ${payment.status}`
+    ));
+    historyBlock(history, 'Transferts vers mes wallets AVEC', data.groupFundings.map(funding =>
+        `${funding.group_name} · ${funding.action} · ${new Date(funding.date).toLocaleDateString('fr-FR')}`
+    ));
+    historyBlock(history, 'Commentaires reçus sur mes publicités', data.receivedComments.map(comment =>
+        `${comment.commenter_prenom} ${comment.commenter_name} · ${comment.content_title || 'Publication'} : ${comment.body}`
+    ));
+    if (!history.childElementCount) history.textContent = 'Aucune activité pour le moment.';
+}
 async function createWalletTopup(event) {
     event.preventDefault();
     const data = await request('/api/wallet/topups', {
@@ -203,6 +235,7 @@ async function createWalletTopup(event) {
     $p('walletTopupStatus').textContent = 'Rechargement créé. Confirmez-le en SANDBOX pour créditer votre portefeuille.';
     $p('simulateWalletTopup').hidden = false;
     await loadWalletTopups();
+    await loadAccountHistory();
 }
 async function confirmWalletTopup() {
     if (!pendingWalletTopupId) throw new Error('Créez d’abord un rechargement.');
@@ -213,6 +246,7 @@ async function confirmWalletTopup() {
     $p('simulateWalletTopup').hidden = true;
     $p('walletTopupStatus').textContent = 'Portefeuille crédité en SANDBOX.';
     await loadWalletTopups();
+    await loadAccountHistory();
 }
 async function enter() {
     await loadProfile();

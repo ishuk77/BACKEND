@@ -2903,6 +2903,55 @@ app.get('/api/platform/wallet/summary', authenticateAccount, (req, res) => {
         }
     );
 });
+app.get('/api/platform/account-history', authenticateAccount, (req, res) => {
+    db.all(
+        `SELECT payment_id, provider, amount_minor, currency, status, confirmed_at, created_at
+         FROM wallet_topups WHERE account_id = ? ORDER BY created_at DESC LIMIT 50`,
+        [req.account.id],
+        (topupErr, topups) => {
+            if (topupErr) return res.status(500).json({ error: topupErr.message });
+            db.all(
+                `SELECT p.payment_id, p.provider, p.amount_minor, p.currency, p.status, p.created_at,
+                        c.id AS content_id, c.content_type, c.title
+                 FROM paid_public_content_payments p
+                 JOIN paid_public_contents c ON c.id = p.content_id
+                 WHERE p.account_id = ? ORDER BY p.created_at DESC LIMIT 50`,
+                [req.account.id],
+                (contentErr, contentPayments) => {
+                    if (contentErr) return res.status(500).json({ error: contentErr.message });
+                    db.all(
+                        `SELECT h.id, h.action, h.date, g.name AS group_name
+                         FROM history h
+                         JOIN platform_account_memberships pam
+                           ON pam.member_id = h.member_id AND pam.group_id = h.group_id AND pam.status = 'active'
+                         JOIN groups g ON g.id = h.group_id
+                         WHERE pam.account_id = ? AND h.action LIKE 'Alimentation du wallet AVEC depuis la plateforme:%'
+                         ORDER BY h.date DESC LIMIT 50`,
+                        [req.account.id],
+                        (fundingErr, groupFundings) => {
+                            if (fundingErr) return res.status(500).json({ error: fundingErr.message });
+                            db.all(
+                                `SELECT c.id, c.body, c.moderation_status, c.created_at,
+                                        p.id AS content_id, p.title AS content_title, p.content_type,
+                                        commenter.prenom AS commenter_prenom, commenter.name AS commenter_name
+                                 FROM public_item_comments c
+                                 JOIN paid_public_contents p ON p.id = c.content_id
+                                 JOIN platform_accounts commenter ON commenter.id = c.author_account_id
+                                 WHERE c.source = 'member_content' AND p.author_account_id = ?
+                                 ORDER BY c.created_at DESC LIMIT 100`,
+                                [req.account.id],
+                                (commentErr, receivedComments) => {
+                                    if (commentErr) return res.status(500).json({ error: commentErr.message });
+                                    res.json({ topups, contentPayments, groupFundings, receivedComments, sandbox: true });
+                                }
+                            );
+                        }
+                    );
+                }
+            );
+        }
+    );
+});
 app.post('/api/platform/wallet/transfers', authenticateAccount, (req, res) => {
     const recipientIdentifier = safeText(req.body.recipient_identifier, 80);
     const amountMinor = Math.round(Number(req.body.amount) * 100);
@@ -6627,6 +6676,15 @@ app.post('/api/public/news/member_content/:contentId/comments', authenticateAcco
                                                 if (receiptErr) return rollbackPaidContent(receiptErr, complete);
                                                 db.run('COMMIT', commitErr => {
                                                     if (commitErr) return complete(500, { error: commitErr.message });
+                                                    if (Number(content.author_account_id) !== Number(req.account.id)) {
+                                                        notifyAccount(
+                                                            content.author_account_id,
+                                                            'member_content_comment',
+                                                            `${req.account.prenom} a commenté votre publicité ou publication.`,
+                                                            'member_content_comment',
+                                                            commentId
+                                                        );
+                                                    }
                                                     complete(201, {
                                                         id: commentId,
                                                         moderation_status: classification.status,

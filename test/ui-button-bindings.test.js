@@ -82,6 +82,8 @@ test('navigation groups actions without exposing platform administration publicl
     assert.doesNotMatch(publicLanding, /<details class="action-menu"/);
     ['Profil et paramètres', 'Groupe', 'Collaboration', 'Social'].forEach(label => assert.match(memberPortal, new RegExp(`<summary>${label}`)));
     assert.match(memberPortal, /data-screen="walletScreen"/);
+    assert.match(memberPortal, /Historique de mon compte plateforme/);
+    assert.match(memberPortal, /id="platformAccountHistory"/);
     assert.match(memberPortal, /<nav class="portal-mobile-subnav" aria-label="Sous-menu profil et portefeuille">/);
     assert.match(groupPortal, /id="memberDashboard"/);
     assert.match(groupPortal, /id="groupAdminDashboard"/);
@@ -94,7 +96,7 @@ test('navigation groups actions without exposing platform administration publicl
     assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
     assert.match(memberPortal, /<section id="portalSection" class="card" hidden>/);
     assert.match(fs.readFileSync(path.join(root, 'public', 'style.css'), 'utf8'), /#portalSection\[hidden\][\s\S]*?display: none/);
-    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v42/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v43/);
 });
 
 test('service worker refreshes the app shell from the network and falls back offline without caching API data', async () => {
