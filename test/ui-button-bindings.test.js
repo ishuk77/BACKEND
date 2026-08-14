@@ -85,7 +85,9 @@ test('navigation groups actions without exposing platform administration publicl
     assert.doesNotMatch(memberPortal.match(/<section id="profileScreen"[\s\S]*?<\/section>/)[0], /Mon wallet|Mon compte AVEC|Alimenter mon portefeuille/);
     ['Finance', 'Groupe', 'Collaboration', 'Social', 'Profil et paramètres'].forEach(label => assert.match(admin, new RegExp(`<summary>${label}`)));
     assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
-    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v38/);
+    assert.match(memberPortal, /<section id="portalSection" class="card" hidden>/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'style.css'), 'utf8'), /#portalSection\[hidden\][\s\S]*?display: none/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v39/);
 });
 
 test('service worker refreshes the app shell from the network and falls back offline without caching API data', async () => {

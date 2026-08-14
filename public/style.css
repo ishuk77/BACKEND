@@ -166,6 +166,10 @@ header {
     gap: 18px 24px;
     align-items: start;
 }
+#portalSection[hidden],
+#portalSection > .portal-screen[hidden] {
+    display: none;
+}
 #portalSection > .dashboard-heading { grid-column: 1 / -1; margin-bottom: 0; }
 #portalSection > .portal-nav {
     grid-column: 1;
