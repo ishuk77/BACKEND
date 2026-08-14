@@ -26,3 +26,11 @@ test('PostgreSQL baseline contains no SQLite-only schema syntax', () => {
     assert.match(migration, /CREATE TRIGGER financial_ledger_immutable_update/);
     assert.match(migration, /FOREIGN KEY \(group_id\) REFERENCES groups \(id\) DEFERRABLE INITIALLY IMMEDIATE/);
 });
+
+test('wallet transfer migration uses immutable minor-unit journal entries', () => {
+    const migration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '002_wallet_transfers.sql'), 'utf8');
+    assert.match(migration, /CREATE TABLE IF NOT EXISTS wallet_transfers/);
+    assert.match(migration, /CREATE TABLE IF NOT EXISTS wallet_journal_entries/);
+    assert.match(migration, /amount_minor BIGINT NOT NULL CHECK \(amount_minor > 0\)/);
+    assert.match(migration, /wallet_journal_entries_immutable_update/);
+});

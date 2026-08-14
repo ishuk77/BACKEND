@@ -98,27 +98,27 @@
                 <div class="action-menu-list" aria-label="Actions du membre">
                     <details class="action-menu" open>
                         <summary>Finance <span>Contributions, crédit et mouvements</span></summary>
-                        <div class="button-grid">
-                            <button class="btn btn-primary member-action" data-action="contribution" type="button">Contribuer</button>
-                            <button class="btn btn-warning member-action" data-action="credit" type="button">Demander un crédit</button>
-                            <button class="btn btn-success member-action" data-action="repayment" type="button">Rembourser</button>
-                            <button class="btn btn-secondary member-action" data-action="withdrawal" type="button">Retirer</button>
-                            <button id="btnMemberHistory" class="btn btn-secondary" type="button">Vos mouvements</button>
-                            <button class="btn btn-danger member-action" data-action="fraud" type="button">Signaler une fraude</button>
+                        <div class="button-grid icon-grid">
+                            <button class="btn btn-primary member-action icon-button" data-action="contribution" type="button" aria-label="Contribuer" title="Contribuer"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#wallet"></use></svg><span class="sr-only">Contribuer</span></button>
+                            <button class="btn btn-warning member-action icon-button" data-action="credit" type="button" aria-label="Demander un crédit" title="Demander un crédit"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#loan"></use></svg><span class="sr-only">Demander un crédit</span></button>
+                            <button class="btn btn-success member-action icon-button" data-action="repayment" type="button" aria-label="Rembourser" title="Rembourser"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#wallet"></use></svg><span class="sr-only">Rembourser</span></button>
+                            <button class="btn btn-secondary member-action icon-button" data-action="withdrawal" type="button" aria-label="Retirer" title="Retirer"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#wallet"></use></svg><span class="sr-only">Retirer</span></button>
+                            <button id="btnMemberHistory" class="btn btn-secondary icon-button" type="button" aria-label="Vos mouvements" title="Vos mouvements"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#history"></use></svg><span class="sr-only">Vos mouvements</span></button>
+                            <button class="btn btn-danger member-action icon-button" data-action="fraud" type="button" aria-label="Signaler une fraude" title="Signaler une fraude"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#alert"></use></svg><span class="sr-only">Signaler une fraude</span></button>
                         </div>
                     </details>
                     <details class="action-menu">
                         <summary>Groupe <span>Décisions et vie de l’AVEC</span></summary>
-                        <div class="button-grid">
-                            <button id="btnElections" class="btn btn-secondary" type="button">Élections du groupe</button>
+                        <div class="button-grid icon-grid">
+                            <button id="btnElections" class="btn btn-secondary icon-button" type="button" aria-label="Élections du groupe" title="Élections du groupe"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#groups"></use></svg><span class="sr-only">Élections du groupe</span></button>
                         </div>
                     </details>
                     <details class="action-menu">
                         <summary>Collaboration <span>Échanges et agenda du groupe</span></summary>
-                        <div class="button-grid">
-                            <button id="btnChat" class="btn btn-info" type="button">Chat du groupe</button>
-                            <button id="btnCollaboration" class="btn btn-info" type="button">Collaboration et agenda</button>
-                            <button id="btnPlatformConversation" class="btn btn-info" type="button" hidden>Messages de la plateforme</button>
+                        <div class="button-grid icon-grid">
+                            <button id="btnChat" class="btn btn-info icon-button" type="button" aria-label="Chat du groupe" title="Chat du groupe"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#chat"></use></svg><span class="sr-only">Chat du groupe</span></button>
+                            <button id="btnCollaboration" class="btn btn-info icon-button" type="button" aria-label="Collaboration et agenda" title="Collaboration et agenda"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#calendar"></use></svg><span class="sr-only">Collaboration et agenda</span></button>
+                            <button id="btnPlatformConversation" class="btn btn-info icon-button" type="button" hidden aria-label="Messages de la plateforme" title="Messages de la plateforme"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#chat"></use></svg><span class="sr-only">Messages de la plateforme</span></button>
                         </div>
                     </details>
                 </div>
@@ -128,12 +128,12 @@
                 <h3>Administration du groupe</h3>
                 <details class="action-menu">
                     <summary>Groupe <span>Membres, cycle et suivi</span></summary>
-                    <div class="button-grid">
-                        <button id="btnAddMember" class="btn btn-primary" type="button">Inviter / admettre un membre</button>
-                        <button id="btnManageCycle" class="btn btn-secondary" type="button">Gérer le cycle</button>
-                        <button id="btnViewStats" class="btn btn-info" type="button">Voir les statistiques</button>
-                        <button id="btnMembers" class="btn btn-secondary" type="button">Voir les membres</button>
-                        <button id="btnRequestReview" class="btn btn-warning" type="button" hidden>Demander une révision à la plateforme</button>
+                    <div class="button-grid icon-grid">
+                        <button id="btnAddMember" class="btn btn-primary icon-button" type="button" aria-label="Inviter ou admettre un membre" title="Inviter ou admettre un membre"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#groups"></use></svg><span class="sr-only">Inviter ou admettre un membre</span></button>
+                        <button id="btnManageCycle" class="btn btn-secondary icon-button" type="button" aria-label="Gérer le cycle" title="Gérer le cycle"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#calendar"></use></svg><span class="sr-only">Gérer le cycle</span></button>
+                        <button id="btnViewStats" class="btn btn-info icon-button" type="button" aria-label="Voir les statistiques" title="Voir les statistiques"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#admin"></use></svg><span class="sr-only">Voir les statistiques</span></button>
+                        <button id="btnMembers" class="btn btn-secondary icon-button" type="button" aria-label="Voir les membres" title="Voir les membres"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#groups"></use></svg><span class="sr-only">Voir les membres</span></button>
+                        <button id="btnRequestReview" class="btn btn-warning icon-button" type="button" hidden aria-label="Demander une révision à la plateforme" title="Demander une révision à la plateforme"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#alert"></use></svg><span class="sr-only">Demander une révision à la plateforme</span></button>
                     </div>
                 </details>
             </div>

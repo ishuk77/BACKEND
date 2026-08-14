@@ -14,9 +14,15 @@ La vérification actuelle est explicitement une **SANDBOX** : demander le code n
 
 Après création réussie, la session membre du président est enregistrée et redirigée vers `index.html`, le tableau de bord du groupe créé; il peut ensuite revenir à l’espace membre canonique.
 
-L’espace membre sépare explicitement le **portefeuille interne AVEC (SANDBOX)** du **portefeuille Momo affiché (SANDBOX)**. Aucun solde Momo n’est réel et aucune route ne contacte un opérateur. Il inclut profil et photo protégée, découverte selon la visibilité choisie, connexions, messages directs réservés aux contacts, fil social avec images, agenda social et notifications. Les administrateurs modèrent uniquement les publications signalées: les messages privés ne sont jamais visibles en administration.
+L’espace membre sépare explicitement le **portefeuille interne AVEC (SANDBOX)** du **portefeuille Momo affiché (SANDBOX)**. Aucun solde Momo n’est réel et aucune route ne contacte un opérateur. Les transferts entre membres du portefeuille interne sont atomiques, idempotents et inscrits en double écriture append-only, uniquement dans la devise commune des deux portefeuilles. Il inclut profil et photo protégée, découverte selon la visibilité choisie, connexions, messages directs réservés aux contacts, fil social avec images, agenda social et notifications. Les administrateurs modèrent uniquement les publications signalées: les messages privés ne sont jamais visibles en administration.
 
 Les images de profil et du fil sont limitées à 3 Mo, contrôlées par type et signature, renommées aléatoirement et accessibles seulement par une route authentifiée. En hébergement, conservez `uploads/` sur un volume privé, persistant et sauvegardé; ne le publiez jamais comme dossier statique.
+
+### Ledger et transferts internes
+
+`POST /api/platform/wallet/transfers` transfère le portefeuille interne entre deux identifiants de membres. Il exige `recipient_identifier`, `amount`, `currency` et un en-tête `Idempotency-Key`. Le débit, le crédit et les deux écritures du journal sont validés dans une seule transaction. `GET /api/platform/wallet/transfers` fournit l’historique du membre, `GET /api/platform/wallet/summary` ses totaux, et `GET /api/platform/notifications/stream` diffuse les nouvelles notifications persistées par SSE avec l’authentification habituelle.
+
+`GET /api/admin/financial-report` fournit aux administrateurs plateforme les indicateurs financiers et risque consolidés. Les montants Momo restent SANDBOX : ce rapport ne constitue ni une réconciliation opérateur ni un relevé bancaire.
 
 ## Actualités & publicités publiques
 

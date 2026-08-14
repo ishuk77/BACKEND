@@ -391,6 +391,30 @@ fieldset.form-group legend {
     margin-bottom: 20px;
 }
 
+.button-grid.icon-grid {
+    grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
+}
+
+.icon-button {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-icon {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    flex: 0 0 auto;
+}
+
+.icon-button:hover .action-icon {
+    transform: translateY(-1px);
+}
+
 .notifications {
     background-color: #fff3cd;
     border: 1px solid #ffeaa7;
@@ -782,6 +806,10 @@ fieldset.form-group legend {
     
     .button-grid {
         grid-template-columns: 1fr;
+    }
+
+    .button-grid.icon-grid {
+        grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
     }
 
     .action-menu summary {

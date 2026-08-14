@@ -83,6 +83,7 @@ const databaseReady = new Promise((resolve, reject) => {
     rejectDatabaseReady = reject;
 });
 const db = createDatabase({ databaseUrl: DATABASE_URL, databasePath: DATABASE_PATH });
+const notificationStreams = new Map();
 
 db.ready
     .then(async () => {
@@ -245,6 +246,7 @@ function initDatabase(onReady) {
             availability TEXT NOT NULL DEFAULT 'offline' CHECK (availability IN ('online', 'offline', 'busy')),
             internal_wallet REAL NOT NULL DEFAULT 0,
             momo_wallet REAL NOT NULL DEFAULT 0,
+            wallet_currency TEXT NOT NULL DEFAULT 'USD',
             avatar_media_id INTEGER,
             refresh_token TEXT,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -852,6 +854,32 @@ function initDatabase(onReady) {
             details_json TEXT NOT NULL DEFAULT '{}',
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )`, logDatabaseError('creating financial_audit_log table'));
+        db.run(`CREATE TABLE IF NOT EXISTS wallet_transfers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            transfer_id TEXT NOT NULL UNIQUE,
+            idempotency_key TEXT NOT NULL UNIQUE,
+            sender_account_id INTEGER NOT NULL,
+            recipient_account_id INTEGER NOT NULL,
+            amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+            currency TEXT NOT NULL,
+            memo TEXT,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CHECK (sender_account_id <> recipient_account_id),
+            FOREIGN KEY (sender_account_id) REFERENCES platform_accounts(id),
+            FOREIGN KEY (recipient_account_id) REFERENCES platform_accounts(id)
+        )`, logDatabaseError('creating wallet transfers table'));
+        db.run(`CREATE TABLE IF NOT EXISTS wallet_journal_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id TEXT NOT NULL UNIQUE,
+            transfer_id TEXT NOT NULL,
+            account_id INTEGER NOT NULL,
+            entry_type TEXT NOT NULL CHECK (entry_type IN ('debit', 'credit')),
+            amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+            currency TEXT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (transfer_id) REFERENCES wallet_transfers(transfer_id),
+            FOREIGN KEY (account_id) REFERENCES platform_accounts(id)
+        )`, logDatabaseError('creating wallet journal table'));
         db.run(`CREATE TABLE IF NOT EXISTS deployment_settings (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             public_base_url TEXT NOT NULL DEFAULT '',
@@ -886,6 +914,9 @@ function initDatabase(onReady) {
         db.run('CREATE INDEX IF NOT EXISTS idx_financial_ledger_group_created ON financial_ledger (group_id, created_at DESC)', logDatabaseError('creating ledger index'));
         db.run('CREATE INDEX IF NOT EXISTS idx_payment_events_transaction ON payment_events (transaction_id, created_at DESC)', logDatabaseError('creating payment events index'));
         db.run('CREATE INDEX IF NOT EXISTS idx_payment_operations_group ON payment_operations (group_id, created_at DESC)', logDatabaseError('creating operations index'));
+        db.run('CREATE INDEX IF NOT EXISTS idx_wallet_transfers_sender_created ON wallet_transfers(sender_account_id, created_at DESC)', logDatabaseError('creating wallet transfer sender index'));
+        db.run('CREATE INDEX IF NOT EXISTS idx_wallet_transfers_recipient_created ON wallet_transfers(recipient_account_id, created_at DESC)', logDatabaseError('creating wallet transfer recipient index'));
+        db.run('CREATE INDEX IF NOT EXISTS idx_wallet_journal_account_created ON wallet_journal_entries(account_id, created_at DESC)', logDatabaseError('creating wallet journal index'));
         db.run(`CREATE TRIGGER IF NOT EXISTS financial_ledger_immutable_update
                 BEFORE UPDATE ON financial_ledger BEGIN SELECT RAISE(ABORT, 'financial_ledger is append-only'); END`, logDatabaseError('protecting financial ledger updates'));
         db.run(`CREATE TRIGGER IF NOT EXISTS financial_ledger_immutable_delete
@@ -902,6 +933,14 @@ function initDatabase(onReady) {
                 BEFORE UPDATE ON financial_audit_log BEGIN SELECT RAISE(ABORT, 'financial_audit_log is append-only'); END`, logDatabaseError('protecting financial audit updates'));
         db.run(`CREATE TRIGGER IF NOT EXISTS financial_audit_log_immutable_delete
                 BEFORE DELETE ON financial_audit_log BEGIN SELECT RAISE(ABORT, 'financial_audit_log is append-only'); END`, logDatabaseError('protecting financial audit deletes'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS wallet_transfers_immutable_update
+                BEFORE UPDATE ON wallet_transfers BEGIN SELECT RAISE(ABORT, 'wallet_transfers are append-only'); END`, logDatabaseError('protecting wallet transfers updates'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS wallet_transfers_immutable_delete
+                BEFORE DELETE ON wallet_transfers BEGIN SELECT RAISE(ABORT, 'wallet_transfers are append-only'); END`, logDatabaseError('protecting wallet transfers deletes'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS wallet_journal_entries_immutable_update
+                BEFORE UPDATE ON wallet_journal_entries BEGIN SELECT RAISE(ABORT, 'wallet_journal_entries are append-only'); END`, logDatabaseError('protecting wallet journal updates'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS wallet_journal_entries_immutable_delete
+                BEFORE DELETE ON wallet_journal_entries BEGIN SELECT RAISE(ABORT, 'wallet_journal_entries are append-only'); END`, logDatabaseError('protecting wallet journal deletes'));
 
         migratePlatformMomo();
         migrateChatMessages();
@@ -925,6 +964,7 @@ function initDatabase(onReady) {
             ['members', 'refresh_token', 'TEXT'],
             ['members', 'credit_request', 'TEXT'],
             ['members', 'role_origin', "TEXT NOT NULL DEFAULT 'member'"],
+            ['platform_accounts', 'wallet_currency', "TEXT NOT NULL DEFAULT 'USD'"],
             ['social_posts', 'moderation_status', "TEXT NOT NULL DEFAULT 'approved'"],
             ['social_posts', 'moderation_reason', 'TEXT'],
             ['social_posts', 'review_tag', 'TEXT'],
@@ -2061,6 +2101,7 @@ function accountPublicResponse(account, includeWallet = false) {
         result.phone = account.phone;
         result.internal_wallet = Number(account.internal_wallet || 0);
         result.momo_wallet = Number(account.momo_wallet || 0);
+        result.wallet_currency = account.wallet_currency || 'USD';
         result.status = account.status;
     }
     return result;
@@ -2198,7 +2239,16 @@ function notifyAccount(accountId, kind, message, referenceType = null, reference
     db.run(
         'INSERT INTO account_notifications (account_id, kind, message, reference_type, reference_id) VALUES (?, ?, ?, ?, ?)',
         [accountId, kind, message, referenceType, referenceId],
-        logDatabaseError('creating account notification')
+        function notificationCreated(err) {
+            if (err) return logDatabaseError('creating account notification')(err);
+            const streams = notificationStreams.get(Number(accountId));
+            if (!streams) return;
+            const notification = {
+                id: this.lastID, account_id: Number(accountId), kind, message,
+                reference_type: referenceType, reference_id: referenceId, created_at: new Date().toISOString()
+            };
+            for (const stream of streams) stream.write(`event: notification\ndata: ${JSON.stringify(notification)}\n\n`);
+        }
     );
 }
 
@@ -2694,6 +2744,125 @@ app.get('/api/wallet/topups', authenticateAccount, (req, res) => {
     db.all(`SELECT payment_id, provider, amount_minor, currency, status, confirmed_at, created_at
             FROM wallet_topups WHERE account_id = ? ORDER BY created_at DESC LIMIT 20`,
     [req.account.id], (err, topups) => err ? res.status(500).json({ error: err.message }) : res.json({ topups, sandbox: true }));
+});
+app.get('/api/platform/wallet/transfers', authenticateAccount, (req, res) => {
+    db.all(
+        `SELECT t.transfer_id, t.amount_minor, t.currency, t.memo, t.created_at,
+                t.sender_account_id, t.recipient_account_id,
+                sender.identifier AS sender_identifier, recipient.identifier AS recipient_identifier
+         FROM wallet_transfers t
+         JOIN platform_accounts sender ON sender.id = t.sender_account_id
+         JOIN platform_accounts recipient ON recipient.id = t.recipient_account_id
+         WHERE t.sender_account_id = ? OR t.recipient_account_id = ?
+         ORDER BY t.created_at DESC LIMIT 50`,
+        [req.account.id, req.account.id],
+        (err, transfers) => err ? res.status(500).json({ error: err.message }) : res.json({ transfers })
+    );
+});
+app.get('/api/platform/wallet/summary', authenticateAccount, (req, res) => {
+    db.get(
+        `SELECT
+            COALESCE(SUM(CASE WHEN entry_type = 'credit' THEN amount_minor ELSE 0 END), 0) AS received_minor,
+            COALESCE(SUM(CASE WHEN entry_type = 'debit' THEN amount_minor ELSE 0 END), 0) AS sent_minor,
+            COUNT(*) AS journal_entries
+         FROM wallet_journal_entries WHERE account_id = ?`,
+        [req.account.id],
+        (err, journal) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({
+                wallet: {
+                    balance_minor: Math.round(Number(req.account.internal_wallet || 0) * 100),
+                    currency: req.account.wallet_currency || 'USD',
+                    received_minor: Number(journal.received_minor),
+                    sent_minor: Number(journal.sent_minor),
+                    journal_entries: Number(journal.journal_entries)
+                }
+            });
+        }
+    );
+});
+app.post('/api/platform/wallet/transfers', authenticateAccount, (req, res) => {
+    const recipientIdentifier = safeText(req.body.recipient_identifier, 80);
+    const amountMinor = Math.round(Number(req.body.amount) * 100);
+    const currency = safeText(req.body.currency || req.account.wallet_currency || 'USD', 3);
+    const memo = req.body.memo === undefined || req.body.memo === '' ? null : safeText(req.body.memo, 140);
+    const idempotencyKey = paymentIdempotencyKey(req);
+    if (!recipientIdentifier || !Number.isSafeInteger(amountMinor) || amountMinor < 1 || !currency
+        || !/^[A-Z]{3}$/.test(currency) || (req.body.memo !== undefined && req.body.memo !== '' && !memo) || !idempotencyKey) {
+        return res.status(400).json({ error: 'Destinataire, montant, devise ISO et clé Idempotency-Key valides requis.' });
+    }
+
+    db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
+        if (beginErr) return res.status(500).json({ error: beginErr.message });
+        db.get('SELECT * FROM wallet_transfers WHERE idempotency_key = ?', [idempotencyKey], (replayErr, existing) => {
+            if (replayErr) {
+                db.run('ROLLBACK');
+                return res.status(500).json({ error: replayErr.message });
+            }
+            if (existing) {
+                db.run('COMMIT');
+                return res.json({ transfer: existing, idempotent_replay: true });
+            }
+            db.get('SELECT id, identifier, status, wallet_currency FROM platform_accounts WHERE identifier = ?', [recipientIdentifier], (recipientErr, recipient) => {
+                if (recipientErr || !recipient || recipient.status !== 'active' || Number(recipient.id) === Number(req.account.id)) {
+                    db.run('ROLLBACK');
+                    return res.status(recipientErr ? 500 : 400).json({ error: recipientErr ? recipientErr.message : 'Destinataire actif invalide.' });
+                }
+                if ((req.account.wallet_currency || 'USD') !== currency || (recipient.wallet_currency || 'USD') !== currency) {
+                    db.run('ROLLBACK');
+                    return res.status(409).json({ error: 'Les deux portefeuilles doivent utiliser la même devise.' });
+                }
+                const transferId = `WLT-${newSecureId()}`;
+                db.run(
+                    `UPDATE platform_accounts SET internal_wallet = internal_wallet - ?
+                     WHERE id = ? AND internal_wallet >= ? AND wallet_currency = ?`,
+                    [amountMinor / 100, req.account.id, amountMinor / 100, currency],
+                    function debitSender(debitErr) {
+                        if (debitErr || !this.changes) {
+                            db.run('ROLLBACK');
+                            return res.status(debitErr ? 500 : 409).json({ error: debitErr ? debitErr.message : 'Solde interne insuffisant.' });
+                        }
+                        db.run('UPDATE platform_accounts SET internal_wallet = internal_wallet + ? WHERE id = ? AND wallet_currency = ?',
+                            [amountMinor / 100, recipient.id, currency], function creditRecipient(creditErr) {
+                                if (creditErr || !this.changes) {
+                                    db.run('ROLLBACK');
+                                    return res.status(creditErr ? 500 : 409).json({ error: creditErr ? creditErr.message : 'Portefeuille destinataire indisponible.' });
+                                }
+                                db.run(
+                                    `INSERT INTO wallet_transfers
+                                     (transfer_id, idempotency_key, sender_account_id, recipient_account_id, amount_minor, currency, memo)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                                    [transferId, idempotencyKey, req.account.id, recipient.id, amountMinor, currency, memo],
+                                    transferErr => {
+                                        if (transferErr) {
+                                            db.run('ROLLBACK');
+                                            return res.status(isConstraintError(transferErr) ? 409 : 500).json({ error: transferErr.message });
+                                        }
+                                        db.run(
+                                            `INSERT INTO wallet_journal_entries (entry_id, transfer_id, account_id, entry_type, amount_minor, currency)
+                                             VALUES (?, ?, ?, 'debit', ?, ?), (?, ?, ?, 'credit', ?, ?)`,
+                                            [newSecureId(), transferId, req.account.id, amountMinor, currency, newSecureId(), transferId, recipient.id, amountMinor, currency],
+                                            journalErr => {
+                                                if (journalErr) {
+                                                    db.run('ROLLBACK');
+                                                    return res.status(500).json({ error: journalErr.message });
+                                                }
+                                                db.run('COMMIT', commitErr => {
+                                                    if (commitErr) return res.status(500).json({ error: commitErr.message });
+                                                    notifyAccount(recipient.id, 'wallet_transfer_received', `Vous avez reçu ${(amountMinor / 100).toFixed(2)} ${currency}.`, 'wallet_transfer', transferId);
+                                                    res.status(201).json({ transfer: { transfer_id: transferId, recipient_identifier: recipient.identifier, amount_minor: amountMinor, currency, memo } });
+                                                });
+                                            }
+                                        );
+                                    }
+                                );
+                            }
+                        );
+                    }
+                );
+            });
+        });
+    }));
 });
 app.post('/api/wallet/topups', authenticateAccount, (req, res) => {
     const provider = String(req.body.provider || '');
@@ -4866,6 +5035,26 @@ app.put('/api/platform/invitations/:invitationId', authenticateAccount, (req, re
 app.get('/api/platform/notifications', authenticateAccount, (req, res) => {
     db.all('SELECT * FROM account_notifications WHERE account_id = ? ORDER BY created_at DESC LIMIT 50', [req.account.id], (err, notifications) => err ? res.status(500).json({ error: err.message }) : res.json({ notifications }));
 });
+app.get('/api/platform/notifications/stream', authenticateAccount, (req, res) => {
+    res.status(200).set({
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no'
+    });
+    res.flushHeaders();
+    res.write('event: ready\ndata: {}\n\n');
+    const accountId = Number(req.account.id);
+    const streams = notificationStreams.get(accountId) || new Set();
+    streams.add(res);
+    notificationStreams.set(accountId, streams);
+    const heartbeat = setInterval(() => res.write(': ping\n\n'), 25000);
+    req.on('close', () => {
+        clearInterval(heartbeat);
+        streams.delete(res);
+        if (!streams.size) notificationStreams.delete(accountId);
+    });
+});
 app.put('/api/platform/notifications/:notificationId/read', authenticateAccount, (req, res) => {
     db.run('UPDATE account_notifications SET read_at = CURRENT_TIMESTAMP WHERE id = ? AND account_id = ?', [req.params.notificationId, req.account.id], err => err ? res.status(500).json({ error: err.message }) : res.json({ ok: true }));
 });
@@ -5431,6 +5620,64 @@ app.put('/api/social/events/:eventId/invitation', authenticateAccount, (req, res
         if (!this.changes) return res.status(404).json({ error: 'Invitation introuvable' });
         res.json({ response });
     });
+});
+
+app.get('/api/admin/financial-report', authenticateToken, authorizeRole(['plateforme']), (_req, res) => {
+    db.get(
+        `SELECT
+            COUNT(*) AS account_count,
+            COALESCE(SUM(internal_wallet), 0) AS internal_wallet_total,
+            COALESCE(SUM(momo_wallet), 0) AS momo_wallet_total
+         FROM platform_accounts WHERE status = 'active'`,
+        [],
+        (accountsErr, accounts) => {
+            if (accountsErr) return res.status(500).json({ error: accountsErr.message });
+            db.get(
+                `SELECT COUNT(*) AS transfer_count, COALESCE(SUM(amount_minor), 0) AS transferred_minor
+                 FROM wallet_transfers`,
+                [],
+                (transfersErr, transfers) => {
+                    if (transfersErr) return res.status(500).json({ error: transfersErr.message });
+                    db.get(
+                        `SELECT COUNT(*) AS group_count,
+                                COALESCE(SUM(wallet), 0) AS group_wallet_total,
+                                COALESCE(SUM(CASE WHEN blocked = 1 THEN 1 ELSE 0 END), 0) AS blocked_group_count
+                         FROM groups`,
+                        [],
+                        (groupsErr, groups) => {
+                            if (groupsErr) return res.status(500).json({ error: groupsErr.message });
+                            db.get(
+                                `SELECT COUNT(*) AS fraud_report_count FROM fraud_reports`,
+                                [],
+                                (fraudErr, fraud) => {
+                                    if (fraudErr) return res.status(500).json({ error: fraudErr.message });
+                                    res.json({
+                                        generated_at: new Date().toISOString(),
+                                        accounts: {
+                                            active: Number(accounts.account_count),
+                                            internal_wallet_total: Number(accounts.internal_wallet_total),
+                                            momo_wallet_total: Number(accounts.momo_wallet_total)
+                                        },
+                                        transfers: {
+                                            count: Number(transfers.transfer_count),
+                                            amount_minor: Number(transfers.transferred_minor),
+                                            currency: 'USD'
+                                        },
+                                        groups: {
+                                            count: Number(groups.group_count),
+                                            wallet_total: Number(groups.group_wallet_total),
+                                            blocked: Number(groups.blocked_group_count)
+                                        },
+                                        risk: { fraud_reports: Number(fraud.fraud_report_count) }
+                                    });
+                                }
+                            );
+                        }
+                    );
+                }
+            );
+        }
+    );
 });
 
 // Platform moderation intentionally only exposes reported public content; direct
