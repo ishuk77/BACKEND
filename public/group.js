@@ -158,11 +158,23 @@ async function loadJoinRequests() {
         const details = document.createElement('span');
         details.textContent = `${request.prenom} ${request.name} · ${request.identifier}${request.note ? ` · ${request.note}` : ''}`;
         row.appendChild(details);
+        const existingGroups = String(request.existing_group_names || '').trim();
+        const outstandingCredit = Number(request.outstanding_credit || 0);
+        if (existingGroups) {
+            const warning = document.createElement('p');
+            warning.className = 'field-hint';
+            warning.textContent = `Déjà membre de : ${existingGroups}. Président(s) à contacter : ${request.existing_group_presidents || 'coordonnées indisponibles'}.${outstandingCredit > 0 ? ` Crédit restant : ${outstandingCredit.toFixed(2)} USD.` : ''}`;
+            row.appendChild(warning);
+        }
         ['Accepter', 'Refuser'].forEach((label, index) => {
             const button = document.createElement('button');
             button.className = `btn ${index ? 'btn-danger' : 'btn-primary'}`;
             button.type = 'button';
             button.textContent = label;
+            if (!index && outstandingCredit > 0) {
+                button.disabled = true;
+                button.title = 'L’acceptation est bloquée tant que le crédit de l’autre groupe n’est pas remboursé.';
+            }
             button.addEventListener('click', async () => {
                 button.disabled = true;
                 try {

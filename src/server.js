@@ -2612,6 +2612,17 @@ function canJoinAnotherGroup(accountId, callback) {
     );
 }
 
+function outstandingCreditOutsideGroup(accountId, groupId, callback) {
+    db.get(
+        `SELECT COALESCE(SUM(m.credit), 0) AS outstanding_credit
+         FROM platform_account_memberships pam
+         JOIN members m ON m.id = pam.member_id
+         WHERE pam.account_id = ? AND pam.status = 'active' AND pam.group_id <> ? AND m.credit > 0`,
+        [accountId, groupId],
+        (err, row) => callback(err, Number(row?.outstanding_credit || 0))
+    );
+}
+
 function addAccountToGroup(account, groupId, role, callback, options = {}) {
     const bootstrap = options.bootstrap === true;
     if (role !== 'membre' && !bootstrap) {
@@ -4939,7 +4950,20 @@ app.post('/api/groups/:groupId/invitations', authenticateToken, (req, res) => {
 app.get('/api/groups/:groupId/join-requests', authenticateToken, (req, res) => {
     requireActiveGroupStaff(req, res, req.params.groupId, () => {
         db.all(
-            `SELECT r.*, a.identifier, a.prenom, a.name, a.availability FROM group_join_requests r
+            `SELECT r.*, a.identifier, a.prenom, a.name, a.availability,
+                    (SELECT GROUP_CONCAT(g.name, ' | ')
+                     FROM platform_account_memberships existing
+                     JOIN groups g ON g.id = existing.group_id
+                     WHERE existing.account_id = r.account_id AND existing.status = 'active' AND existing.group_id <> r.group_id) AS existing_group_names,
+                    (SELECT GROUP_CONCAT(trim(p.prenom || ' ' || p.name) || ' (' || p.phone || ')', ' | ')
+                     FROM platform_account_memberships existing
+                     JOIN members p ON p.group_id = existing.group_id AND p.role = 'president'
+                     WHERE existing.account_id = r.account_id AND existing.status = 'active' AND existing.group_id <> r.group_id) AS existing_group_presidents,
+                    (SELECT COALESCE(SUM(m.credit), 0)
+                     FROM platform_account_memberships existing
+                     JOIN members m ON m.id = existing.member_id
+                     WHERE existing.account_id = r.account_id AND existing.status = 'active' AND existing.group_id <> r.group_id) AS outstanding_credit
+             FROM group_join_requests r
              JOIN platform_accounts a ON a.id = r.account_id
              WHERE r.group_id = ? ORDER BY r.created_at DESC`,
             [req.params.groupId],
@@ -4976,10 +5000,16 @@ app.put('/api/groups/:groupId/join-requests/:requestId', authenticateToken, (req
                     canJoinAnotherGroup(joinRequest.account_id, (eligibilityErr, blockedReason) => {
                         if (eligibilityErr) return res.status(500).json({ error: eligibilityErr.message });
                         if (blockedReason) return res.status(409).json({ error: blockedReason });
-                        addAccountToGroup({
-                            id: joinRequest.account_id, identifier: joinRequest.account_identifier, prenom: joinRequest.account_prenom,
-                            name: joinRequest.account_name, phone: joinRequest.account_phone, availability: joinRequest.account_availability
-                        }, req.params.groupId, 'membre', addErr => addErr ? res.status(409).json({ error: addErr.message }) : finish());
+                        outstandingCreditOutsideGroup(joinRequest.account_id, req.params.groupId, (creditErr, outstandingCredit) => {
+                            if (creditErr) return res.status(500).json({ error: creditErr.message });
+                            if (outstandingCredit > 0) {
+                                return res.status(409).json({ error: `Ce membre doit d’abord rembourser ${outstandingCredit.toFixed(2)} USD de crédit dans son autre groupe AVEC.` });
+                            }
+                            addAccountToGroup({
+                                id: joinRequest.account_id, identifier: joinRequest.account_identifier, prenom: joinRequest.account_prenom,
+                                name: joinRequest.account_name, phone: joinRequest.account_phone, availability: joinRequest.account_availability
+                            }, req.params.groupId, 'membre', addErr => addErr ? res.status(409).json({ error: addErr.message }) : finish());
+                        });
                     });
                 });
             }
@@ -5303,10 +5333,16 @@ app.put('/api/platform/join-requests/:requestId', authenticateAccount, (req, res
                 canJoinAnotherGroup(request.account_id, (eligibilityErr, blockedReason) => {
                     if (eligibilityErr) return res.status(500).json({ error: eligibilityErr.message });
                     if (blockedReason) return res.status(409).json({ error: blockedReason });
-                    addAccountToGroup({
-                        id: request.account_id, identifier: request.account_identifier, prenom: request.account_prenom,
-                        name: request.account_name, phone: request.account_phone, availability: request.account_availability
-                    }, request.group_id, 'membre', addErr => addErr ? res.status(409).json({ error: addErr.message }) : complete());
+                    outstandingCreditOutsideGroup(request.account_id, request.group_id, (creditErr, outstandingCredit) => {
+                        if (creditErr) return res.status(500).json({ error: creditErr.message });
+                        if (outstandingCredit > 0) {
+                            return res.status(409).json({ error: `Ce membre doit d’abord rembourser ${outstandingCredit.toFixed(2)} USD de crédit dans son autre groupe AVEC.` });
+                        }
+                        addAccountToGroup({
+                            id: request.account_id, identifier: request.account_identifier, prenom: request.account_prenom,
+                            name: request.account_name, phone: request.account_phone, availability: request.account_availability
+                        }, request.group_id, 'membre', addErr => addErr ? res.status(409).json({ error: addErr.message }) : complete());
+                    });
                 });
             });
         }

@@ -75,6 +75,7 @@ test('navigation groups actions without exposing platform administration publicl
     const publicLanding = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
     const memberPortal = fs.readFileSync(path.join(root, 'public', 'platform.html'), 'utf8');
     const groupPortal = fs.readFileSync(path.join(root, 'public', 'group.html'), 'utf8');
+    const groupScript = fs.readFileSync(path.join(root, 'public', 'group.js'), 'utf8');
     const admin = fs.readFileSync(path.join(root, 'public', 'admin.html'), 'utf8');
     const adminScript = fs.readFileSync(path.join(root, 'public', 'admin.js'), 'utf8');
 
@@ -92,13 +93,14 @@ test('navigation groups actions without exposing platform administration publicl
     assert.match(groupPortal, /Paramètres et règles de gestion/);
     assert.match(groupPortal, /Demandes d’adhésion/);
     assert.match(groupPortal, /id="joinRequestsList"/);
+    assert.match(groupScript, /Président\(s\) à contacter/);
     assert.match(memberPortal, /<section id="profileScreen"[\s\S]*?<h3>Accueil membre<\/h3>[\s\S]*?<\/section>/);
     assert.doesNotMatch(memberPortal.match(/<section id="profileScreen"[\s\S]*?<\/section>/)[0], /Mon wallet|Mon compte AVEC|Alimenter mon portefeuille/);
     ['Finance', 'Groupe', 'Collaboration', 'Social', 'Profil et paramètres'].forEach(label => assert.match(admin, new RegExp(`<summary>${label}`)));
     assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
     assert.match(memberPortal, /<section id="portalSection" class="card" hidden>/);
     assert.match(fs.readFileSync(path.join(root, 'public', 'style.css'), 'utf8'), /#portalSection\[hidden\][\s\S]*?display: none/);
-    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v44/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v45/);
 });
 
 test('service worker refreshes the app shell from the network and falls back offline without caching API data', async () => {
