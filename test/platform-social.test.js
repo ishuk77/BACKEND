@@ -83,6 +83,12 @@ test('platform account, group admission, social privacy, and moderation contract
 
     const join = await request('POST', `/api/platform/groups/${group.data.groupId}/join-requests`, { token: bob.data.accessToken, body: { note: 'Je souhaite participer.' } });
     assert.equal(join.status, 201);
+    const groupDashboard = await request('POST', `/api/platform/groups/${group.data.groupId}/dashboard`, { token: alice.data.accessToken, body: {} });
+    assert.equal(groupDashboard.status, 200);
+    const groupPending = await request('GET', `/api/groups/${group.data.groupId}/join-requests`, { token: groupDashboard.data.accessToken });
+    assert.equal(groupPending.status, 200);
+    assert.equal(groupPending.data.requests.length, 1);
+    assert.equal(groupPending.data.requests[0].account_id, bob.data.account.id);
     const pending = await request('GET', `/api/platform/groups/${group.data.groupId}/join-requests`, { token: alice.data.accessToken });
     assert.equal(pending.data.requests.length, 1);
     assert.equal((await request('PUT', `/api/platform/join-requests/${pending.data.requests[0].id}`, { token: alice.data.accessToken, body: { status: 'approved' } })).status, 200);

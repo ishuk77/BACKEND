@@ -58,6 +58,9 @@ async function loadGroup() {
     group$('groupRole').textContent = `Rôle : ${groupMember.role}`;
     group$('cycleLength').value = groupData.cycle_length || 6;
     group$('showGroupAdminDashboard').hidden = !isGroupStaff();
+    if (isGroupStaff()) {
+        loadJoinRequests().catch(error => { group$('groupStatus').textContent = error.message; });
+    }
 }
 
 function openAction(action) {
