@@ -9,19 +9,19 @@
         : `/api/public/news/social-media/${encodeURIComponent(id)}`;
     const demoItems = [
         {
-            type: 'Actualité locale',
+            type: 'Annonce membre',
             title: 'Bienvenue dans l’espace AVEC',
-            body: 'Retrouvez les annonces utiles, les initiatives des membres et les informations de votre communauté.'
+            body: 'Retrouvez les annonces et les produits proposés par les membres de votre communauté.'
         },
         {
             type: 'Exemple de publicité',
             title: 'Produits et services de proximité',
-            body: 'Les membres peuvent présenter leurs produits, leurs prix, leur disponibilité et leurs coordonnées après validation du paiement SANDBOX.'
+            body: 'Les membres peuvent présenter leurs produits, leurs prix, leur disponibilité et leurs coordonnées après débit de leur portefeuille SANDBOX.'
         },
         {
-            type: 'Exemple de contenu culturel',
-            title: 'Musique, photos et vidéos',
-            body: 'Partagez uniquement des contenus dont vous détenez les droits. Les contenus réels apparaîtront ici après publication et approbation.'
+            type: 'Exemple de publication membre',
+            title: 'Produits et services',
+            body: 'Partagez uniquement des contenus dont vous détenez les droits. Les contenus réels apparaîtront ici après leur publication.'
         }
     ];
     const renderDemoItems = () => {

@@ -217,6 +217,7 @@ async function confirmWalletTopup() {
 async function enter() {
     await loadProfile();
     await loadWalletTopups();
+    await loadGroups();
     $p('authSection').hidden = true;
     $p('portalSection').hidden = false;
     show('profileScreen', { history: false });
@@ -224,6 +225,10 @@ async function enter() {
 async function register(event) {
     event.preventDefault();
     if (!phoneVerificationTokens.register) throw new Error('Vérifiez le téléphone SANDBOX avant de créer le compte.');
+    const avatar = $p('registerAvatar').files[0];
+    if (!avatar || !['image/jpeg', 'image/png', 'image/webp'].includes(avatar.type) || avatar.size > 3 * 1024 * 1024) {
+        throw new Error('Prenez une photo JPEG, PNG ou WebP de votre visage, de 3 Mo maximum.');
+    }
     const data = await request('/api/platform/auth/register', { method: 'POST', body: JSON.stringify({
         prenom: $p('registerFirstName').value.trim(), name: $p('registerName').value.trim(),
         identityNumber: $p('registerIdentityNumber').value.trim(),
@@ -234,8 +239,9 @@ async function register(event) {
     }) });
     localStorage.setItem('platformAccessToken', data.accessToken);
     localStorage.setItem('platformRefreshToken', data.refreshToken);
+    await request('/api/profile/avatar', { method: 'POST', headers: { 'Content-Type': avatar.type, 'X-File-Name': avatar.name || 'photo-identite' }, body: avatar });
     await enter();
-    notice('Compte plateforme créé. Vous pouvez maintenant créer ou demander à rejoindre un groupe.');
+    notice('Compte membre créé avec votre photo. Rechargez votre wallet puis créez ou rejoignez une AVEC.');
 }
 async function login(event) {
     event.preventDefault();
@@ -290,15 +296,6 @@ async function saveSecurityProfile(event) {
     phoneVerificationTokens.profile = null;
     renderAccount();
     notice('Éléments de sécurité enregistrés.');
-}
-async function uploadAvatar(event) {
-    event.preventDefault();
-    const file = $p('avatarFile').files[0];
-    if (!file) throw new Error('Choisissez une image');
-    const data = await request('/api/profile/avatar', { method: 'POST', headers: { 'Content-Type': file.type, 'X-File-Name': file.name }, body: file });
-    account.avatar_media_id = data.media.id;
-    renderAccount();
-    notice('Photo enregistrée.');
 }
 function populateGroupCountries() {
     const select = $p('groupCountry');
@@ -443,6 +440,19 @@ async function loadGroups() {
         }
         return row;
     }));
+    const summary = $p('memberGroupSummary');
+    const group = mine.groups[0];
+    summary.innerHTML = group
+        ? `<strong>Mon compte AVEC</strong><span>${esc(group.name)}</span><small>${esc(group.role)}</small>`
+        : '<strong>Mon compte AVEC</strong><span>Aucun groupe</span><small>Rejoignez ou créez une AVEC pour accéder à son tableau de bord.</small>';
+    if (group) {
+        const button = document.createElement('button');
+        button.className = 'btn btn-primary';
+        button.type = 'button';
+        button.textContent = 'Se connecter à mon AVEC';
+        button.onclick = () => openGroupDashboard(group.id).catch(error => notice(error.message));
+        summary.appendChild(button);
+    }
 }
 function memberRow(member, discover = false) {
     const row = document.createElement('div');
@@ -463,6 +473,18 @@ async function search(event) {
     const results = await request(`/api/platform/members/search?q=${encodeURIComponent($p('memberSearch').value.trim())}`);
     $p('searchResults').replaceChildren(...results.members.map(member => memberRow(member, true)));
     hydrateProtectedMedia($p('searchResults'));
+}
+async function addContactByPhone(event) {
+    event.preventDefault();
+    const data = await request('/api/platform/contacts', {
+        method: 'POST',
+        body: JSON.stringify({ phone: $p('contactPhone').value.trim() })
+    });
+    $p('contactPhoneForm').reset();
+    $p('contactPhoneStatus').textContent = data.group_request_created
+        ? 'Contact ajouté. Une demande pour rejoindre son groupe AVEC a également été créée.'
+        : 'Demande de contact envoyée.';
+    await loadFriends();
 }
 function renderOnlineFriends() {
     const online = friends.filter(friend => friend.status === 'accepted' && friend.availability === 'online');
@@ -747,9 +769,14 @@ document.addEventListener('DOMContentLoaded', () => {
     $p('simulateWalletTopup').addEventListener('click', () => confirmWalletTopup().catch(error => notice(error.message)));
     $p('profileForm').addEventListener('submit', event => saveProfile(event).catch(error => alert(error.message)));
     $p('securityProfileForm').addEventListener('submit', event => saveSecurityProfile(event).catch(error => alert(error.message)));
-    $p('avatarForm').addEventListener('submit', event => uploadAvatar(event).catch(error => alert(error.message)));
+    $p('profileSettingsButton').addEventListener('click', () => {
+        const form = $p('profileForm');
+        form.hidden = !form.hidden;
+        if (!form.hidden) $p('profileAvailability').focus();
+    });
     $p('createGroupForm').addEventListener('submit', event => createGroup(event).catch(error => alert(error.message)));
     $p('searchForm').addEventListener('submit', event => search(event).catch(error => alert(error.message)));
+    $p('contactPhoneForm').addEventListener('submit', event => addContactByPhone(event).catch(error => { $p('contactPhoneStatus').textContent = error.message; }));
     $p('dmForm').addEventListener('submit', event => sendDm(event).catch(error => alert(error.message)));
     $p('dmAttachment').addEventListener('change', event => {
         selectedDmAttachment = event.target.files && event.target.files[0];

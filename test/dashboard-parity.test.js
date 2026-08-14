@@ -85,7 +85,7 @@ test('invited accounts use the portal group-dashboard contract', async () => {
     });
     assert.equal(selectedDashboard.status, 200);
     assert.deepEqual(selectedDashboard.data.dashboard, {
-        path: 'index.html', groupId: group.data.groupId, memberId: selectedDashboard.data.memberId
+        path: 'group.html', groupId: group.data.groupId, memberId: selectedDashboard.data.memberId
     });
     assert.equal(selectedDashboard.data.member.role, 'membre');
 

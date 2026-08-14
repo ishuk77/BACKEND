@@ -2690,7 +2690,7 @@ function createGroupForAccount(account, group, res) {
                         res.status(201).json({
                             groupId, memberId: member.id, member: memberResponse(member), ...tokens,
                             group: { id: groupId, name: groupName, country, province, city, currency: selection.countryInfo.currency },
-                            dashboard: { path: 'index.html', groupId, memberId: member.id },
+                            dashboard: { path: 'group.html', groupId, memberId: member.id },
                             president: accountPublicResponse(account)
                         });
                     });
@@ -3044,14 +3044,12 @@ app.post('/api/wallet/topups/:paymentId/simulate-confirmation', authenticateAcco
     }));
 });
 app.put('/api/platform/profile', authenticateAccount, (req, res) => {
-    const prenom = safeText(req.body.prenom, 80);
-    const name = safeText(req.body.name, 80);
     const visibility = String(req.body.visibility || '');
     const availability = String(req.body.availability || '');
-    if (!prenom || !name || !['public', 'friends', 'private'].includes(visibility) || !AVAILABILITY_VALUES.includes(availability)) {
+    if (!['public', 'friends', 'private'].includes(visibility) || !AVAILABILITY_VALUES.includes(availability)) {
         return res.status(400).json({ error: 'Profil invalide' });
     }
-    db.run('UPDATE platform_accounts SET prenom = ?, name = ?, visibility = ?, availability = ? WHERE id = ?', [prenom, name, visibility, availability, req.account.id], err => {
+    db.run('UPDATE platform_accounts SET visibility = ?, availability = ? WHERE id = ?', [visibility, availability, req.account.id], err => {
         if (err) return res.status(500).json({ error: err.message });
         db.get('SELECT * FROM platform_accounts WHERE id = ?', [req.account.id], (lookupErr, account) => lookupErr ? res.status(500).json({ error: lookupErr.message }) : res.json({ account: accountPublicResponse(account, true) }));
     });
@@ -5104,7 +5102,7 @@ app.post('/api/platform/groups/:groupId/dashboard', authenticateAccount, (req, r
                     memberId: member.id,
                     groupId: member.group_id,
                     member: memberResponse(member),
-                    dashboard: { path: 'index.html', groupId: member.group_id, memberId: member.id }
+                    dashboard: { path: 'group.html', groupId: member.group_id, memberId: member.id }
                 });
             });
         });
@@ -5356,6 +5354,43 @@ app.post('/api/platform/friends/requests', authenticateAccount, (req, res) => {
                 res.status(201).json({ id: this.lastID, status: 'pending' });
             }
         );
+    });
+
+    app.post('/api/platform/contacts', authenticateAccount, (req, res) => {
+        const phoneDetails = normalizePlatformPhone(null, safeText(req.body.phone, 30));
+        const phone = phoneDetails && phoneDetails.phone;
+        if (!phone) return res.status(400).json({ error: 'Numéro de téléphone invalide.' });
+        db.get('SELECT id, prenom FROM platform_accounts WHERE phone = ? AND status = ?', [phone, 'active'], (lookupErr, recipient) => {
+            if (lookupErr) return res.status(500).json({ error: lookupErr.message });
+            if (!recipient || Number(recipient.id) === Number(req.account.id)) return res.status(404).json({ error: 'Aucun autre compte AVEC actif ne correspond à ce numéro.' });
+            const [one, two] = [req.account.id, recipient.id].sort((a, b) => a - b);
+            db.run(
+                `INSERT INTO friendships (account_one_id, account_two_id, requested_by_account_id) VALUES (?, ?, ?)
+                 ON CONFLICT(account_one_id, account_two_id) DO UPDATE SET requested_by_account_id = excluded.requested_by_account_id, status = 'pending', responded_at = NULL`,
+                [one, two, req.account.id],
+                function contactRequest(err) {
+                    if (err) return res.status(500).json({ error: err.message });
+                    notifyAccount(recipient.id, 'friend_request', `${req.account.prenom} vous a ajouté·e depuis ses contacts.`, 'friendship', this.lastID);
+                    db.get(
+                        `SELECT pam.group_id FROM platform_account_memberships pam JOIN members m ON m.id = pam.member_id
+                         WHERE pam.account_id = ? AND pam.status = 'active' AND m.role = 'president' LIMIT 1`,
+                        [recipient.id],
+                        (groupErr, presidentGroup) => {
+                            if (groupErr) return res.status(500).json({ error: groupErr.message });
+                            if (!presidentGroup) return res.status(201).json({ status: 'pending', group_request_created: false });
+                            db.run(
+                                `INSERT INTO group_join_requests (group_id, account_id, note, status)
+                                 VALUES (?, ?, ?, 'pending') ON CONFLICT(group_id, account_id) DO NOTHING`,
+                                [presidentGroup.group_id, req.account.id, 'Demande créée depuis un contact président du groupe.'],
+                                joinErr => joinErr
+                                    ? res.status(500).json({ error: joinErr.message })
+                                    : res.status(201).json({ status: 'pending', group_request_created: true })
+                            );
+                        }
+                    );
+                }
+            );
+        });
     });
 });
 

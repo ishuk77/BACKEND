@@ -112,7 +112,7 @@ test('a verified creator receives the member dashboard navigation contract', asy
         body: groupBody
     });
     assert.equal(group.status, 201);
-    assert.deepEqual(group.data.dashboard, { path: 'index.html', groupId: group.data.groupId, memberId: group.data.memberId });
+    assert.deepEqual(group.data.dashboard, { path: 'group.html', groupId: group.data.groupId, memberId: group.data.memberId });
     assert.ok(group.data.accessToken);
     assert.ok(group.data.refreshToken);
 });

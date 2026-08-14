@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AVEC — Tableau de bord du groupe</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="app-header"><div><h1 id="groupTitle">Mon AVEC</h1><p id="groupStatus" role="status">Chargement du compte AVEC…</p></div><div class="header-actions"><a class="btn btn-secondary" href="platform.html">Retour à mon espace membre</a><button id="groupLogout" class="btn btn-secondary" type="button">Déconnexion</button></div></header>
+    <main class="container">
+        <section class="card">
+            <div class="wallet-grid"><div class="wallet-card"><strong>Wallet personnel AVEC</strong><span id="memberWallet">0</span><small>Solde disponible dans ce groupe</small><button class="btn btn-secondary" data-action="withdrawal" type="button">Retirer</button></div><div class="wallet-card"><strong>Compte AVEC</strong><span id="groupWallet">0</span><small id="groupRole">Membre</small></div></div>
+            <nav class="group-action-nav" aria-label="Actions du groupe"><button class="btn btn-primary" data-action="contribution" type="button">Contribuer</button><button class="btn btn-secondary" data-action="credit" type="button">Crédit</button><button class="btn btn-secondary" data-action="repayment" type="button">Rembourser</button><button id="showMovements" class="btn btn-secondary" type="button">Vos mouvements</button><button class="btn btn-danger" data-action="fraud" type="button">Fraude</button><button id="showChat" class="btn btn-secondary" type="button">Discussion du groupe</button></nav>
+        </section>
+        <section id="actionSection" class="card" hidden><h2 id="actionTitle">Opération</h2><form id="actionForm"><div id="amountField" class="form-group"><label for="actionAmount">Montant</label><input id="actionAmount" type="number" min="0.01" step="0.01" required></div><div id="reasonField" class="form-group" hidden><label for="actionReason">Motif</label><textarea id="actionReason" maxlength="500"></textarea></div><button class="btn btn-primary">Valider</button></form></section>
+        <section id="movementSection" class="card" hidden><h2>Vos mouvements</h2><p class="field-hint">Les opérations sont classées par mois et par année.</p><div id="movementList" class="member-list"></div></section>
+        <section id="chatSection" class="card" hidden><h2>Discussion de l’AVEC</h2><div id="groupChat" class="chat-window" aria-live="polite"></div><form id="groupChatForm"><label for="groupMessage">Message</label><textarea id="groupMessage" maxlength="1000" required></textarea><button class="btn btn-primary">Envoyer</button></form></section>
+    </main>
+    <script src="group.js"></script>
+</body>
+</html>

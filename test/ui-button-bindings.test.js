@@ -64,18 +64,11 @@ function hasListener(elements, id, type) {
     assert.ok(elements[id].listeners[type]?.length, `${id} needs a ${type} handler`);
 }
 
-test('public dashboard initializes every visible action and form target', () => {
-    const { elements } = loadPageScript('index.html', 'script.js');
-    [
-        'profileButton', 'btnCreateGroup', 'btnConnectGroup', 'btnLogout', 'btnChat',
-        'btnPlatformConversation', 'btnMemberHistory', 'btnAddMember', 'btnManageCycle',
-        'btnViewStats', 'btnMembers', 'btnRequestReview', 'setCycle', 'closeCycle', 'distributeCycle',
-        'btnCollaboration', 'btnAudioCall', 'btnVideoCall', 'btnGroupVideo', 'emojiPickerButton'
-    ].forEach(id => hasListener(elements, id, 'click'));
-    [
-        'loginForm', 'createGroupForm', 'profileForm', 'transactionForm',
-        'addMemberForm', 'chatForm', 'platformConversationForm', 'meetingForm'
-    ].forEach(id => hasListener(elements, id, 'submit'));
+test('public landing exposes no private dashboard controls', () => {
+    const publicLanding = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
+    assert.doesNotMatch(publicLanding, /script\.js/);
+    assert.doesNotMatch(publicLanding, /Profil et paramètres|Collaboration|adminDashboard|memberDashboard/);
+    assert.match(publicLanding, /Créer mon compte membre/);
 });
 
 test('navigation groups actions without exposing platform administration publicly', () => {
@@ -85,47 +78,11 @@ test('navigation groups actions without exposing platform administration publicl
     const adminScript = fs.readFileSync(path.join(root, 'public', 'admin.js'), 'utf8');
 
     assert.doesNotMatch(publicLanding, /href="admin\.html"/);
-    assert.match(publicLanding, /<details class="action-menu" open>/);
-    ['Finance', 'Groupe', 'Collaboration'].forEach(label => assert.match(publicLanding, new RegExp(`<summary>${label}`)));
+    assert.doesNotMatch(publicLanding, /<details class="action-menu"/);
     ['Profil et paramètres', 'Groupe', 'Collaboration', 'Social'].forEach(label => assert.match(memberPortal, new RegExp(`<summary>${label}`)));
     ['Finance', 'Groupe', 'Collaboration', 'Social', 'Profil et paramètres'].forEach(label => assert.match(admin, new RegExp(`<summary>${label}`)));
     assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
-    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v36/);
-});
-
-test('legacy group login opens the canonical platform portal', async () => {
-    const { elements, context, localStorage } = loadPageScript('index.html', 'script.js');
-    const requests = [];
-    elements.loginPhone.value = '+22992222223';
-    elements.loginPin.value = '2468';
-    let destination;
-    context.window.location.assign = path => { destination = path; };
-    context.fetch = async (url, options = {}) => {
-        requests.push({ url, options });
-        if (url.endsWith('/api/platform/auth/login')) {
-            return {
-                ok: true,
-                json: async () => ({
-                    accessToken: 'platform-access-token',
-                    refreshToken: 'platform-refresh-token',
-                    account: { id: 12, prenom: 'Membre', name: 'Test' }
-                })
-            };
-        }
-        throw new Error(`Unexpected request: ${url}`);
-    };
-
-    let prevented = false;
-    await elements.loginForm.listeners.submit[0]({ preventDefault() { prevented = true; } });
-
-    assert.equal(prevented, true);
-    assert.equal(requests[0].url, 'http://localhost/api/platform/auth/login');
-    assert.equal(requests[0].options.method, 'POST');
-    assert.equal(requests[0].options.headers['Content-Type'], 'application/json');
-    assert.equal(requests[0].options.body, JSON.stringify({ phone: '+22992222223', pin: '2468' }));
-    assert.equal(localStorage.getItem('platformAccessToken'), 'platform-access-token');
-    assert.equal(localStorage.getItem('platformRefreshToken'), 'platform-refresh-token');
-    assert.equal(destination, 'platform.html');
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v37/);
 });
 
 test('service worker refreshes the app shell from the network and falls back offline without caching API data', async () => {
@@ -203,7 +160,7 @@ test('member platform binds country-aware group creation and all chat controls',
     hasListener(elements, 'dmEmojiButton', 'click');
     hasListener(elements, 'dmMessages', 'click');
     [
-        'registerForm', 'platformLoginForm', 'profileForm', 'securityProfileForm', 'avatarForm', 'createGroupForm',
+        'registerForm', 'platformLoginForm', 'profileForm', 'securityProfileForm', 'createGroupForm', 'contactPhoneForm',
         'searchForm', 'dmForm', 'postForm', 'eventForm'
     ].forEach(id => hasListener(elements, id, 'submit'));
     assert.equal(typeof context.updateGroupMomoFields, 'function');
@@ -231,7 +188,7 @@ test('platform group creation stores the member session and opens the returned d
             json: async () => ({
                 accessToken: 'member-access-token',
                 refreshToken: 'member-refresh-token',
-                dashboard: { path: 'index.html', groupId: 42, memberId: 9 },
+                dashboard: { path: 'group.html', groupId: 42, memberId: 9 },
                 group: { name: 'Groupe navigation' }
             })
         };
@@ -241,5 +198,5 @@ test('platform group creation stores the member session and opens the returned d
     assert.equal(localStorage.getItem('refreshToken'), 'member-refresh-token');
     assert.equal(localStorage.getItem('groupId'), '42');
     assert.equal(localStorage.getItem('userId'), '9');
-    assert.equal(destination, 'index.html');
+    assert.equal(destination, 'group.html');
 });

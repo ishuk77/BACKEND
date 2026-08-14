@@ -1,4 +1,4 @@
-const CACHE_NAME = 'avec-microcredit-cache-v36';
+const CACHE_NAME = 'avec-microcredit-cache-v37';
 const ASSETS = [
   '.',
   'index.html',
@@ -11,6 +11,8 @@ const ASSETS = [
   'home-news.js',
   'platform.html',
   'platform.js',
+  'group.html',
+  'group.js',
   'manifest.json',
   'icon.svg',
   'icons.svg',

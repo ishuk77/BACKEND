@@ -5,7 +5,6 @@
     const filters = document.getElementById('newsFilters');
     const PAGE_SIZE = 20;
     let offset = 0;
-    let flashCategory = '';
 
     function dateLabel(value) {
         return value ? new Date(value).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '';
@@ -125,33 +124,6 @@
         await loadComments(item, target);
     }
 
-    async function loadFlashes() {
-        const locality = document.getElementById('newsLocality').value.trim();
-        if (locality) localStorage.setItem('avecPublicLocality', locality);
-        const params = new URLSearchParams();
-        if (flashCategory) params.set('category', flashCategory);
-        if (locality) params.set('locality', locality);
-        const response = await fetch(`/api/public/flashes?${params}`);
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || 'Flashs indisponibles.');
-        const target = document.getElementById('flashFeed');
-        target.replaceChildren();
-        if (!data.flashes.length) { target.textContent = 'Aucun flash éditorial pour cette sélection.'; return; }
-        data.flashes.forEach(flash => {
-            const article = document.createElement('article');
-            article.className = `flash-card flash-${flash.category}`;
-            const title = document.createElement('h3');
-            title.textContent = flash.title;
-            const meta = document.createElement('p');
-            meta.className = 'field-hint';
-            meta.textContent = `${flash.category}${flash.locality_tag ? ` · ${flash.locality_tag}` : ''}${flash.audience_tag ? ` · ${flash.audience_tag}` : ''}`;
-            const body = document.createElement('p');
-            body.textContent = flash.body;
-            article.append(title, meta, body);
-            target.appendChild(article);
-        });
-    }
-
     async function loadSocialLinks() {
         const response = await fetch('/api/public/social-links');
         const data = await response.json().catch(() => ({}));
@@ -200,14 +172,8 @@
 
     filters.addEventListener('submit', event => {
         event.preventDefault();
-        Promise.all([load(true), loadFlashes()]).catch(error => { status.textContent = error.message; });
+        load(true).catch(error => { status.textContent = error.message; });
     });
     more.addEventListener('click', () => load().catch(error => { status.textContent = error.message; }));
-    document.querySelectorAll('.flash-filter').forEach(button => button.addEventListener('click', () => {
-        flashCategory = button.dataset.category;
-        document.querySelectorAll('.flash-filter').forEach(item => item.classList.toggle('is-active', item === button));
-        loadFlashes().catch(error => { status.textContent = error.message; });
-    }));
-    document.getElementById('newsLocality').value = localStorage.getItem('avecPublicLocality') || '';
-    Promise.all([load(true), loadFlashes(), loadSocialLinks()]).catch(error => { status.textContent = error.message; });
+    Promise.all([load(true), loadSocialLinks()]).catch(error => { status.textContent = error.message; });
 })();

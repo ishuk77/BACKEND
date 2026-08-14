@@ -13,29 +13,24 @@
     <header class="app-header">
         <div>
             <h1>Actualités &amp; publicités</h1>
-            <p>Les informations publiques de la communauté AVEC.</p>
+            <p>Les annonces, publicités et produits proposés par les membres AVEC.</p>
         </div>
         <a class="btn btn-secondary" href="platform.html">Accéder à mon compte membre</a>
     </header>
     <main class="container">
         <section class="card news-intro" aria-labelledby="newsTitle">
             <h2 id="newsTitle">Suivre la vie publique d’AVEC</h2>
-            <p>Les annonces et publicités sont publiées par l’administration de la plateforme. Une publication membre apparaît ici seulement si son auteur la choisit explicitement <strong>publique</strong> et qu’elle est <strong>approuvée</strong>.</p>
-            <p class="field-hint">Les publications réservées aux contacts, privées, en attente d’examen ou retirées restent hors de cette page. Le nom d’un membre n’est affiché que lorsque son profil est public.</p>
+            <p>Les annonces et publicités sont publiées par les membres depuis leur espace personnel, lorsque leur portefeuille SANDBOX couvre le montant demandé.</p>
+            <p class="field-hint">Les publications réservées aux contacts, privées ou retirées restent hors de cette page. Le nom d’un membre n’est affiché que lorsque son profil est public.</p>
         </section>
         <section class="card" aria-labelledby="filterTitle">
             <h2 id="filterTitle">Filtrer les actualités</h2>
             <form id="newsFilters" class="form-grid">
-                <div class="form-group"><label for="newsType">Type</label><select id="newsType"><option value="">Tout afficher</option><option value="announcement">Actualités plateforme</option><option value="advertisement">Publicités</option><option value="member_publication">Publications membres</option></select></div>
+                <div class="form-group"><label for="newsType">Type</label><select id="newsType"><option value="">Tout afficher</option><option value="announcement">Annonces membres</option><option value="advertisement">Publicités</option><option value="member_publication">Publications membres</option></select></div>
                 <div class="form-group"><label for="newsFrom">Depuis le</label><input id="newsFrom" type="date"></div>
                 <div class="form-group"><label for="newsTo">Jusqu’au</label><input id="newsTo" type="date"></div>
-                <div class="form-group"><label for="newsLocality">Localité (pour les flashs locaux)</label><input id="newsLocality" maxlength="120" placeholder="Ex. Cotonou"></div>
                 <div class="form-group news-filter-action"><button class="btn btn-primary" type="submit">Appliquer les filtres</button></div>
             </form>
-        </section>
-        <section class="card flash-panel" aria-labelledby="flashTitle">
-            <div class="dashboard-heading"><div><h2 id="flashTitle">Flashs &amp; programmes</h2><p class="field-hint">Sélection éditoriale AVEC — pas de reprise ni de prétendu flux en direct.</p></div><div class="flash-filters" role="group" aria-label="Catégories de flashs"><button class="btn btn-secondary flash-filter is-active" type="button" data-category="">Tout</button><button class="btn btn-secondary flash-filter" type="button" data-category="sport">Sport</button><button class="btn btn-secondary flash-filter" type="button" data-category="international">International</button><button class="btn btn-secondary flash-filter" type="button" data-category="local">Local</button></div></div>
-            <div id="flashFeed" class="flash-list" aria-live="polite"></div>
         </section>
         <section class="card" aria-labelledby="feedTitle">
             <h2 id="feedTitle">Fil public</h2>
