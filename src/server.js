@@ -3410,6 +3410,13 @@ app.post('/api/payments/intents', authenticateToken, replayPaymentIdempotency, (
                                 details: { sandbox: true, amount_minor: request.amountMinor }
                             }, auditErr => {
                                 if (auditErr) return respond(500, { error: auditErr.message });
+                                notifyGroupMembers(
+                                    request.group.id,
+                                    'group_credit_disbursement_requested',
+                                    `${request.member.prenom} ${request.member.name} a soumis une demande d’octroi de crédit de ${(request.amountMinor / 100).toFixed(2)} USD.`,
+                                    'payment_operation',
+                                    operationId
+                                );
                                 respond(202, { operation_id: operationId, status: 'pending_approval', sandbox: true });
                             });
                         }
@@ -3511,9 +3518,17 @@ app.post('/api/payment-operations/:operationId/approve', authenticateToken, repl
                                                                     db.run('ROLLBACK');
                                                                     return respond(500, { error: auditErr2.message });
                                                                 }
-                                                                db.run('COMMIT', commitErr => commitErr
-                                                                    ? respond(500, { error: commitErr.message })
-                                                                    : respond(201, { ...transfer, operation_id: operation.id, sandbox: true }));
+                                                                db.run('COMMIT', commitErr => {
+                                                                    if (commitErr) return respond(500, { error: commitErr.message });
+                                                                    notifyGroupMembers(
+                                                                        operation.group_id,
+                                                                        'group_credit_disbursed',
+                                                                        `Un crédit de ${(operation.amount_minor / 100).toFixed(2)} USD a été accordé à un membre du groupe.`,
+                                                                        'payment_operation',
+                                                                        operation.id
+                                                                    );
+                                                                    respond(201, { ...transfer, operation_id: operation.id, sandbox: true });
+                                                                });
                                                             });
                                                         }
                                                     );
@@ -3775,9 +3790,17 @@ app.post('/api/members/:memberId/credit-request', authenticateToken, (req, res) 
                                 db.run('ROLLBACK');
                                 return res.status(500).json({ error: historyErr.message });
                             }
-                            db.run('COMMIT', commitErr => commitErr
-                                ? res.status(500).json({ error: commitErr.message })
-                                : res.status(201).json({ amount, amount_minor: amountMinor, status: 'en_attente', maximum_minor: maximumMinor }));
+                            db.run('COMMIT', commitErr => {
+                                if (commitErr) return res.status(500).json({ error: commitErr.message });
+                                notifyGroupMembers(
+                                    group.id,
+                                    'group_credit_requested',
+                                    `${member.prenom} ${member.name} a demandé un crédit de ${amount.toFixed(2)} USD.`,
+                                    'credit_request',
+                                    member.id
+                                );
+                                res.status(201).json({ amount, amount_minor: amountMinor, status: 'en_attente', maximum_minor: maximumMinor });
+                            });
                         });
                     });
                 }
@@ -4440,14 +4463,18 @@ app.get('/api/history', authenticateToken, (req, res) => {
     const conditions = [];
     const values = [];
     if (groupId) {
-        conditions.push('group_id = ?');
+        conditions.push('h.group_id = ?');
         values.push(groupId);
     }
     if (memberId) {
-        conditions.push('member_id = ?');
+        conditions.push('h.member_id = ?');
         values.push(memberId);
     }
-    const query = `SELECT * FROM history${conditions.length ? ` WHERE ${conditions.join(' AND ')}` : ''} ORDER BY date DESC LIMIT 100`;
+    const query = `SELECT h.*, m.prenom, m.name
+                   FROM history h
+                   LEFT JOIN members m ON m.id = h.member_id
+                   ${conditions.length ? ` WHERE ${conditions.join(' AND ')}` : ''}
+                   ORDER BY h.date DESC LIMIT 100`;
     db.all(query, values, (err, rows) => {
         if (err) {
             return res.status(500).json({ error: err.message });

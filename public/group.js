@@ -96,7 +96,7 @@ async function fundMemberWallet(event) {
     await loadGroup();
 }
 
-function renderMovements(items, title) {
+function renderMovements(items, title, includeMemberNames = false) {
     const groups = new Map();
     items.forEach(item => {
         const month = new Date(item.date).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' });
@@ -116,7 +116,11 @@ function renderMovements(items, title) {
             section.appendChild(heading);
             entries.forEach(entry => {
                 const row = document.createElement('p');
-                row.textContent = `${entry.action} · ${new Date(entry.date).toLocaleDateString('fr-FR')}`;
+                const memberName = includeMemberNames
+                    ? [entry.prenom, entry.name].filter(Boolean).join(' ')
+                    : '';
+                const member = memberName ? ` · ${memberName}` : '';
+                row.textContent = `${entry.action}${member} · ${new Date(entry.date).toLocaleDateString('fr-FR')}`;
                 section.appendChild(row);
             });
             group$('movementList').appendChild(section);
@@ -128,7 +132,7 @@ function renderMovements(items, title) {
 async function loadMovements(groupRegister = false) {
     const data = await groupRequest('/api/history');
     const entries = groupRegister ? data : data.filter(item => String(item.member_id) === String(groupMember.id));
-    renderMovements(entries, groupRegister ? 'Registre du groupe AVEC' : 'Mon registre de mouvements');
+    renderMovements(entries, groupRegister ? 'Registre du groupe AVEC' : 'Mon registre de mouvements', groupRegister);
 }
 
 async function loadCreditRequests() {
