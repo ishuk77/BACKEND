@@ -70,6 +70,10 @@ test('platform account, group admission, social privacy, and moderation contract
         token: dana.data.accessToken,
         body: { prenom: 'Dana', name: 'Membre', visibility: 'public', availability: 'online' }
     })).status, 200);
+    assert.equal((await request('POST', '/api/platform/contacts', {
+        token: alice.data.accessToken,
+        body: { phone: '+22991110002' }
+    })).status, 201);
 
     const groupBody = { name: 'AVEC sociale', country: 'Bénin', province: 'Littoral', city: 'Cotonou', momo_provider: 'MTN', phone: '90123456' };
     assert.equal((await request('POST', '/api/groups', { body: groupBody })).status, 401);

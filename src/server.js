@@ -5519,8 +5519,9 @@ app.post('/api/platform/friends/requests', authenticateAccount, (req, res) => {
             }
         );
     });
+});
 
-    app.post('/api/platform/contacts', authenticateAccount, (req, res) => {
+app.post('/api/platform/contacts', authenticateAccount, (req, res) => {
         const phoneDetails = normalizePlatformPhone(null, safeText(req.body.phone, 30));
         const phone = phoneDetails && phoneDetails.phone;
         if (!phone) return res.status(400).json({ error: 'Numéro de téléphone invalide.' });
@@ -5556,9 +5557,7 @@ app.post('/api/platform/friends/requests', authenticateAccount, (req, res) => {
             );
         });
     });
-});
-
-app.put('/api/platform/friends/:friendshipId', authenticateAccount, (req, res) => {
+    app.put('/api/platform/friends/:friendshipId', authenticateAccount, (req, res) => {
     const status = String(req.body.status || '');
     if (!['accepted', 'rejected'].includes(status)) return res.status(400).json({ error: 'Réponse invalide' });
     db.get('SELECT * FROM friendships WHERE id = ? AND status = ?', [req.params.friendshipId, 'pending'], (err, friendship) => {
