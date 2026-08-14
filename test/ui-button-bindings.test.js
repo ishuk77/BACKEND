@@ -80,9 +80,12 @@ test('navigation groups actions without exposing platform administration publicl
     assert.doesNotMatch(publicLanding, /href="admin\.html"/);
     assert.doesNotMatch(publicLanding, /<details class="action-menu"/);
     ['Profil et paramètres', 'Groupe', 'Collaboration', 'Social'].forEach(label => assert.match(memberPortal, new RegExp(`<summary>${label}`)));
+    assert.match(memberPortal, /data-screen="walletScreen"/);
+    assert.match(memberPortal, /<section id="profileScreen"[\s\S]*?<h3>Accueil membre<\/h3>[\s\S]*?<\/section>/);
+    assert.doesNotMatch(memberPortal.match(/<section id="profileScreen"[\s\S]*?<\/section>/)[0], /Mon wallet|Mon compte AVEC|Alimenter mon portefeuille/);
     ['Finance', 'Groupe', 'Collaboration', 'Social', 'Profil et paramètres'].forEach(label => assert.match(admin, new RegExp(`<summary>${label}`)));
     assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
-    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v37/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v38/);
 });
 
 test('service worker refreshes the app shell from the network and falls back offline without caching API data', async () => {

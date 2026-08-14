@@ -12,11 +12,11 @@ const mediaUrls = new Map();
 const PHONE_VERIFICATION_SESSION_KEY = 'platformPhoneVerificationSession';
 const phoneVerificationTokens = { register: null, profile: null, reset: null };
 const UI_TRANSLATIONS = Object.freeze({
-    fr: { nav_profile: 'Profil et paramètres', nav_groups: 'Groupe', nav_messages: 'Collaboration', nav_social: 'Social', profile: 'Mon profil', groups: 'Mes groupes', messages: 'Messages', discover: 'Découvrir des membres', feed: 'Fil social', publish: 'Publier', calendar: 'Agenda' },
-    en: { nav_profile: 'Profile and settings', nav_groups: 'Groups', nav_messages: 'Messages', nav_social: 'Social', profile: 'My profile', groups: 'My groups', messages: 'Messages', discover: 'Discover members', feed: 'Social feed', publish: 'Publish', calendar: 'Calendar' },
-    rw: { nav_profile: 'Umwirondoro n’igenamiterere', nav_groups: 'Amatsinda', nav_messages: 'Ubutumwa', nav_social: 'Imbuga nkoranyambaga', profile: 'Umwirondoro wanjye', groups: 'Amatsinda yanjye', messages: 'Ubutumwa', discover: 'Shakisha abanyamuryango', feed: 'Kwamamaza', publish: 'Kwamamaza', calendar: 'Kalendari' },
-    rn: { nav_profile: 'Umwirondoro n’ugutunganya', nav_groups: 'Imigwi', nav_messages: 'Ubutumwa', nav_social: 'Kwamamaza', profile: 'Umwirondoro wanje', groups: 'Imigwi yanje', messages: 'Ubutumwa', discover: 'Rondera abanywanyi', feed: 'Kwamamaza', publish: 'Kwamamaza', calendar: 'Kalendari' },
-    sw: { nav_profile: 'Wasifu na mipangilio', nav_groups: 'Vikundi', nav_messages: 'Ujumbe', nav_social: 'Jamii', profile: 'Wasifu wangu', groups: 'Vikundi vyangu', messages: 'Ujumbe', discover: 'Tafuta wanachama', feed: 'Mlisho wa jamii', publish: 'Chapisha', calendar: 'Kalenda' }
+    fr: { nav_profile: 'Profil et paramètres', nav_groups: 'Groupe', nav_messages: 'Collaboration', nav_social: 'Social', profile: 'Mon profil', wallet: 'Mon portefeuille', groups: 'Mes groupes', messages: 'Messages', discover: 'Découvrir des membres', feed: 'Fil social', publish: 'Publier', calendar: 'Agenda' },
+    en: { nav_profile: 'Profile and settings', nav_groups: 'Groups', nav_messages: 'Messages', nav_social: 'Social', profile: 'My profile', wallet: 'My wallet', groups: 'My groups', messages: 'Messages', discover: 'Discover members', feed: 'Social feed', publish: 'Publish', calendar: 'Calendar' },
+    rw: { nav_profile: 'Umwirondoro n’igenamiterere', nav_groups: 'Amatsinda', nav_messages: 'Ubutumwa', nav_social: 'Imbuga nkoranyambaga', profile: 'Umwirondoro wanjye', wallet: 'Agasakoshi kanjye', groups: 'Amatsinda yanjye', messages: 'Ubutumwa', discover: 'Shakisha abanyamuryango', feed: 'Kwamamaza', publish: 'Kwamamaza', calendar: 'Kalendari' },
+    rn: { nav_profile: 'Umwirondoro n’ugutunganya', nav_groups: 'Imigwi', nav_messages: 'Ubutumwa', nav_social: 'Kwamamaza', profile: 'Umwirondoro wanje', wallet: 'Ikofi yanje', groups: 'Imigwi yanje', messages: 'Ubutumwa', discover: 'Rondera abanywanyi', feed: 'Kwamamaza', publish: 'Kwamamaza', calendar: 'Kalendari' },
+    sw: { nav_profile: 'Wasifu na mipangilio', nav_groups: 'Vikundi', nav_messages: 'Ujumbe', nav_social: 'Jamii', profile: 'Wasifu wangu', wallet: 'Pochi yangu', groups: 'Vikundi vyangu', messages: 'Ujumbe', discover: 'Tafuta wanachama', feed: 'Mlisho wa jamii', publish: 'Chapisha', calendar: 'Kalenda' }
 });
 const COUNTRY_LOCALES = Object.freeze({ Rwanda: 'rw', Burundi: 'rn', Tanzanie: 'sw', Kenya: 'sw', 'Afrique du Sud': 'en', Ghana: 'en', Nigeria: 'en', Liberia: 'en', 'Sierra Leone': 'en' });
 let languageOverridden = localStorage.getItem('platformUiLanguageOverride') === 'true';
@@ -108,6 +108,7 @@ function show(screen, { history = true } = {}) {
         heading.focus({ preventScroll: true });
     }
     if (screen === 'groupsScreen') loadGroups().catch(error => alert(error.message));
+    if (screen === 'walletScreen') loadWalletTopups().catch(error => notice(error.message));
     if (screen === 'friendsScreen') loadFriends().catch(error => alert(error.message));
     if (screen === 'feedScreen') loadFeed().catch(error => alert(error.message));
     if (screen === 'contentScreen') loadPaidContentPrices().catch(error => notice(error.message));
@@ -169,7 +170,6 @@ function renderAccount() {
     $p('profileAvailability').value = account.availability;
     $p('profileVisibility').value = account.visibility;
     $p('internalWallet').textContent = Number(account.internal_wallet || 0);
-    $p('momoWallet').textContent = Number(account.momo_wallet || 0);
     const securityForm = $p('securityProfileForm');
     securityForm.hidden = Boolean(account.onboardingComplete);
     if (!securityForm.hidden) {
@@ -216,7 +216,6 @@ async function confirmWalletTopup() {
 }
 async function enter() {
     await loadProfile();
-    await loadWalletTopups();
     await loadGroups();
     $p('authSection').hidden = true;
     $p('portalSection').hidden = false;
