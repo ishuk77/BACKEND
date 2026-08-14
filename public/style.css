@@ -180,7 +180,8 @@ header {
     max-height: calc(100vh - 24px);
     overflow: auto;
 }
-.portal-mobile-nav { display: none; }
+.portal-mobile-nav,
+.portal-mobile-subnav { display: none; }
 #portalSection > #portalNotice,
 #portalSection > .portal-screen { grid-column: 2; }
 #portalSection > .portal-screen { margin-top: 0; }
@@ -190,6 +191,25 @@ header {
     #portalSection { display: block; }
     #portalSection > .portal-nav { display: none; }
     #portalSection > .portal-screen { margin-top: 16px; border-top: 0; padding-top: 0; }
+    .portal-mobile-subnav {
+        display: flex;
+        gap: 8px;
+        margin: 0 0 12px;
+        padding: 8px;
+        overflow-x: auto;
+        border: 1px solid #d7e3ee;
+        border-radius: 12px;
+        background: #f7fbff;
+    }
+    .portal-mobile-subnav .icon-button {
+        display: inline-flex;
+        flex: 1 0 132px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 44px;
+    }
+    .portal-mobile-subnav .action-icon { width: 20px; height: 20px; }
     .portal-mobile-nav {
         position: fixed;
         z-index: 20;
