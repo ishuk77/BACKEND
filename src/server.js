@@ -1293,7 +1293,7 @@ function generateAccessToken(member) {
 }
 
 function generateRefreshToken(memberId) {
-    return jwt.sign({ memberId, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+    return jwt.sign({ memberId, type: 'refresh', jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
 }
 
 function authenticateToken(req, res, next) {
@@ -1309,8 +1309,12 @@ function authenticateToken(req, res, next) {
             return res.status(403).json({ error: 'Token invalide' });
         }
 
-        req.user = payload;
-        next();
+        db.get('SELECT id, role, phone, group_id FROM members WHERE id = ?', [payload.id], (memberErr, member) => {
+            if (memberErr) return res.status(500).json({ error: memberErr.message });
+            if (!member) return res.status(403).json({ error: 'Session invalide' });
+            req.user = { id: member.id, role: member.role, phone: member.phone, groupId: member.group_id };
+            next();
+        });
     });
 }
 
@@ -2129,7 +2133,7 @@ function accountAccessToken(account) {
 }
 
 function accountRefreshToken(accountId) {
-    return jwt.sign({ accountId, type: 'platform_refresh' }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+    return jwt.sign({ accountId, type: 'platform_refresh', jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
 }
 
 function authenticateAccount(req, res, next) {
@@ -2846,6 +2850,13 @@ app.post('/api/platform/auth/refresh', (req, res) => {
                 if (updateErr) return res.status(500).json({ error: updateErr.message });
                 res.json({ accessToken: accountAccessToken(account), refreshToken: nextToken });
             });
+
+            app.post('/api/platform/auth/logout', authenticateAccount, (req, res) => {
+                db.run('UPDATE platform_accounts SET refresh_token = NULL WHERE id = ?', [req.account.id], err => {
+                    if (err) return res.status(500).json({ error: err.message });
+                    res.status(204).end();
+                });
+            });
         });
     });
 });
@@ -2905,7 +2916,7 @@ app.post('/api/platform/wallet/transfers', authenticateAccount, (req, res) => {
 
     db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
         if (beginErr) return res.status(500).json({ error: beginErr.message });
-        db.get('SELECT * FROM wallet_transfers WHERE idempotency_key = ?', [idempotencyKey], (replayErr, existing) => {
+        db.get('SELECT * FROM wallet_transfers WHERE idempotency_key = ? AND sender_account_id = ?', [idempotencyKey, req.account.id], (replayErr, existing) => {
             if (replayErr) {
                 db.run('ROLLBACK');
                 return res.status(500).json({ error: replayErr.message });
@@ -3187,7 +3198,7 @@ app.post('/api/groups/:groupId/cycle/distribute', authenticateToken, (req, res) 
                             let remaining = Number(group.wallet);
                             const distributeMember = index => {
                                 if (index === cycleMembers.length) {
-                                    return db.run('UPDATE groups SET wallet = 0 WHERE id = ? AND blocked = 0', [groupId], function updateGroup(groupUpdateErr) {
+                                    return db.run('UPDATE groups SET wallet = 0, wallet_minor = 0 WHERE id = ? AND blocked = 0', [groupId], function updateGroup(groupUpdateErr) {
                                         if (groupUpdateErr || !this.changes) {
                                             db.run('ROLLBACK');
                                             return res.status(groupUpdateErr ? 500 : 403).json({ error: groupUpdateErr ? groupUpdateErr.message : 'Les opérations du groupe sont temporairement bloquées' });
@@ -3458,26 +3469,61 @@ app.post('/api/payment-operations/:operationId/approve', authenticateToken, repl
                                 operationId: String(operation.id)
                             }, (transferErr, transfer) => {
                                 if (transferErr) return respond(500, { error: transferErr.message });
-                                db.run(
-                                    `UPDATE payment_operations
-                                     SET status = 'disbursed', transaction_id = ?, updated_at = CURRENT_TIMESTAMP
-                                     WHERE id = ?`,
-                                    [transfer.transaction_id, operation.id],
-                                    disburseErr => {
-                                        if (disburseErr) return respond(500, { error: disburseErr.message });
-                                        auditFinancialChange({
-                                            transactionId: transfer.transaction_id,
-                                            operationId: String(operation.id),
-                                            groupId: operation.group_id,
-                                            actorMemberId: req.user.id,
-                                            action: 'loan_disbursement_completed',
-                                            details: { sandbox: true }
-                                        }, auditErr2 => {
-                                            if (auditErr2) return respond(500, { error: auditErr2.message });
-                                            respond(201, { ...transfer, operation_id: operation.id, sandbox: true });
-                                        });
-                                    }
-                                );
+                                // The provider transfer is recorded above; the AVEC debt and
+                                // group liquidity must move together before it is marked disbursed.
+                                db.serialize(() => db.run('BEGIN IMMEDIATE', accountingBeginErr => {
+                                    if (accountingBeginErr) return respond(500, { error: accountingBeginErr.message });
+                                    db.run(
+                                        `UPDATE groups SET wallet = wallet - ?,
+                                           wallet_minor = CAST(ROUND(wallet * 100) AS INTEGER) - ?
+                                         WHERE id = ? AND blocked = 0 AND wallet >= ?`,
+                                        [operation.amount_minor / 100, operation.amount_minor, operation.group_id, operation.amount_minor / 100],
+                                        function debitGroup(debitGroupErr) {
+                                            if (debitGroupErr || !this.changes) {
+                                                db.run('ROLLBACK');
+                                                return respond(debitGroupErr ? 500 : 409, { error: debitGroupErr ? debitGroupErr.message : 'Liquidités du groupe insuffisantes pour ce décaissement.' });
+                                            }
+                                            db.run(
+                                                'UPDATE members SET credit = credit + ? WHERE id = ? AND group_id = ?',
+                                                [operation.amount_minor / 100, operation.member_id, operation.group_id],
+                                                function increaseDebt(debtErr) {
+                                                    if (debtErr || !this.changes) {
+                                                        db.run('ROLLBACK');
+                                                        return respond(debtErr ? 500 : 404, { error: debtErr ? debtErr.message : 'Membre emprunteur introuvable.' });
+                                                    }
+                                                    db.run(
+                                                        `UPDATE payment_operations
+                                                         SET status = 'disbursed', transaction_id = ?, updated_at = CURRENT_TIMESTAMP
+                                                         WHERE id = ? AND status = 'approved'`,
+                                                        [transfer.transaction_id, operation.id],
+                                                        function markDisbursed(disburseErr) {
+                                                            if (disburseErr || !this.changes) {
+                                                                db.run('ROLLBACK');
+                                                                return respond(disburseErr ? 500 : 409, { error: disburseErr ? disburseErr.message : 'Cette opération ne peut plus être décaissée.' });
+                                                            }
+                                                            auditFinancialChange({
+                                                                transactionId: transfer.transaction_id,
+                                                                operationId: String(operation.id),
+                                                                groupId: operation.group_id,
+                                                                actorMemberId: req.user.id,
+                                                                action: 'loan_disbursement_completed',
+                                                                details: { sandbox: true }
+                                                            }, auditErr2 => {
+                                                                if (auditErr2) {
+                                                                    db.run('ROLLBACK');
+                                                                    return respond(500, { error: auditErr2.message });
+                                                                }
+                                                                db.run('COMMIT', commitErr => commitErr
+                                                                    ? respond(500, { error: commitErr.message })
+                                                                    : respond(201, { ...transfer, operation_id: operation.id, sandbox: true }));
+                                                            });
+                                                        }
+                                                    );
+                                                }
+                                            );
+                                        }
+                                    );
+                                }));
                             });
                         });
                     }
@@ -3692,6 +3738,7 @@ app.post('/api/members/:memberId/credit-request', authenticateToken, (req, res) 
 
 app.post('/api/members/:memberId/repayments', authenticateToken, (req, res) => {
     const amount = validAmount(req.body.amount);
+    const amountMinor = Math.round(amount * 100);
     if (!amount) {
         return res.status(400).json({ error: 'Montant de remboursement invalide' });
     }
@@ -3712,7 +3759,12 @@ app.post('/api/members/:memberId/repayments', authenticateToken, (req, res) => {
                             db.run('ROLLBACK');
                             return res.status(400).json({ error: 'Le remboursement dépasse le crédit restant' });
                         }
-                        db.run('UPDATE groups SET wallet = wallet + ? WHERE id = ? AND blocked = 0', [amount, group.id], function updateGroup(updateGroupErr) {
+                        db.run(
+                            `UPDATE groups SET wallet = wallet + ?,
+                               wallet_minor = CAST(ROUND(wallet * 100) AS INTEGER) + ?
+                             WHERE id = ? AND blocked = 0`,
+                            [amount, amountMinor, group.id],
+                            function updateGroup(updateGroupErr) {
                             if (updateGroupErr || !this.changes) {
                                 db.run('ROLLBACK');
                                 return res.status(updateGroupErr ? 500 : 403).json({ error: updateGroupErr ? updateGroupErr.message : 'Les opérations du groupe sont temporairement bloquées' });
@@ -3725,7 +3777,8 @@ app.post('/api/members/:memberId/repayments', authenticateToken, (req, res) => {
                                 db.run('COMMIT', commitErr => {
                                     if (commitErr) return res.status(500).json({ error: commitErr.message });
                                     res.status(201).json({ amount });
-                                });
+                                    }
+                                );
                             });
                         });
                     }
@@ -3737,6 +3790,7 @@ app.post('/api/members/:memberId/repayments', authenticateToken, (req, res) => {
 
 app.post('/api/members/:memberId/withdrawals', authenticateToken, (req, res) => {
     const amount = validAmount(req.body.amount);
+    const amountMinor = Math.round(amount * 100);
     if (!amount) {
         return res.status(400).json({ error: 'Montant de retrait invalide' });
     }
@@ -3761,7 +3815,12 @@ app.post('/api/members/:memberId/withdrawals', authenticateToken, (req, res) => 
                             db.run('ROLLBACK');
                             return res.status(400).json({ error: 'Solde insuffisant ou limite quotidienne de deux retraits atteinte' });
                         }
-                        db.run('UPDATE groups SET wallet = wallet - ? WHERE id = ? AND wallet >= ? AND blocked = 0', [amount, group.id, amount], function updateGroup(groupErr) {
+                        db.run(
+                            `UPDATE groups SET wallet = wallet - ?,
+                               wallet_minor = CAST(ROUND(wallet * 100) AS INTEGER) - ?
+                             WHERE id = ? AND wallet >= ? AND blocked = 0`,
+                            [amount, amountMinor, group.id, amount],
+                            function updateGroup(groupErr) {
                             if (groupErr || !this.changes) {
                                 db.run('ROLLBACK');
                                 return res.status(groupErr ? 500 : 400).json({ error: groupErr ? groupErr.message : 'Solde du groupe insuffisant ou opérations bloquées' });
@@ -3774,7 +3833,8 @@ app.post('/api/members/:memberId/withdrawals', authenticateToken, (req, res) => 
                                 db.run('COMMIT', commitErr => {
                                     if (commitErr) return res.status(500).json({ error: commitErr.message });
                                     res.status(201).json({ amount });
-                                });
+                                    }
+                                );
                             });
                         });
                     }

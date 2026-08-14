@@ -711,11 +711,20 @@ function insertEmoji(input, emoji) {
     input.focus();
 }
 function logout() {
-    localStorage.removeItem('platformAccessToken');
-    localStorage.removeItem('platformRefreshToken');
+    const token = localStorage.getItem('platformAccessToken') || localStorage.getItem('accessToken');
+    if (token) {
+        fetch(`${api}/api/platform/auth/logout`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            keepalive: true
+        }).catch(() => {});
+    }
+    ['platformAccessToken', 'platformRefreshToken', 'accessToken', 'refreshToken', 'groupId', 'userId'].forEach(key => localStorage.removeItem(key));
     mediaUrls.forEach(url => URL.revokeObjectURL(url));
     mediaUrls.clear();
     account = null;
+    $p('portalNotice').style.display = 'none';
+    $p('portalStatus').textContent = 'Vous êtes déconnecté·e. Connectez-vous pour accéder à votre espace membre.';
     $p('portalSection').hidden = true;
     $p('authSection').hidden = false;
 }
