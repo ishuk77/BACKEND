@@ -433,7 +433,12 @@ async function loadGroups() {
         const button = document.createElement('button');
         button.className = 'btn btn-secondary';
         button.textContent = 'Demander à rejoindre';
-        button.onclick = async () => { await request(`/api/platform/groups/${group.id}/join-requests`, { method: 'POST', body: JSON.stringify({ note: '' }) }); notice('Demande envoyée au personnel du groupe.'); };
+        button.onclick = async () => {
+            await request(`/api/platform/groups/${group.id}/join-requests`, { method: 'POST', body: JSON.stringify({ note: '' }) });
+            button.disabled = true;
+            button.textContent = 'Demande envoyée — en attente';
+            notice(`Votre demande pour rejoindre ${group.name} a été envoyée. Le président ou le personnel du groupe doit la valider.`);
+        };
         row.appendChild(button);
         return row;
     }));

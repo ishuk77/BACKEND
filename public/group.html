@@ -46,6 +46,7 @@
             <div class="wallet-grid"><div class="wallet-card"><strong>Wallet AVEC — <span id="adminGroupWalletName">Groupe</span></strong><span id="groupWallet">0</span><small id="groupRole">Personnel autorisé</small></div></div>
             <nav class="group-action-nav" aria-label="Gestion AVEC">
                 <button id="showGroupMovements" class="btn btn-secondary" type="button">Registre du groupe</button>
+                <button id="showJoinRequests" class="btn btn-primary" type="button">Demandes d’adhésion</button>
                 <button id="showCreditRequests" class="btn btn-secondary" type="button">Demandes de crédit</button>
                 <button id="closeCycle" class="btn btn-warning" type="button">Clôturer le cycle</button>
                 <button id="distributeCycle" class="btn btn-primary" type="button">Partager le cycle</button>
@@ -55,6 +56,7 @@
                 <h3>Paramètres et règles de gestion</h3>
                 <form id="groupSettingsForm"><div class="form-group"><label for="cycleLength">Durée du cycle (mois)</label><input id="cycleLength" type="number" min="1" max="36" required></div><button class="btn btn-primary">Enregistrer les règles</button></form>
             </section>
+            <section id="joinRequestsSection" class="group-member-panel" hidden><h3>Demandes pour rejoindre le groupe</h3><p class="field-hint">Acceptez ou refusez chaque demande. Une acceptation crée automatiquement l’espace membre AVEC du demandeur.</p><div id="joinRequestsList" class="member-list"></div></section>
             <section id="creditRequestsSection" class="group-member-panel" hidden><h3>Demandes de crédit des membres</h3><div id="creditRequestsList" class="member-list"></div></section>
         </section>
 

@@ -147,6 +147,47 @@ async function loadCreditRequests() {
     group$('creditRequestsSection').hidden = false;
 }
 
+async function loadJoinRequests() {
+    const data = await groupRequest(`/api/groups/${groupId}/join-requests`);
+    const list = group$('joinRequestsList');
+    list.replaceChildren();
+    const pending = data.requests.filter(request => request.status === 'pending');
+    pending.forEach(request => {
+        const row = document.createElement('div');
+        row.className = 'member-item';
+        const details = document.createElement('span');
+        details.textContent = `${request.prenom} ${request.name} · ${request.identifier}${request.note ? ` · ${request.note}` : ''}`;
+        row.appendChild(details);
+        ['Accepter', 'Refuser'].forEach((label, index) => {
+            const button = document.createElement('button');
+            button.className = `btn ${index ? 'btn-danger' : 'btn-primary'}`;
+            button.type = 'button';
+            button.textContent = label;
+            button.addEventListener('click', async () => {
+                button.disabled = true;
+                try {
+                    await groupRequest(`/api/groups/${groupId}/join-requests/${request.id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ status: index ? 'rejected' : 'approved' })
+                    });
+                    group$('groupStatus').textContent = index
+                        ? `Demande de ${request.prenom} refusée.`
+                        : `${request.prenom} est maintenant membre du groupe.`;
+                    await loadJoinRequests();
+                    await loadGroup();
+                } catch (error) {
+                    group$('groupStatus').textContent = error.message;
+                    button.disabled = false;
+                }
+            });
+            row.appendChild(button);
+        });
+        list.appendChild(row);
+    });
+    if (!pending.length) list.textContent = 'Aucune demande d’adhésion en attente.';
+    group$('joinRequestsSection').hidden = false;
+}
+
 async function loadChat() {
     const data = await groupRequest(`/api/chat/${groupId}`);
     group$('groupChat').replaceChildren();
@@ -171,6 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
     group$('showGroupMovements').addEventListener('click', () => loadMovements(true).catch(error => { group$('groupStatus').textContent = error.message; }));
     group$('showFraudReport').addEventListener('click', () => openAction('fraud'));
     group$('showChat').addEventListener('click', () => loadChat().catch(error => { group$('groupStatus').textContent = error.message; }));
+    group$('showJoinRequests').addEventListener('click', () => loadJoinRequests().catch(error => { group$('groupStatus').textContent = error.message; }));
     group$('showCreditRequests').addEventListener('click', () => loadCreditRequests().catch(error => { group$('groupStatus').textContent = error.message; }));
     group$('showGroupSettings').addEventListener('click', () => { group$('groupSettingsSection').hidden = !group$('groupSettingsSection').hidden; });
     group$('groupSettingsForm').addEventListener('submit', async event => {
