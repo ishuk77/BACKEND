@@ -424,7 +424,8 @@ function renderCandidates(group, candidates) {
 async function loadGroups() {
     const [groupsData, invitations, mine] = await Promise.all([request('/api/platform/groups'), request('/api/platform/invitations'), request('/api/platform/my-groups')]);
     const isPresident = mine.groups.some(group => group.role === 'president');
-    $p('createGroupForm').hidden = isPresident;
+    $p('createGroupForm').hidden = true;
+    $p('showCreateGroupForm').hidden = isPresident;
     $p('groupCreationStatus').hidden = !isPresident;
     $p('groupList').replaceChildren(...groupsData.groups.map(group => {
         const row = document.createElement('div');
@@ -522,6 +523,68 @@ async function addContactByPhone(event) {
     $p('contactPhoneStatus').textContent = data.group_request_created
         ? 'Contact ajouté. Une demande pour rejoindre son groupe AVEC a également été créée.'
         : 'Demande de contact envoyée.';
+    await loadFriends();
+}
+function showContactSource(source) {
+    $p('contactOptions').hidden = false;
+    $p('contactPhoneForm').hidden = source !== 'phone';
+    $p('contactPlatformSearchForm').hidden = source !== 'platform';
+    if (source === 'phone') $p('contactPhone').focus();
+    if (source === 'platform') $p('contactPlatformSearch').focus();
+}
+async function addPlatformContact(member, button) {
+    button.disabled = true;
+    await request('/api/platform/friends/requests', { method: 'POST', body: JSON.stringify({ account_id: member.id }) });
+    button.textContent = 'Demande envoyée';
+    $p('contactPhoneStatus').textContent = `Demande de contact envoyée à ${member.prenom} ${member.name}.`;
+    await loadFriends();
+}
+async function searchPlatformContacts(event) {
+    event.preventDefault();
+    const query = $p('contactPlatformSearch').value.trim();
+    const data = await request(`/api/platform/members/search?q=${encodeURIComponent(query)}`);
+    const results = $p('contactPlatformResults');
+    results.replaceChildren(...data.members.map(member => {
+        const row = document.createElement('div');
+        row.className = 'member-item';
+        row.innerHTML = `${avatarMarkup(member, 'chat-avatar')}<strong>${esc(member.prenom)} ${esc(member.name)}</strong><span class="field-hint">${esc(member.identifier)}</span>`;
+        const button = document.createElement('button');
+        button.className = 'btn btn-primary';
+        button.type = 'button';
+        button.textContent = 'Ajouter';
+        button.addEventListener('click', () => addPlatformContact(member, button).catch(error => {
+            button.disabled = false;
+            $p('contactPhoneStatus').textContent = error.message;
+        }));
+        row.appendChild(button);
+        return row;
+    }));
+    if (!data.members.length) results.textContent = 'Aucun membre AVEC public ne correspond à cette recherche.';
+    hydrateProtectedMedia(results);
+}
+async function pickPhoneContacts() {
+    if (!navigator.contacts || typeof navigator.contacts.select !== 'function') {
+        $p('contactPickerHelp').textContent = 'Le navigateur ne donne pas accès au carnet téléphonique. Utilisez « Saisir un numéro » ou « Rechercher sur AVEC ».';
+        showContactSource('phone');
+        return;
+    }
+    const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: true });
+    const phones = [...new Set(contacts.flatMap(contact => contact.tel || []).filter(Boolean))];
+    if (!phones.length) {
+        $p('contactPickerHelp').textContent = 'Aucun numéro n’a été sélectionné.';
+        return;
+    }
+    let added = 0;
+    let unavailable = 0;
+    for (const phone of phones) {
+        try {
+            await request('/api/platform/contacts', { method: 'POST', body: JSON.stringify({ phone }) });
+            added += 1;
+        } catch (error) {
+            unavailable += 1;
+        }
+    }
+    $p('contactPickerHelp').textContent = `${added} contact${added > 1 ? 's' : ''} AVEC ajouté${added > 1 ? 's' : ''} depuis votre téléphone.${unavailable ? ` ${unavailable} numéro${unavailable > 1 ? 's' : ''} non inscrit${unavailable > 1 ? 's' : ''} sur AVEC.` : ''}`;
     await loadFriends();
 }
 function renderOnlineFriends() {
@@ -812,9 +875,18 @@ document.addEventListener('DOMContentLoaded', () => {
         form.hidden = !form.hidden;
         if (!form.hidden) $p('profileAvailability').focus();
     });
+    $p('showCreateGroupForm').addEventListener('click', () => {
+        $p('createGroupForm').hidden = false;
+        $p('groupName').focus();
+    });
     $p('createGroupForm').addEventListener('submit', event => createGroup(event).catch(error => alert(error.message)));
     $p('searchForm').addEventListener('submit', event => search(event).catch(error => alert(error.message)));
     $p('contactPhoneForm').addEventListener('submit', event => addContactByPhone(event).catch(error => { $p('contactPhoneStatus').textContent = error.message; }));
+    $p('showContactOptions').addEventListener('click', () => { $p('contactOptions').hidden = !$p('contactOptions').hidden; });
+    $p('showPhoneContactForm').addEventListener('click', () => showContactSource('phone'));
+    $p('showPlatformContactSearch').addEventListener('click', () => showContactSource('platform'));
+    $p('pickPhoneContacts').addEventListener('click', () => pickPhoneContacts().catch(error => { $p('contactPickerHelp').textContent = error.message; }));
+    $p('contactPlatformSearchForm').addEventListener('submit', event => searchPlatformContacts(event).catch(error => { $p('contactPhoneStatus').textContent = error.message; }));
     $p('dmForm').addEventListener('submit', event => sendDm(event).catch(error => alert(error.message)));
     $p('dmAttachment').addEventListener('change', event => {
         selectedDmAttachment = event.target.files && event.target.files[0];
