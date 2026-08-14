@@ -9,6 +9,7 @@
     <meta name="theme-color" content="#007bff">
 </head>
 <body>
+    <!-- THESIS: l'épargne de groupe devient un parcours clair, de la première découverte à la vie quotidienne de l'AVEC. OWN-WORLD: le bleu AVEC existant devient une trame éditoriale calme, avec un signal orange réservé à l'action. STORY: comprendre, créer son compte, puis rejoindre son groupe sans promettre de paiement réel. FIRST VIEWPORT: une proposition simple, un aperçu concret du parcours et deux entrées sans concurrence. FORM: une colonne de confiance qui déroule les étapes utiles avant les actualités existantes. -->
     <header class="app-header">
         <div>
             <h1>Système AVEC - Microcredit</h1>
@@ -22,13 +23,42 @@
     </header>
 
     <main class="container">
-        <section id="initialSection" class="card">
-            <h2>Bienvenue sur AVEC Microcredit</h2>
-            <p>Accédez à votre compte, préparez votre groupe ou retrouvez votre espace AVEC.</p>
-            <div class="button-grid">
-                <a id="btnCreateGroup" class="btn btn-primary" href="platform.html">Créer ou rejoindre un groupe</a>
-                <button id="btnConnectGroup" class="btn btn-secondary" type="button">Se connecter à votre groupe AVEC</button>
+        <section id="initialSection" class="landing-hero">
+            <div class="landing-copy">
+                <p class="landing-kicker">Épargne communautaire, mieux organisée</p>
+                <h2>Votre AVEC avance ensemble.</h2>
+                <p class="landing-lede">Créez votre compte, rejoignez votre groupe, suivez vos contributions et échangez avec les membres depuis un seul espace sécurisé.</p>
+                <div class="landing-actions">
+                    <a id="btnCreateGroup" class="btn btn-primary" href="platform.html">Créer mon compte membre</a>
+                    <button id="btnConnectGroup" class="btn btn-secondary" type="button">Se connecter à mon groupe</button>
+                </div>
+                <p class="landing-note">Les paiements Momo et les portefeuilles sont actuellement proposés en mode SANDBOX.</p>
             </div>
+            <aside class="journey-panel" aria-label="Parcours AVEC">
+                <p>Le parcours AVEC</p>
+                <ol>
+                    <li><strong>1</strong><span>Créer et sécuriser votre compte</span></li>
+                    <li><strong>2</strong><span>Créer ou rejoindre une AVEC</span></li>
+                    <li><strong>3</strong><span>Épargner, collaborer et décider ensemble</span></li>
+                </ol>
+            </aside>
+        </section>
+        <section class="landing-section" aria-labelledby="landingValueTitle">
+            <div><h2 id="landingValueTitle">Tout ce qui fait vivre votre groupe, au même endroit.</h2><p>Une organisation lisible pour les membres, et des contrôles distincts pour les responsables du groupe.</p></div>
+            <div class="landing-pillars">
+                <article><svg class="landing-icon" aria-hidden="true"><use href="icons.svg#wallet"></use></svg><h3>Suivi financier</h3><p>Contributions, crédit, remboursements et historique sont organisés par groupe.</p></article>
+                <article><svg class="landing-icon" aria-hidden="true"><use href="icons.svg#groups"></use></svg><h3>Gouvernance claire</h3><p>Invitations, rôles et élections protègent les décisions de votre AVEC.</p></article>
+                <article><svg class="landing-icon" aria-hidden="true"><use href="icons.svg#chat"></use></svg><h3>Une communauté active</h3><p>Chat, agenda et fil social rapprochent les membres au quotidien.</p></article>
+            </div>
+        </section>
+        <section class="landing-section landing-steps" aria-labelledby="landingStepsTitle">
+            <div><h2 id="landingStepsTitle">Commencez simplement.</h2><p>Vous gardez le contrôle à chaque étape.</p></div>
+            <div class="steps-list"><p><strong>01</strong> Créez votre compte avec votre téléphone et votre PIN.</p><p><strong>02</strong> Créez une AVEC ou acceptez une invitation.</p><p><strong>03</strong> Ouvrez votre tableau de bord de groupe.</p></div>
+        </section>
+        <section class="landing-section landing-cta">
+            <div><h2>Prêt·e à organiser votre AVEC ?</h2><p>Votre espace membre est la porte d’entrée pour créer, rejoindre et gérer un groupe.</p></div>
+            <a class="btn btn-primary" href="platform.html">Ouvrir l’espace membre</a>
+        </section>
         </section>
         <section class="card" aria-labelledby="homeNewsTitle">
             <div class="dashboard-heading">
