@@ -24,6 +24,9 @@ function request(method, route, { body, token } = {}) {
         req.on('error', reject); if (payload) req.write(payload); req.end();
     });
 }
+function run(sql, values = []) {
+    return new Promise((resolve, reject) => db.run(sql, values, err => err ? reject(err) : resolve()));
+}
 
 function rawRequest(method, route, { body = '', token, headers = {} } = {}) {
     return new Promise((resolve, reject) => {
@@ -70,6 +73,7 @@ test('platform account, group admission, social privacy, and moderation contract
 
     const groupBody = { name: 'AVEC sociale', country: 'Bénin', province: 'Littoral', city: 'Cotonou', momo_provider: 'MTN', phone: '90123456' };
     assert.equal((await request('POST', '/api/groups', { body: groupBody })).status, 401);
+    await run('UPDATE platform_accounts SET internal_wallet = 100 WHERE id = ?', [alice.data.account.id]);
     const group = await request('POST', '/api/groups', { token: alice.data.accessToken, body: groupBody });
     assert.equal(group.status, 201);
 

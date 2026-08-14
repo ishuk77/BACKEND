@@ -30,6 +30,9 @@ function request(method, route, { body, token } = {}) {
         req.end();
     });
 }
+function run(sql, values = []) {
+    return new Promise((resolve, reject) => db.run(sql, values, err => err ? reject(err) : resolve()));
+}
 
 async function createAccount(firstName, phone, identity) {
     const browserSessionId = `governance-${phone.replace(/\D/g, '')}`;
@@ -59,6 +62,7 @@ test.after(async () => {
 
 test('membership uses invitations and staff functions require an absolute-majority election', async () => {
     const presidentAccount = await createAccount('Awa', '+22996660001', 'GOV-PRESIDENT');
+    await run('UPDATE platform_accounts SET internal_wallet = 100 WHERE id = ?', [presidentAccount.account.id]);
     const group = await request('POST', '/api/groups', {
         token: presidentAccount.accessToken,
         body: { name: 'Groupe gouvernance', country: 'Bénin', province: 'Littoral', city: 'Cotonou', momo_provider: 'MTN', phone: '90123456' }

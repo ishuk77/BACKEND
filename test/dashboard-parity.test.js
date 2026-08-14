@@ -30,6 +30,9 @@ function request(method, route, { body, token } = {}) {
         req.end();
     });
 }
+function run(sql, values = []) {
+    return new Promise((resolve, reject) => db.run(sql, values, err => err ? reject(err) : resolve()));
+}
 
 async function registerAccount(phone, identity, pin = '1234') {
     const browserSessionId = `dashboard-parity-session-${phone.replace(/\D/g, '')}`;
@@ -55,6 +58,7 @@ test.after(async () => {
 test('invited accounts use the portal group-dashboard contract', async () => {
     const president = await registerAccount('+22995551001', 'PARITY-PRESIDENT');
     assert.equal(president.status, 201);
+    await run('UPDATE platform_accounts SET internal_wallet = 100 WHERE id = ?', [president.data.account.id]);
     const group = await request('POST', '/api/groups', {
         token: president.data.accessToken,
         body: { name: 'AVEC parité', country: 'Bénin', province: 'Littoral', city: 'Cotonou', momo_provider: 'MTN', phone: '90123456' }

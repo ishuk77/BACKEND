@@ -11,6 +11,15 @@ let pendingWalletTopupId = null;
 const mediaUrls = new Map();
 const PHONE_VERIFICATION_SESSION_KEY = 'platformPhoneVerificationSession';
 const phoneVerificationTokens = { register: null, profile: null, reset: null };
+const UI_TRANSLATIONS = Object.freeze({
+    fr: { nav_profile: 'Profil et paramètres', nav_groups: 'Groupe', nav_messages: 'Collaboration', nav_social: 'Social', profile: 'Mon profil', groups: 'Mes groupes', messages: 'Messages', discover: 'Découvrir des membres', feed: 'Fil social', publish: 'Publier', calendar: 'Agenda' },
+    en: { nav_profile: 'Profile and settings', nav_groups: 'Groups', nav_messages: 'Messages', nav_social: 'Social', profile: 'My profile', groups: 'My groups', messages: 'Messages', discover: 'Discover members', feed: 'Social feed', publish: 'Publish', calendar: 'Calendar' },
+    rw: { nav_profile: 'Umwirondoro n’igenamiterere', nav_groups: 'Amatsinda', nav_messages: 'Ubutumwa', nav_social: 'Imbuga nkoranyambaga', profile: 'Umwirondoro wanjye', groups: 'Amatsinda yanjye', messages: 'Ubutumwa', discover: 'Shakisha abanyamuryango', feed: 'Kwamamaza', publish: 'Kwamamaza', calendar: 'Kalendari' },
+    rn: { nav_profile: 'Umwirondoro n’ugutunganya', nav_groups: 'Imigwi', nav_messages: 'Ubutumwa', nav_social: 'Kwamamaza', profile: 'Umwirondoro wanje', groups: 'Imigwi yanje', messages: 'Ubutumwa', discover: 'Rondera abanywanyi', feed: 'Kwamamaza', publish: 'Kwamamaza', calendar: 'Kalendari' },
+    sw: { nav_profile: 'Wasifu na mipangilio', nav_groups: 'Vikundi', nav_messages: 'Ujumbe', nav_social: 'Jamii', profile: 'Wasifu wangu', groups: 'Vikundi vyangu', messages: 'Ujumbe', discover: 'Tafuta wanachama', feed: 'Mlisho wa jamii', publish: 'Chapisha', calendar: 'Kalenda' }
+});
+const COUNTRY_LOCALES = Object.freeze({ Rwanda: 'rw', Burundi: 'rn', Tanzanie: 'sw', Kenya: 'sw', 'Afrique du Sud': 'en', Ghana: 'en', Nigeria: 'en', Liberia: 'en', 'Sierra Leone': 'en' });
+let languageOverridden = localStorage.getItem('platformUiLanguageOverride') === 'true';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
 const countryByName = name => (window.MOMO_COUNTRIES || []).find(country => country.name === name);
@@ -69,8 +78,35 @@ function hydrateProtectedMedia(root = document) {
         protectedMediaUrl(element.dataset.mediaId).then(url => { element.src = url; }).catch(() => { element.hidden = true; });
     });
 }
-function show(screen) {
+function applyUiLanguage(locale) {
+    const dictionary = UI_TRANSLATIONS[locale] || UI_TRANSLATIONS.fr;
+    if (document.documentElement) document.documentElement.lang = locale;
+    document.querySelectorAll('[data-i18n]').forEach(element => { element.textContent = dictionary[element.dataset.i18n] || element.textContent; });
+    document.querySelectorAll('[data-i18n-label]').forEach(element => {
+        const value = dictionary[element.dataset.i18nLabel];
+        if (!value) return;
+        element.setAttribute('aria-label', value);
+        element.setAttribute('title', value);
+        const text = element.querySelector('.sr-only');
+        if (text) text.textContent = value;
+    });
+    $p('uiLanguage').value = locale;
+    localStorage.setItem('platformUiLanguage', locale);
+}
+
+function chooseCountryLanguage(country) {
+    if (!languageOverridden) applyUiLanguage(COUNTRY_LOCALES[country] || 'fr');
+}
+
+function show(screen, { history = true } = {}) {
+    if (!document.getElementById(screen)) return;
     document.querySelectorAll('.portal-screen').forEach(element => { element.hidden = element.id !== screen; });
+    if (history && window.history) window.history.pushState({ platformScreen: screen }, '', `#${encodeURIComponent(screen)}`);
+    const heading = document.querySelector(`#${screen} h2, #${screen} h3`);
+    if (heading) {
+        heading.tabIndex = -1;
+        heading.focus({ preventScroll: true });
+    }
     if (screen === 'groupsScreen') loadGroups().catch(error => alert(error.message));
     if (screen === 'friendsScreen') loadFriends().catch(error => alert(error.message));
     if (screen === 'feedScreen') loadFeed().catch(error => alert(error.message));
@@ -185,7 +221,7 @@ async function enter() {
     $p('portalSection').hidden = false;
     // Every member, including a migrated legacy member, lands in the same
     // portal and explicitly selects the AVEC dashboard to open.
-    show('groupsScreen');
+    show('groupsScreen', { history: false });
 }
 async function register(event) {
     event.preventDefault();
@@ -193,7 +229,7 @@ async function register(event) {
     const data = await request('/api/platform/auth/register', { method: 'POST', body: JSON.stringify({
         prenom: $p('registerFirstName').value.trim(), name: $p('registerName').value.trim(),
         identityNumber: $p('registerIdentityNumber').value.trim(),
-        phone: normalizeRegisterPhone(), pin: $p('registerPin').value.trim(),
+        country: $p('registerCountry').value, phone: normalizeRegisterPhone(), pin: $p('registerPin').value.trim(),
         pinConfirmation: $p('registerPinConfirmation').value.trim(),
         phoneVerificationToken: phoneVerificationTokens.register,
         browserSessionId: browserVerificationSessionId()
@@ -653,7 +689,9 @@ async function submitComment(event) {
     const body = form.querySelector('textarea').value.trim();
     if (!body) return;
     const response = await request(`/api/social/posts/${form.dataset.post}/comments`, { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey('comment') }, body: JSON.stringify({ body, ...(form.dataset.parent ? { parent_comment_id: Number(form.dataset.parent) } : {}) }) });
-    notice(`Commentaire ajouté. Reçu ${response.receipt.payment_id} : ${response.receipt.display}.`);
+    notice(response.receipt
+        ? `Commentaire ajouté. Reçu ${response.receipt.payment_id} : ${response.receipt.display}.`
+        : 'Commentaire ajouté.');
     loadFeed();
 }
 async function createEvent(event) {
@@ -684,6 +722,7 @@ function logout() {
     $p('authSection').hidden = false;
 }
 document.addEventListener('DOMContentLoaded', () => {
+    applyUiLanguage(localStorage.getItem('platformUiLanguage') || 'fr');
     populateGroupCountries();
     populateRegisterCountries();
     $p('groupCountry').addEventListener('change', updateGroupMomoFields);
@@ -708,6 +747,15 @@ document.addEventListener('DOMContentLoaded', () => {
     $p('dmAttachment').addEventListener('change', event => {
         selectedDmAttachment = event.target.files && event.target.files[0];
         $p('dmAttachmentName').textContent = selectedDmAttachment ? `${selectedDmAttachment.name} (${Math.ceil(selectedDmAttachment.size / 1024)} Ko)` : 'Maximum 6 Mo';
+    });
+    $p('dmCamera').addEventListener('change', event => {
+        selectedDmAttachment = event.target.files && event.target.files[0];
+        $p('dmAttachmentName').textContent = selectedDmAttachment ? `${selectedDmAttachment.name} (${Math.ceil(selectedDmAttachment.size / 1024)} Ko)` : 'Maximum 6 Mo';
+    });
+    $p('dmAttachmentMenu').addEventListener('click', () => {
+        const choices = $p('dmAttachmentChoices');
+        choices.hidden = !choices.hidden;
+        $p('dmAttachmentMenu').setAttribute('aria-expanded', String(!choices.hidden));
     });
     $p('dmEmojiButton').addEventListener('click', () => {
         $p('dmEmojiPicker').hidden = !$p('dmEmojiPicker').hidden;
@@ -739,6 +787,21 @@ document.addEventListener('DOMContentLoaded', () => {
     $p('feedList').addEventListener('submit', event => submitComment(event).catch(error => alert(error.message)));
     $p('eventForm').addEventListener('submit', event => createEvent(event).catch(error => alert(error.message)));
     $p('portalLogout').addEventListener('click', logout);
+    $p('uiLanguage').addEventListener('change', event => {
+        languageOverridden = true;
+        localStorage.setItem('platformUiLanguageOverride', 'true');
+        applyUiLanguage(event.target.value);
+    });
+    $p('registerCountry').addEventListener('change', () => {
+        updateRegisterDialCode();
+        chooseCountryLanguage($p('registerCountry').value);
+    });
     document.querySelectorAll('[data-screen]').forEach(button => button.addEventListener('click', () => show(button.dataset.screen)));
+    if (typeof window.addEventListener === 'function') {
+        window.addEventListener('popstate', event => {
+            const screen = event.state && event.state.platformScreen;
+            if (screen) show(screen, { history: false });
+        });
+    }
     if (localStorage.getItem('platformAccessToken')) enter().catch(logout);
 });

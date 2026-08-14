@@ -41,6 +41,7 @@ const SOCIAL_SANDBOX_PRICING = Object.freeze({
     video_per_started_mebibyte_minor: 10,
     video_cap_minor: 10000
 });
+const GROUP_CREATION_MINIMUM_MINOR = 10000;
 const PAID_PUBLIC_CONTENT_PRICING = Object.freeze({
     currency: 'USD',
     text_or_photo_advertisement_minor: 25,
@@ -49,8 +50,8 @@ const PAID_PUBLIC_CONTENT_PRICING = Object.freeze({
     max_duration_days: 365,
     max_advertisement_photos: 4,
     paid_comment_minor: 25,
-    comment_platform_minor: 12.5,
-    comment_author_minor: 12.5
+    comment_platform_minor: 13,
+    comment_author_minor: 12
 });
 const UPLOADS_DIRECTORY = process.env.UPLOADS_DIRECTORY || path.join(__dirname, '..', 'uploads');
 const DEPLOYMENT_HOSTING_PROVIDERS = new Set(['self_hosted', 'render', 'railway', 'fly_io', 'heroku', 'other']);
@@ -128,6 +129,7 @@ function initDatabase(onReady) {
             currency TEXT,
             phone TEXT,
             wallet REAL DEFAULT 0,
+            wallet_minor INTEGER NOT NULL DEFAULT 0,
             blocked BOOLEAN DEFAULT 0,
             cycle_length INTEGER DEFAULT 6,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -237,6 +239,7 @@ function initDatabase(onReady) {
             prenom TEXT NOT NULL,
             name TEXT NOT NULL,
             phone TEXT UNIQUE,
+            country TEXT,
             password TEXT NOT NULL,
             identity_number TEXT,
             phone_verified_at DATETIME,
@@ -245,6 +248,7 @@ function initDatabase(onReady) {
             visibility TEXT NOT NULL DEFAULT 'friends' CHECK (visibility IN ('public', 'friends', 'private')),
             availability TEXT NOT NULL DEFAULT 'offline' CHECK (availability IN ('online', 'offline', 'busy')),
             internal_wallet REAL NOT NULL DEFAULT 0,
+            internal_wallet_minor INTEGER NOT NULL DEFAULT 0,
             momo_wallet REAL NOT NULL DEFAULT 0,
             wallet_currency TEXT NOT NULL DEFAULT 'USD',
             avatar_media_id INTEGER,
@@ -679,8 +683,8 @@ function initDatabase(onReady) {
             charged_account_id INTEGER NOT NULL,
             content_author_account_id INTEGER NOT NULL,
             amount_minor INTEGER NOT NULL CHECK (amount_minor = 25),
-            platform_amount_minor REAL NOT NULL CHECK (platform_amount_minor = 12.5),
-            author_amount_minor REAL NOT NULL CHECK (author_amount_minor = 12.5),
+            platform_amount_minor INTEGER NOT NULL CHECK (platform_amount_minor = 13),
+            author_amount_minor INTEGER NOT NULL CHECK (author_amount_minor = 12),
             currency TEXT NOT NULL DEFAULT 'USD',
             sandbox INTEGER NOT NULL DEFAULT 1 CHECK (sandbox = 1),
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -949,6 +953,7 @@ function initDatabase(onReady) {
             ['groups', 'momo_provider', 'TEXT'],
             ['groups', 'blocked', 'BOOLEAN DEFAULT 0'],
             ['groups', 'cycle_length', 'INTEGER DEFAULT 6'],
+            ['groups', 'wallet_minor', 'INTEGER NOT NULL DEFAULT 0'],
             ['groups', 'created_at', 'DATETIME'],
             ['members', 'member_id', 'TEXT'],
             ['members', 'prenom', 'TEXT'],
@@ -965,6 +970,8 @@ function initDatabase(onReady) {
             ['members', 'credit_request', 'TEXT'],
             ['members', 'role_origin', "TEXT NOT NULL DEFAULT 'member'"],
             ['platform_accounts', 'wallet_currency', "TEXT NOT NULL DEFAULT 'USD'"],
+            ['platform_accounts', 'country', 'TEXT'],
+            ['platform_accounts', 'internal_wallet_minor', 'INTEGER NOT NULL DEFAULT 0'],
             ['social_posts', 'moderation_status', "TEXT NOT NULL DEFAULT 'approved'"],
             ['social_posts', 'moderation_reason', 'TEXT'],
             ['social_posts', 'review_tag', 'TEXT'],
@@ -975,7 +982,7 @@ function initDatabase(onReady) {
             ['post_comments', 'review_tag', 'TEXT'],
             ['direct_messages', 'attachment_id', 'INTEGER']
         ].forEach(([table, column, definition]) => ensureColumn(table, column, definition));
-        migrateMemberCollaborationFields(() => migratePlatformAccountSecurityFields(() => migratePaidPublicContentFields(() => migratePlatformAccounts(onReady))));
+        migrateMemberCollaborationFields(() => migratePlatformAccountSecurityFields(() => migratePaidPublicContentFields(() => migratePlatformAccounts(() => migrateSafeWalletAccounting(onReady)))));
     });
 }
 
@@ -1191,10 +1198,24 @@ function migratePlatformAccounts(onComplete) {
                        onComplete();
                    }
                );
-                   }
+               }
                );
             }
         );
+    });
+}
+
+function migrateSafeWalletAccounting(onComplete) {
+    db.serialize(() => {
+        db.run('ALTER TABLE groups ADD COLUMN wallet_minor INTEGER NOT NULL DEFAULT 0', () => {
+            db.run('ALTER TABLE platform_accounts ADD COLUMN country TEXT', () => {
+               db.run('ALTER TABLE platform_accounts ADD COLUMN internal_wallet_minor INTEGER NOT NULL DEFAULT 0', () => {
+                   db.run('UPDATE groups SET wallet_minor = CAST(ROUND(COALESCE(wallet, 0) * 100) AS INTEGER) WHERE wallet_minor = 0 AND COALESCE(wallet, 0) <> 0', () => {
+                       db.run('UPDATE platform_accounts SET internal_wallet_minor = CAST(ROUND(COALESCE(internal_wallet, 0) * 100) AS INTEGER) WHERE internal_wallet_minor = 0 AND COALESCE(internal_wallet, 0) <> 0', () => onComplete());
+                   });
+               });
+            });
+        });
     });
 }
 
@@ -1370,6 +1391,13 @@ function validAmount(value) {
     return Number.isFinite(amount) && amount > 0 && amount <= 1000000000 ? amount : null;
 }
 
+function minorAmount(value) {
+    if (typeof value === 'string' && !/^\d+(?:\.\d{1,2})?$/.test(value.trim())) return null;
+    const amount = Number(value);
+    const minor = Math.round(amount * 100);
+    return Number.isSafeInteger(minor) && minor > 0 && minor <= 100000000000 ? minor : null;
+}
+
 function normalizeMessage(value) {
     if (typeof value !== 'string') return null;
     const message = value
@@ -1382,6 +1410,36 @@ function normalizeMessage(value) {
 
 function momoCountry(country) {
     return MOMO_COUNTRIES.find(entry => entry.name === country);
+}
+
+const PLATFORM_PHONE_COUNTRIES = Object.freeze([...MOMO_COUNTRIES, { name: 'Haïti', dialCode: '+509' }]);
+
+function countryForPhone(phone) {
+    return PLATFORM_PHONE_COUNTRIES
+        .slice()
+        .sort((left, right) => right.dialCode.length - left.dialCode.length)
+        .find(country => phone.startsWith(country.dialCode)) || null;
+}
+
+function normalizePlatformPhone(country, value) {
+    if (typeof value !== 'string') return null;
+    const supplied = value.trim();
+    if (!/^[+()\s.-]*\d[+()\s.\d-]*$/.test(supplied)) return null;
+    const digits = supplied.replace(/\D/g, '');
+    let normalized = supplied.startsWith('+') ? `+${digits}` : null;
+    const countryInfo = country ? PLATFORM_PHONE_COUNTRIES.find(item => item.name === country) : null;
+    if (country && !countryInfo) return null;
+    if (!normalized && countryInfo) {
+        const local = digits.startsWith(countryInfo.dialCode.slice(1))
+            ? digits.slice(countryInfo.dialCode.length - 1)
+            : digits.replace(/^0+/, '');
+        normalized = `${countryInfo.dialCode}${local}`;
+    }
+    if (!normalized || !/^\+[1-9]\d{7,14}$/.test(normalized)) return null;
+    const inferredCountry = countryForPhone(normalized);
+    if (!inferredCountry) return null;
+    if (countryInfo && (!normalized.startsWith(countryInfo.dialCode) || (inferredCountry && inferredCountry.name !== countryInfo.name))) return null;
+    return { phone: normalized, country: countryInfo ? countryInfo.name : inferredCountry && inferredCountry.name };
 }
 
 function normalizePhone(country, value) {
@@ -2099,6 +2157,7 @@ function accountPublicResponse(account, includeWallet = false) {
     };
     if (includeWallet) {
         result.phone = account.phone;
+        result.country = account.country || null;
         result.internal_wallet = Number(account.internal_wallet || 0);
         result.momo_wallet = Number(account.momo_wallet || 0);
         result.wallet_currency = account.wallet_currency || 'USD';
@@ -2114,7 +2173,7 @@ function safeText(value, maximum = 1000) {
 }
 
 function validPlatformPhone(phone) {
-    return Boolean(phone && /^\+?[0-9()\s.-]{8,24}$/.test(phone));
+    return Boolean(normalizePlatformPhone(null, phone));
 }
 
 function validIdentityNumber(identityNumber) {
@@ -2468,16 +2527,40 @@ function socialReceipt(paymentId, amountMinor, platformAmountMinor, authorAmount
 }
 
 function writeSocialSandboxCharge({ idempotencyKey, contentType, contentId, chargedAccountId, postAuthorAccountId, amountMinor }, callback) {
-    const authorAmountMinor = contentType === 'comment' ? amountMinor / 2 : 0;
+    const authorAmountMinor = contentType === 'comment' ? Math.floor(amountMinor / 2) : 0;
     const platformAmountMinor = amountMinor - authorAmountMinor;
     const paymentId = `SANDBOX-SOCIAL-${crypto.createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 18).toUpperCase()}`;
-    db.run(
-        `INSERT INTO social_sandbox_ledger
-         (payment_id, idempotency_key, content_type, content_id, charged_account_id, post_author_account_id, amount_minor, platform_amount_minor, author_amount_minor, currency)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [paymentId, idempotencyKey, contentType, contentId, chargedAccountId, postAuthorAccountId || null, amountMinor, platformAmountMinor, authorAmountMinor, SOCIAL_SANDBOX_PRICING.currency],
-        err => callback(err, socialReceipt(paymentId, amountMinor, platformAmountMinor, authorAmountMinor))
-    );
+    db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
+        if (beginErr) return callback(beginErr);
+        db.run(
+            `UPDATE platform_accounts
+             SET internal_wallet = internal_wallet - ?,
+                 internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) - ?
+             WHERE id = ? AND CAST(ROUND(internal_wallet * 100) AS INTEGER) >= ?`,
+            [amountMinor / 100, amountMinor, chargedAccountId, amountMinor],
+            function debitWallet(debitErr) {
+                if (debitErr || !this.changes) {
+                    db.run('ROLLBACK');
+                    const error = debitErr || new Error('Solde insuffisant dans le portefeuille interne SANDBOX.');
+                    error.status = debitErr ? 500 : 402;
+                    return callback(error);
+                }
+                db.run(
+                    `INSERT INTO social_sandbox_ledger
+                     (payment_id, idempotency_key, content_type, content_id, charged_account_id, post_author_account_id, amount_minor, platform_amount_minor, author_amount_minor, currency)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [paymentId, idempotencyKey, contentType, contentId, chargedAccountId, postAuthorAccountId || null, amountMinor, platformAmountMinor, authorAmountMinor, SOCIAL_SANDBOX_PRICING.currency],
+                    ledgerErr => {
+                        if (ledgerErr) {
+                            db.run('ROLLBACK');
+                            return callback(ledgerErr);
+                        }
+                        db.run('COMMIT', commitErr => callback(commitErr, socialReceipt(paymentId, amountMinor, platformAmountMinor, authorAmountMinor)));
+                    }
+                );
+            }
+        );
+    }));
 }
 
 function beginSocialMutation(req, res, scope, callback) {
@@ -2543,6 +2626,15 @@ function createGroupForAccount(account, group, res) {
     if (!isAccountReadyForGroup(account)) {
         return res.status(403).json({ error: 'Complétez votre identité, la vérification du téléphone et votre PIN dans le profil avant de créer un groupe.' });
     }
+    const balanceMinor = Math.round(Number(account.internal_wallet || 0) * 100);
+    if (!Number.isSafeInteger(balanceMinor) || balanceMinor < GROUP_CREATION_MINIMUM_MINOR) {
+        return res.status(409).json({
+            error: `La création d’un groupe exige un solde interne SANDBOX minimum de ${(GROUP_CREATION_MINIMUM_MINOR / 100).toFixed(2)} USD. Votre solde n’est pas débité.`,
+            required_balance_minor: GROUP_CREATION_MINIMUM_MINOR,
+            available_balance_minor: Number.isSafeInteger(balanceMinor) ? balanceMinor : 0,
+            sandbox: true
+        });
+    }
     const groupName = safeText(group.name || group.nom, 120);
     const country = safeText(group.country || group.pays, 80);
     const province = safeText(group.province, 100);
@@ -2603,14 +2695,16 @@ function getMemberIdForAccount(accountId, groupId, callback) {
 app.post('/api/platform/auth/register', (req, res) => {
     const prenom = safeText(req.body.prenom, 80);
     const name = safeText(req.body.name || req.body.nom, 80);
-    const phone = safeText(req.body.phone, 30);
+    const phoneInput = safeText(req.body.phone, 30);
+    const phoneDetails = normalizePlatformPhone(safeText(req.body.country, 80), phoneInput);
+    const phone = phoneDetails && phoneDetails.phone;
     const identityNumber = safeText(req.body.identityNumber, 80);
     const pin = String(req.body.pin || '');
     const pinConfirmation = String(req.body.pinConfirmation || '');
     const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
     const verificationToken = String(req.body.phoneVerificationToken || '');
-    if (!prenom || !name || !validPlatformPhone(phone) || !validIdentityNumber(identityNumber) || !validPlatformPin(pin) || pin !== pinConfirmation) {
-        return res.status(400).json({ error: 'Prénom, nom, identité/passeport, téléphone et PIN à 4 chiffres confirmé valides requis' });
+    if (!prenom || !name || !phone || !validIdentityNumber(identityNumber) || !validPlatformPin(pin) || pin !== pinConfirmation) {
+        return res.status(400).json({ error: 'Prénom, nom, pays, téléphone E.164, identité/passeport et PIN à 4 chiffres confirmé valides requis' });
     }
     if (!browserSessionId || !hasVerifiedPhoneClaim(phone, browserSessionId, verificationToken)) {
         return res.status(400).json({ error: 'Vérifiez ce téléphone dans cette session SANDBOX avant de créer le compte.' });
@@ -2618,9 +2712,9 @@ app.post('/api/platform/auth/register', (req, res) => {
     const identifier = `AVEC-${crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`;
     db.run(
         `INSERT INTO platform_accounts
-         (identifier, prenom, name, phone, password, identity_number, phone_verified_at, pin_configured)
-         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 1)`,
-        [identifier, prenom, name, phone, bcrypt.hashSync(pin, 10), identityNumber],
+         (identifier, prenom, name, phone, country, password, identity_number, phone_verified_at, pin_configured)
+         VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 1)`,
+        [identifier, prenom, name, phone, phoneDetails.country || null, bcrypt.hashSync(pin, 10), identityNumber],
         function registerAccount(err) {
             if (isConstraintError(err)) return res.status(409).json({ error: 'Un compte existe déjà avec ce téléphone ou cette identité/passeport' });
             if (err) return res.status(500).json({ error: err.message });
@@ -2638,7 +2732,8 @@ app.post('/api/platform/auth/register', (req, res) => {
 });
 
 app.post('/api/platform/phone-verifications/request', async (req, res) => {
-    const phone = safeText(req.body.phone, 30);
+    const phoneDetails = normalizePlatformPhone(safeText(req.body.country, 80), safeText(req.body.phone, 30));
+    const phone = phoneDetails && phoneDetails.phone;
     const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
     if (!validPlatformPhone(phone) || !browserSessionId) {
         return res.status(400).json({ error: 'Téléphone et session navigateur valides requis.' });
@@ -2658,7 +2753,8 @@ app.post('/api/platform/phone-verifications/request', async (req, res) => {
 });
 
 app.post('/api/platform/phone-verifications/verify', (req, res) => {
-    const phone = safeText(req.body.phone, 30);
+    const phoneDetails = normalizePlatformPhone(safeText(req.body.country, 80), safeText(req.body.phone, 30));
+    const phone = phoneDetails && phoneDetails.phone;
     const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
     if (!validPlatformPhone(phone) || !browserSessionId) {
         return res.status(400).json({ error: 'Téléphone et session navigateur valides requis.' });
@@ -2669,7 +2765,8 @@ app.post('/api/platform/phone-verifications/verify', (req, res) => {
 });
 
 app.post('/api/auth/pin-reset', (req, res) => {
-    const phone = safeText(req.body.phone, 30);
+    const normalizedPhone = normalizePlatformPhone(null, safeText(req.body.phone, 30));
+    const phone = normalizedPhone && normalizedPhone.phone;
     const pin = String(req.body.pin || '');
     const pinConfirmation = String(req.body.pinConfirmation || '');
     const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
@@ -2710,7 +2807,8 @@ app.post('/api/auth/pin-reset', (req, res) => {
 });
 
 app.post('/api/platform/auth/login', (req, res) => {
-    const phone = safeText(req.body.phone, 30);
+    const normalizedPhone = normalizePlatformPhone(null, safeText(req.body.phone, 30));
+    const phone = normalizedPhone && normalizedPhone.phone;
     const pin = String(req.body.pin || '');
     db.get('SELECT * FROM platform_accounts WHERE phone = ?', [phone], (err, account) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -2815,15 +2913,19 @@ app.post('/api/platform/wallet/transfers', authenticateAccount, (req, res) => {
                 const transferId = `WLT-${newSecureId()}`;
                 db.run(
                     `UPDATE platform_accounts SET internal_wallet = internal_wallet - ?
-                     WHERE id = ? AND internal_wallet >= ? AND wallet_currency = ?`,
-                    [amountMinor / 100, req.account.id, amountMinor / 100, currency],
+                     , internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) - ?
+                     WHERE id = ? AND CAST(ROUND(internal_wallet * 100) AS INTEGER) >= ? AND wallet_currency = ?`,
+                    [amountMinor / 100, amountMinor, req.account.id, amountMinor, currency],
                     function debitSender(debitErr) {
                         if (debitErr || !this.changes) {
                             db.run('ROLLBACK');
                             return res.status(debitErr ? 500 : 409).json({ error: debitErr ? debitErr.message : 'Solde interne insuffisant.' });
                         }
-                        db.run('UPDATE platform_accounts SET internal_wallet = internal_wallet + ? WHERE id = ? AND wallet_currency = ?',
-                            [amountMinor / 100, recipient.id, currency], function creditRecipient(creditErr) {
+                        db.run(`UPDATE platform_accounts
+                                SET internal_wallet = internal_wallet + ?,
+                                    internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) + ?
+                                WHERE id = ? AND wallet_currency = ?`,
+                            [amountMinor / 100, amountMinor, recipient.id, currency], function creditRecipient(creditErr) {
                                 if (creditErr || !this.changes) {
                                     db.run('ROLLBACK');
                                     return res.status(creditErr ? 500 : 409).json({ error: creditErr ? creditErr.message : 'Portefeuille destinataire indisponible.' });
@@ -2897,8 +2999,11 @@ app.post('/api/wallet/topups/:paymentId/simulate-confirmation', authenticateAcco
                     return res.status(500).json({ error: updateErr.message });
                 }
                 const momoAmount = topup.provider === 'momo_sandbox' ? topup.amount_minor / 100 : 0;
-                db.run(`UPDATE platform_accounts SET internal_wallet = internal_wallet + ?, momo_wallet = momo_wallet + ? WHERE id = ?`,
-                    [topup.amount_minor / 100, momoAmount, req.account.id], accountErr => {
+                db.run(`UPDATE platform_accounts
+                        SET internal_wallet = internal_wallet + ?,
+                            internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) + ?,
+                            momo_wallet = momo_wallet + ? WHERE id = ?`,
+                    [topup.amount_minor / 100, topup.amount_minor, momoAmount, req.account.id], accountErr => {
                         if (accountErr) {
                             db.run('ROLLBACK');
                             return res.status(500).json({ error: accountErr.message });
@@ -3437,39 +3542,63 @@ app.get('/api/payment-operations', authenticateToken, (req, res) => {
 });
 
 app.post('/api/members/:memberId/contributions', authenticateToken, (req, res) => {
-    const amount = validAmount(req.body.amount);
-    if (!amount) {
+    const amountMinor = minorAmount(req.body.amount);
+    if (!amountMinor) {
         return res.status(400).json({ error: 'Montant de contribution invalide' });
     }
+    const amount = amountMinor / 100;
 
     requireFinancialMember(req, res, req.params.memberId, (member, group) => {
         db.serialize(() => {
             db.run('BEGIN IMMEDIATE', beginErr => {
                 if (beginErr) return res.status(500).json({ error: beginErr.message });
                 db.run(
-                    'UPDATE members SET contribution = contribution + ?, cycle_contribution = cycle_contribution + ? WHERE id = ?',
-                    [amount, amount, member.id],
-                    updateMemberErr => {
-                        if (updateMemberErr) {
+                    `UPDATE platform_accounts
+                     SET internal_wallet = internal_wallet - ?,
+                         internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) - ?
+                     WHERE id = (SELECT account_id FROM platform_account_memberships
+                                 WHERE member_id = ? AND status = 'active')
+                       AND CAST(ROUND(internal_wallet * 100) AS INTEGER) >= ?`,
+                    [amount, amountMinor, member.id, amountMinor],
+                    function debitWallet(debitErr) {
+                        if (debitErr || !this.changes) {
                             db.run('ROLLBACK');
-                            return res.status(500).json({ error: updateMemberErr.message });
-                        }
-                        db.run('UPDATE groups SET wallet = wallet + ? WHERE id = ? AND blocked = 0', [amount, group.id], function updateGroup(updateGroupErr) {
-                            if (updateGroupErr || !this.changes) {
-                                db.run('ROLLBACK');
-                                return res.status(updateGroupErr ? 500 : 403).json({ error: updateGroupErr ? updateGroupErr.message : 'Les opérations du groupe sont temporairement bloquées' });
-                            }
-                            recordHistory(group.id, member.id, `Contribution de ${amount}`, historyErr => {
-                                if (historyErr) {
-                                    db.run('ROLLBACK');
-                                    return res.status(500).json({ error: historyErr.message });
-                                }
-                                db.run('COMMIT', commitErr => {
-                                    if (commitErr) return res.status(500).json({ error: commitErr.message });
-                                    res.status(201).json({ amount });
-                                });
+                            return res.status(debitErr ? 500 : 409).json({
+                                error: debitErr ? debitErr.message : `Solde interne insuffisant : ${(amountMinor / 100).toFixed(2)} USD SANDBOX requis pour cette contribution.`
                             });
-                        });
+                        }
+                        db.run(
+                            'UPDATE members SET contribution = contribution + ?, cycle_contribution = cycle_contribution + ? WHERE id = ?',
+                            [amount, amount, member.id],
+                            updateMemberErr => {
+                                if (updateMemberErr) {
+                                    db.run('ROLLBACK');
+                                    return res.status(500).json({ error: updateMemberErr.message });
+                                }
+                                db.run(
+                                    `UPDATE groups SET wallet = wallet + ?,
+                                       wallet_minor = CAST(ROUND(wallet * 100) AS INTEGER) + ?
+                                     WHERE id = ? AND blocked = 0`,
+                                    [amount, amountMinor, group.id],
+                                    function updateGroup(updateGroupErr) {
+                                        if (updateGroupErr || !this.changes) {
+                                            db.run('ROLLBACK');
+                                            return res.status(updateGroupErr ? 500 : 403).json({ error: updateGroupErr ? updateGroupErr.message : 'Les opérations du groupe sont temporairement bloquées' });
+                                        }
+                                        recordHistory(group.id, member.id, `Contribution de ${amount}`, historyErr => {
+                                            if (historyErr) {
+                                                db.run('ROLLBACK');
+                                                return res.status(500).json({ error: historyErr.message });
+                                            }
+                                            db.run('COMMIT', commitErr => {
+                                                if (commitErr) return res.status(500).json({ error: commitErr.message });
+                                                res.status(201).json({ amount, amount_minor: amountMinor, sandbox: true });
+                                            });
+                                        });
+                                    }
+                                );
+                            }
+                        );
                     }
                 );
             });
@@ -3478,27 +3607,73 @@ app.post('/api/members/:memberId/contributions', authenticateToken, (req, res) =
 });
 
 app.post('/api/members/:memberId/credit-request', authenticateToken, (req, res) => {
-    const amount = validAmount(req.body.amount);
+    const amountMinor = minorAmount(req.body.amount);
+    const amount = amountMinor && amountMinor / 100;
     const reason = String(req.body.reason || '').trim().slice(0, 500);
     if (!amount || !reason) {
         return res.status(400).json({ error: 'Montant et motif du crédit requis' });
     }
 
     requireFinancialMember(req, res, req.params.memberId, (member, group) => {
-        const request = JSON.stringify({ amount, reason, requestedAt: new Date().toISOString(), status: 'en_attente' });
-        db.run(
-            `UPDATE members SET credit_request = ? WHERE id = ?
-             AND EXISTS (SELECT 1 FROM groups WHERE id = ? AND blocked = 0)`,
-            [request, member.id, group.id],
-            function updateCreditRequest(updateErr) {
-                if (updateErr) return res.status(500).json({ error: updateErr.message });
-                if (!this.changes) return res.status(403).json({ error: 'Les opérations du groupe sont temporairement bloquées' });
-            recordHistory(group.id, member.id, `Demande de crédit de ${amount}`, historyErr => {
-                if (historyErr) return res.status(500).json({ error: historyErr.message });
-                res.status(201).json({ amount, status: 'en_attente' });
-            });
-            }
-        );
+        db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
+            if (beginErr) return res.status(500).json({ error: beginErr.message });
+            db.get(
+                `SELECT m.contribution, g.wallet, pam.account_id
+                 FROM members m JOIN groups g ON g.id = m.group_id
+                 LEFT JOIN platform_account_memberships pam ON pam.member_id = m.id AND pam.status = 'active'
+                 WHERE m.id = ? AND g.id = ? AND g.blocked = 0`,
+                [member.id, group.id],
+                (lookupErr, current) => {
+                    if (lookupErr || !current) {
+                        db.run('ROLLBACK');
+                        return res.status(lookupErr ? 500 : 403).json({ error: lookupErr ? lookupErr.message : 'Les opérations du groupe sont temporairement bloquées' });
+                    }
+                    const contributionMinor = Math.round(Number(current.contribution || 0) * 100);
+                    const groupWalletMinor = Math.round(Number(current.wallet || 0) * 100);
+                    const maximumMinor = contributionMinor * 3;
+                    const reasons = [];
+                    if (amountMinor > maximumMinor) reasons.push(`le plafond est ${(maximumMinor / 100).toFixed(2)} USD (3× vos contributions)`);
+                    if (amountMinor > groupWalletMinor) reasons.push(`le portefeuille du groupe ne couvre que ${(groupWalletMinor / 100).toFixed(2)} USD`);
+                    if (reasons.length) {
+                        const message = `Crédit refusé : ${(amountMinor / 100).toFixed(2)} USD demandés; ${reasons.join(' et ')}.`;
+                        if (!current.account_id) {
+                            db.run('ROLLBACK');
+                            return res.status(409).json({ error: message });
+                        }
+                        return db.run(
+                            `INSERT INTO account_notifications (account_id, kind, message, reference_type, reference_id)
+                             VALUES (?, 'credit_request_rejected', ?, 'group', ?)`,
+                            [current.account_id, message, group.id],
+                            notificationErr => {
+                                if (notificationErr) {
+                                    db.run('ROLLBACK');
+                                    return res.status(500).json({ error: notificationErr.message });
+                                }
+                                db.run('COMMIT', commitErr => commitErr
+                                    ? res.status(500).json({ error: commitErr.message })
+                                    : res.status(409).json({ error: message, notification_persisted: true }));
+                            }
+                        );
+                    }
+                    const request = JSON.stringify({ amount, amount_minor: amountMinor, reason, requestedAt: new Date().toISOString(), status: 'en_attente' });
+                    db.run('UPDATE members SET credit_request = ? WHERE id = ?', [request, member.id], updateErr => {
+                        if (updateErr) {
+                            db.run('ROLLBACK');
+                            return res.status(500).json({ error: updateErr.message });
+                        }
+                        recordHistory(group.id, member.id, `Demande de crédit de ${amount}`, historyErr => {
+                            if (historyErr) {
+                                db.run('ROLLBACK');
+                                return res.status(500).json({ error: historyErr.message });
+                            }
+                            db.run('COMMIT', commitErr => commitErr
+                                ? res.status(500).json({ error: commitErr.message })
+                                : res.status(201).json({ amount, amount_minor: amountMinor, status: 'en_attente', maximum_minor: maximumMinor }));
+                        });
+                    });
+                }
+            );
+        }));
     });
 });
 
@@ -5366,7 +5541,10 @@ app.post('/api/social/posts', authenticateAccount, (req, res) => {
                         idempotencyKey, contentType: 'post', contentId: postId, chargedAccountId: req.account.id,
                         postAuthorAccountId: req.account.id, amountMinor: socialPrice('post', media)
                     }, (chargeErr, receipt) => {
-                        if (chargeErr) return complete(500, { error: chargeErr.message });
+                        if (chargeErr) {
+                            return db.run('DELETE FROM social_posts WHERE id = ? AND author_account_id = ?', [postId, req.account.id],
+                                () => complete(chargeErr.status || 500, { error: chargeErr.message }));
+                        }
                         const respond = () => complete(201, {
                             id: postId, moderation_status: classification.status, review_tag: classification.reviewTag,
                             receipt
@@ -5482,7 +5660,10 @@ app.post('/api/social/posts/:postId/comments', authenticateAccount, (req, res) =
                                 idempotencyKey, contentType: 'comment', contentId: commentId, chargedAccountId: req.account.id,
                                 postAuthorAccountId: post.author_account_id, amountMinor: socialPrice('comment')
                             }, (chargeErr, receipt) => {
-                                if (chargeErr) return complete(500, { error: chargeErr.message });
+                                if (chargeErr) {
+                                    return db.run('DELETE FROM post_comments WHERE id = ? AND author_account_id = ?', [commentId, req.account.id],
+                                        () => complete(chargeErr.status || 500, { error: chargeErr.message }));
+                                }
                                 respond(receipt);
                             });
                         }
@@ -6077,8 +6258,14 @@ app.post('/api/member-content', authenticateAccount, (req, res) => {
                         }
                         createContent((contentErr, contentId) => {
                             if (contentErr) return rollbackPaidContent(contentErr, complete);
-                            db.run('UPDATE platform_accounts SET internal_wallet = ? WHERE id = ?', [(balanceMinor - amountMinor) / 100, req.account.id], updateErr => {
-                                if (updateErr) return rollbackPaidContent(updateErr, complete);
+                            db.run(
+                                `UPDATE platform_accounts
+                                 SET internal_wallet = internal_wallet - ?,
+                                     internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) - ?
+                                 WHERE id = ? AND CAST(ROUND(internal_wallet * 100) AS INTEGER) >= ?`,
+                                [amountMinor / 100, amountMinor, req.account.id, amountMinor],
+                                function updateWallet(updateErr) {
+                                if (updateErr || !this.changes) return rollbackPaidContent(updateErr || { status: 402, message: 'Solde insuffisant dans le portefeuille interne SANDBOX.' }, complete);
                                 createPayment(contentId, 'succeeded', paymentErr => {
                                     if (paymentErr) return rollbackPaidContent(paymentErr, complete);
                                     db.run(
@@ -6094,7 +6281,8 @@ app.post('/api/member-content', authenticateAccount, (req, res) => {
                                                     paidContentAudit(contentId, paymentId, req.account.id, publishStatus === 'approved' ? 'published' : 'pending_review', { sandbox: true }, publishAuditErr => {
                                                         if (publishAuditErr) return rollbackPaidContent(publishAuditErr, complete);
                                                         finish(contentId, 'succeeded');
-                                                    });
+                                                        }
+                                                    );
                                                 });
                                             });
                                         }
@@ -6169,7 +6357,7 @@ function publicCommentReceipt(paymentId) {
         display: '0.25 USD-équivalent SANDBOX',
         platform_amount_minor: PAID_PUBLIC_CONTENT_PRICING.comment_platform_minor,
         post_author_amount_minor: PAID_PUBLIC_CONTENT_PRICING.comment_author_minor,
-        split: '0.125 USD-équivalent plateforme / 0.125 USD-équivalent auteur',
+        split: '0.13 USD-équivalent plateforme / 0.12 USD-équivalent auteur (arrondi en centimes)',
         notice: 'Reçu SANDBOX idempotent : le portefeuille interne est débité uniquement dans la démonstration; aucun transfert réel n’est effectué.'
     };
 }
@@ -6234,8 +6422,14 @@ app.post('/api/public/news/member_content/:contentId/comments', authenticateAcco
                                 function insertComment(insertErr) {
                                     if (insertErr) return rollbackPaidContent(insertErr, complete);
                                     const commentId = this.lastID;
-                                    db.run('UPDATE platform_accounts SET internal_wallet = ? WHERE id = ?', [(balanceMinor - amountMinor) / 100, req.account.id], updateErr => {
-                                        if (updateErr) return rollbackPaidContent(updateErr, complete);
+                                    db.run(
+                                        `UPDATE platform_accounts
+                                         SET internal_wallet = internal_wallet - ?,
+                                             internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) - ?
+                                         WHERE id = ? AND CAST(ROUND(internal_wallet * 100) AS INTEGER) >= ?`,
+                                        [amountMinor / 100, amountMinor, req.account.id, amountMinor],
+                                        function updateWallet(updateErr) {
+                                        if (updateErr || !this.changes) return rollbackPaidContent(updateErr || { status: 402, message: 'Solde insuffisant dans le portefeuille interne SANDBOX.' }, complete);
                                         db.run(
                                             `INSERT INTO public_comment_receipts
                                              (payment_id, idempotency_key, comment_id, charged_account_id, content_author_account_id, amount_minor, platform_amount_minor, author_amount_minor)
@@ -6250,7 +6444,8 @@ app.post('/api/public/news/member_content/:contentId/comments', authenticateAcco
                                                         id: commentId,
                                                         moderation_status: classification.status,
                                                         receipt: publicCommentReceipt(paymentId)
-                                                    });
+                                                        }
+                                                    );
                                                 });
                                             }
                                         );

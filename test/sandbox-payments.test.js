@@ -41,6 +41,10 @@ function request(method, route, { body, token, headers = {} } = {}) {
     });
 }
 
+function run(sql, values = []) {
+    return new Promise((resolve, reject) => db.run(sql, values, err => err ? reject(err) : resolve()));
+}
+
 test.before(async () => {
     server = await start(0);
     port = server.address().port;
@@ -76,6 +80,7 @@ test('SANDBOX payments are idempotent, authorized, blocked when required, and we
         }
     });
     assert.equal(creator.status, 201);
+    await run('UPDATE platform_accounts SET internal_wallet = 100 WHERE id = ?', [creator.data.account.id]);
     const group = await request('POST', '/api/groups', {
         token: creator.data.accessToken,
         body: {

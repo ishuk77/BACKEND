@@ -39,6 +39,10 @@ function request(method, route, { body, token } = {}) {
     });
 }
 
+function run(sql, values = []) {
+    return new Promise((resolve, reject) => db.run(sql, values, err => err ? reject(err) : resolve()));
+}
+
 function rawRequest(method, route, { body, token, headers = {} } = {}) {
     return new Promise((resolve, reject) => {
         const payload = Buffer.from(body || '');
@@ -94,6 +98,7 @@ test('dashboard, staff, chat, fraud review, Momo, and platform contracts work on
         }
     });
     assert.equal(creator.status, 201);
+    await run('UPDATE platform_accounts SET internal_wallet = 100 WHERE id = ?', [creator.data.account.id]);
     const group = await request('POST', '/api/groups', {
         token: creator.data.accessToken,
         body: {
@@ -147,12 +152,20 @@ test('dashboard, staff, chat, fraud review, Momo, and platform contracts work on
         body: { prenom: 'Membre', name: 'Mis à jour', phone: '+22992222224', availability: 'busy' }
     })).status, 200);
     assert.equal((await request('GET', `/api/members/${memberId}`, { token: memberToken })).data.availability, 'busy');
+    await run('UPDATE platform_accounts SET internal_wallet = 100 WHERE id = ?', [memberAccount.data.account.id]);
     assert.equal((await request('POST', `/api/members/${memberId}/contributions`, {
         token: memberToken, body: { amount: 30 }
     })).status, 201);
     assert.equal((await request('POST', `/api/members/${memberId}/credit-request`, {
         token: memberToken, body: { amount: 20, reason: 'Activité génératrice de revenu' }
     })).status, 201);
+    const excessiveCredit = await request('POST', `/api/members/${memberId}/credit-request`, {
+        token: memberToken, body: { amount: 100, reason: 'Montant trop élevé' }
+    });
+    assert.equal(excessiveCredit.status, 409);
+    assert.equal(excessiveCredit.data.notification_persisted, true);
+    const memberNotifications = await request('GET', '/api/platform/notifications', { token: memberAccount.data.accessToken });
+    assert.ok(memberNotifications.data.notifications.some(notification => notification.kind === 'credit_request_rejected' && /3× vos contributions/.test(notification.message)));
 
     assert.equal((await request('PUT', `/api/groups/${group.data.groupId}`, {
         token: presidentToken, body: { cycle_length: 3 }

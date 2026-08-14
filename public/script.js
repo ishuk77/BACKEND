@@ -686,6 +686,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         selectedAttachment = event.target.files && event.target.files[0];
         $('chatAttachmentName').textContent = selectedAttachment ? `${selectedAttachment.name} (${Math.ceil(selectedAttachment.size / 1024)} Ko)` : 'Maximum 6 Mo';
     });
+    $('chatCamera').addEventListener('change', event => {
+        selectedAttachment = event.target.files && event.target.files[0];
+        $('chatAttachmentName').textContent = selectedAttachment ? `${selectedAttachment.name} (${Math.ceil(selectedAttachment.size / 1024)} Ko)` : 'Maximum 6 Mo';
+    });
+    $('chatAttachmentMenu').addEventListener('click', () => {
+        const choices = $('chatAttachmentChoices');
+        choices.hidden = !choices.hidden;
+        $('chatAttachmentMenu').setAttribute('aria-expanded', String(!choices.hidden));
+    });
     $('emojiPickerButton').addEventListener('click', () => {
         const picker = $('emojiPicker');
         picker.hidden = !picker.hidden;
@@ -708,9 +717,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (reaction) toggleReaction(reaction.dataset.messageId, reaction.dataset.emoji, reaction.classList.contains('is-active')).catch(error => alert(error.message));
         if (download) downloadAttachment(download.dataset.downloadId).catch(error => alert(error.message));
     });
-    $('btnAudioCall').addEventListener('click', () => showMediaSetup('appels audio'));
-    $('btnVideoCall').addEventListener('click', () => showMediaSetup('appels vidéo'));
-    $('btnGroupVideo').addEventListener('click', () => showMediaSetup('visioconférences de groupe'));
+    $('btnAudioCall').addEventListener('click', () => showMediaSetup('planification d’appels audio de démonstration (aucun appel réel)'));
+    $('btnVideoCall').addEventListener('click', () => showMediaSetup('planification d’appels vidéo de démonstration (aucun appel réel)'));
+    $('btnGroupVideo').addEventListener('click', () => showMediaSetup('planification de conférences de démonstration (aucun appel réel)'));
     $('btnCollaboration').addEventListener('click', () => showCollaboration().catch(error => alert(error.message)));
     $('meetingForm').addEventListener('submit', event => createMeeting(event).catch(error => alert(error.message)));
     $('meetingCalendar').addEventListener('click', event => {

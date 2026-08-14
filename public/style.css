@@ -159,6 +159,52 @@ header {
     border-top: 1px solid var(--border-color);
 }
 
+/* The portal is an application shell: navigation remains available while one screen is active. */
+#portalSection {
+    display: grid;
+    grid-template-columns: minmax(190px, 260px) minmax(0, 1fr);
+    gap: 18px 24px;
+    align-items: start;
+}
+#portalSection > .dashboard-heading { grid-column: 1 / -1; margin-bottom: 0; }
+#portalSection > .portal-nav {
+    grid-column: 1;
+    grid-row: 2 / span 20;
+    position: sticky;
+    top: 12px;
+    margin: 0;
+    max-height: calc(100vh - 24px);
+    overflow: auto;
+}
+#portalSection > #portalNotice,
+#portalSection > .portal-screen { grid-column: 2; }
+#portalSection > .portal-screen { margin-top: 0; }
+
+@media (max-width: 720px) {
+    #portalSection { display: block; }
+    #portalSection > .portal-nav {
+        position: static;
+        display: flex;
+        gap: 6px;
+        margin: 12px 0;
+        max-height: none;
+        overflow-x: auto;
+    }
+    #portalSection > .portal-nav .action-menu { flex: 0 0 auto; }
+    #portalSection > .portal-nav .action-menu summary {
+        min-height: 42px;
+        padding: 8px 10px;
+        font-size: 0;
+    }
+    #portalSection > .portal-nav .action-menu summary::before {
+        content: "☰";
+        font-size: 1.1rem;
+    }
+    #portalSection > .portal-nav .action-menu summary::after { font-size: 1rem; }
+    #portalSection > .portal-nav .action-menu > .button-grid { padding: 8px; }
+    #portalSection > .portal-screen { margin-top: 16px; }
+}
+
 .wallet-card {
     flex: 1 1 240px;
     display: grid;

@@ -89,8 +89,8 @@ test('public advertising, comment receipts, curated flashes, and social links re
     });
     assert.equal(comment.status, 201);
     assert.equal(comment.data.receipt.amount_minor, 25);
-    assert.equal(comment.data.receipt.platform_amount_minor, 12.5);
-    assert.equal(comment.data.receipt.post_author_amount_minor, 12.5);
+    assert.equal(comment.data.receipt.platform_amount_minor, 13);
+    assert.equal(comment.data.receipt.post_author_amount_minor, 12);
     const replay = await request('POST', `/api/public/news/member_content/${advertised.data.content.id}/comments`, {
         token: member.data.accessToken, headers: commentHeaders, body: { body: 'Très utile.' }
     });

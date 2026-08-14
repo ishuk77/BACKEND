@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS groups (
             currency TEXT,
             phone TEXT,
             wallet REAL DEFAULT 0,
+            wallet_minor BIGINT NOT NULL DEFAULT 0,
             blocked SMALLINT DEFAULT 0,
             cycle_length INTEGER DEFAULT 6,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -123,6 +124,7 @@ CREATE TABLE IF NOT EXISTS platform_accounts (
             prenom TEXT NOT NULL,
             name TEXT NOT NULL,
             phone TEXT UNIQUE,
+            country TEXT,
             password TEXT NOT NULL,
             identity_number TEXT,
             phone_verified_at TIMESTAMPTZ,
@@ -131,6 +133,7 @@ CREATE TABLE IF NOT EXISTS platform_accounts (
             visibility TEXT NOT NULL DEFAULT 'friends' CHECK (visibility IN ('public', 'friends', 'private')),
             availability TEXT NOT NULL DEFAULT 'offline' CHECK (availability IN ('online', 'offline', 'busy')),
             internal_wallet REAL NOT NULL DEFAULT 0,
+            internal_wallet_minor BIGINT NOT NULL DEFAULT 0,
             momo_wallet REAL NOT NULL DEFAULT 0,
             avatar_media_id BIGINT,
             refresh_token TEXT,
@@ -577,8 +580,8 @@ CREATE TABLE IF NOT EXISTS public_comment_receipts (
             charged_account_id BIGINT NOT NULL,
             content_author_account_id BIGINT NOT NULL,
             amount_minor INTEGER NOT NULL CHECK (amount_minor = 25),
-            platform_amount_minor REAL NOT NULL CHECK (platform_amount_minor = 12.5),
-            author_amount_minor REAL NOT NULL CHECK (author_amount_minor = 12.5),
+            platform_amount_minor INTEGER NOT NULL CHECK (platform_amount_minor = 13),
+            author_amount_minor INTEGER NOT NULL CHECK (author_amount_minor = 12),
             currency TEXT NOT NULL DEFAULT 'USD',
             sandbox INTEGER NOT NULL DEFAULT 1 CHECK (sandbox = 1),
             created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -871,4 +874,3 @@ FOR EACH ROW EXECUTE FUNCTION prevent_immutable_change();
 CREATE TRIGGER financial_audit_log_immutable_delete
 BEFORE DELETE ON financial_audit_log
 FOR EACH ROW EXECUTE FUNCTION prevent_immutable_change();
-

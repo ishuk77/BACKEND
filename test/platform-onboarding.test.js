@@ -102,9 +102,14 @@ test('a verified creator receives the member dashboard navigation contract', asy
             pin: '2468', pinConfirmation: '2468', browserSessionId, phoneVerificationToken
         }
     });
+    const groupBody = { name: 'Groupe navigation', country: 'Bénin', province: 'Littoral', city: 'Cotonou', momo_provider: 'MTN', phone: '90123456' };
+    const insufficientWallet = await request('POST', '/api/groups', { token: account.data.accessToken, body: groupBody });
+    assert.equal(insufficientWallet.status, 409);
+    assert.match(insufficientWallet.data.error, /100\.00 USD/);
+    await run('UPDATE platform_accounts SET internal_wallet = 100 WHERE id = ?', [account.data.account.id]);
     const group = await request('POST', '/api/groups', {
         token: account.data.accessToken,
-        body: { name: 'Groupe navigation', country: 'Bénin', province: 'Littoral', city: 'Cotonou', momo_provider: 'MTN', phone: '90123456' }
+        body: groupBody
     });
     assert.equal(group.status, 201);
     assert.deepEqual(group.data.dashboard, { path: 'index.html', groupId: group.data.groupId, memberId: group.data.memberId });
