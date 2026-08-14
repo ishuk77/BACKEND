@@ -2136,10 +2136,23 @@ function authenticateAccount(req, res, next) {
     const token = String(req.get('Authorization') || '').replace(/^Bearer\s+/i, '');
     if (!token) return res.status(401).json({ error: 'Connexion plateforme requise' });
     jwt.verify(token, JWT_SECRET, (err, payload) => {
-        if (err || !payload.platformAccount || !payload.accountId) return res.status(403).json({ error: 'Session plateforme invalide' });
-        db.get('SELECT * FROM platform_accounts WHERE id = ? AND status = ?', [payload.accountId, 'active'], (accountErr, account) => {
+        if (err) return res.status(403).json({ error: 'Session plateforme invalide' });
+        const accountLookup = payload.platformAccount && payload.accountId
+            ? {
+                sql: 'SELECT * FROM platform_accounts WHERE id = ? AND status = ?',
+                params: [payload.accountId, 'active']
+            }
+            : {
+                sql: `SELECT pa.* FROM platform_accounts pa
+                      JOIN platform_account_memberships pam ON pam.account_id = pa.id
+                      WHERE pam.member_id = ? AND pam.status = 'active' AND pa.status = 'active'
+                      ORDER BY pam.id ASC LIMIT 1`,
+                params: [payload.id]
+            };
+        if (!payload.platformAccount && !payload.id) return res.status(403).json({ error: 'Session plateforme invalide' });
+        db.get(accountLookup.sql, accountLookup.params, (accountErr, account) => {
             if (accountErr) return res.status(500).json({ error: accountErr.message });
-            if (!account) return res.status(403).json({ error: 'Compte plateforme inactif' });
+            if (!account) return res.status(403).json({ error: 'Ce membre doit d’abord se connecter avec son compte plateforme.' });
             req.account = account;
             next();
         });

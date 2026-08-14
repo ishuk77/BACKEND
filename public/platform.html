@@ -9,7 +9,7 @@
 </head>
 <body>
     <!-- THESIS: un espace membre donne d'abord une identité, puis des chemins distincts vers l'AVEC et le lien social. OWN-WORLD: le bleu AVEC existant, des surfaces blanches lisibles et des actions de navigation nettes. STORY: s'inscrire, protéger son profil, rejoindre un groupe et échanger sans confondre les portefeuilles. FIRST VIEWPORT: une connexion courte, avec inscription côte à côte et la promesse SANDBOX immédiatement visible. FORM: extension opérationnelle de la surface existante, sans nouveau langage visuel. -->
-    <header class="app-header"><div><h1>AVEC — espace membre</h1><p id="portalStatus" role="status">Créez votre compte membre avant de rejoindre ou créer un groupe.</p></div><div class="header-actions"><label class="sr-only" for="uiLanguage">Langue de l’interface</label><select id="uiLanguage" title="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option></select><a class="btn btn-secondary" href="index.html">Espace groupe</a></div></header>
+    <header class="app-header"><div><h1>AVEC — accueil membre</h1><p id="portalStatus" role="status">Créez votre compte membre avant de rejoindre ou créer un groupe.</p></div><div class="header-actions"><label class="sr-only" for="uiLanguage">Langue de l’interface</label><select id="uiLanguage" title="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option></select><a class="btn btn-secondary" href="index.html">Espace groupe</a></div></header>
     <main class="container">
         <section id="authSection" class="card">
             <h2>Votre compte plateforme</h2>
@@ -52,7 +52,7 @@
             <div id="portalNotice" class="notifications" role="status"></div>
 
             <section id="profileScreen" class="portal-screen">
-                <h3>Profil et portefeuilles</h3>
+                <h3>Accueil membre et portefeuilles</h3>
                 <div class="profile-summary"><img id="avatarPreview" class="profile-photo-placeholder" src="icon.svg" alt="Avatar du profil" hidden><div><strong id="profileInitials">AV</strong><p class="field-hint">Photo facultative : JPEG, PNG, GIF ou WebP, 3 Mo maximum.</p></div></div>
                 <form id="avatarForm"><div class="form-group"><label for="avatarFile">Photo de profil</label><input id="avatarFile" type="file" accept="image/jpeg,image/png,image/gif,image/webp"></div><button class="btn btn-secondary">Téléverser la photo</button></form>
                 <form id="profileForm"><div class="form-grid"><div class="form-group"><label for="profileFirstName">Prénom</label><input id="profileFirstName" required></div><div class="form-group"><label for="profileLastName">Nom</label><input id="profileLastName" required></div><div class="form-group"><label for="profileAvailability">Présence</label><select id="profileAvailability"><option value="online">En ligne</option><option value="busy">Occupé·e</option><option value="offline">Hors ligne</option></select></div><div class="form-group"><label for="profileVisibility">Visibilité du profil</label><select id="profileVisibility"><option value="friends">Contacts seulement</option><option value="public">Visible dans la recherche</option><option value="private">Privé</option></select></div></div><button class="btn btn-primary">Enregistrer le profil</button></form>

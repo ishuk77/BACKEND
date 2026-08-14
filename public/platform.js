@@ -26,7 +26,7 @@ const countryByName = name => (window.MOMO_COUNTRIES || []).find(country => coun
 const MEMBER_COUNTRIES = () => [...(window.MOMO_COUNTRIES || []), { name: 'Haïti', dialCode: '+509' }]
     .sort((first, second) => first.name.localeCompare(second.name, 'fr'));
 function tokenHeaders(extra = {}) {
-    const token = localStorage.getItem('platformAccessToken');
+    const token = localStorage.getItem('platformAccessToken') || localStorage.getItem('accessToken');
     return { ...extra, ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 }
 function idempotencyKey(prefix) {
@@ -219,9 +219,7 @@ async function enter() {
     await loadWalletTopups();
     $p('authSection').hidden = true;
     $p('portalSection').hidden = false;
-    // Every member, including a migrated legacy member, lands in the same
-    // portal and explicitly selects the AVEC dashboard to open.
-    show('groupsScreen', { history: false });
+    show('profileScreen', { history: false });
 }
 async function register(event) {
     event.preventDefault();
@@ -803,5 +801,5 @@ document.addEventListener('DOMContentLoaded', () => {
             if (screen) show(screen, { history: false });
         });
     }
-    if (localStorage.getItem('platformAccessToken')) enter().catch(logout);
+    if (localStorage.getItem('platformAccessToken') || localStorage.getItem('accessToken')) enter().catch(logout);
 });
