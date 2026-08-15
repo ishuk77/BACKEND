@@ -63,7 +63,10 @@ const META_GRAPH_HOST = 'graph.facebook.com';
 const META_GRAPH_VERSION = 'v20.0';
 const META_DEFAULT_REDIRECT_URI = 'https://www.avec.my/auth/meta/callback';
 const META_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+const META_PROMOTION_RETRY_INTERVAL_MS = 5 * 60 * 1000;
+const AVEC_SOCIAL_URL = 'https://www.avec.my/social.html';
 const metaOAuthStates = new Map();
+let metaPromotionRetryTimer = null;
 
 if (!JWT_SECRET) {
     throw new Error('JWT_SECRET must be set before starting the server.');
@@ -6749,8 +6752,8 @@ app.post('/api/admin/social/moderation/:contentType/:contentId', authenticateTok
                         : [newSecureId(), contentType, content.id, auditAction, req.user.id, reason];
                     db.run(query, values, auditErr => {
                         if (auditErr) return res.status(500).json({ error: auditErr.message });
-                        if (action === 'approve' && contentType === 'paid_content' && content.content_type === 'advertisement') {
-                            scheduleMetaAdvertisementPublication('paid_public_content', content.id, req.user.id);
+                        if (action === 'approve' && contentType === 'paid_content' && isMetaPromotionalContentType(content.content_type)) {
+                            scheduleMetaPromotionPublication('paid_public_content', content.id, req.user.id);
                         }
                         res.json({ action, content_type: contentType, content_id: content.id });
                     });
@@ -6830,12 +6833,17 @@ function auditPublicContent(contentId, actorId, action, details, callback) {
     );
 }
 
+function isMetaPromotionalContentType(contentType) {
+    return ['announcement', 'advertisement'].includes(contentType);
+}
+
 function listMetaPublishableContent(callback) {
     db.all(
         `SELECT * FROM (
-            SELECT 'public_content' AS source, id AS source_content_id, title, body, created_at
+            SELECT 'public_content' AS source, id AS source_content_id, content_type, title, body, created_at
             FROM public_content
             WHERE audience = 'public' AND active = 1 AND archived_at IS NULL
+              AND content_type IN ('announcement', 'advertisement')
               AND datetime(starts_at) <= datetime('now')
               AND (ends_at IS NULL OR datetime(ends_at) > datetime('now'))
               AND NOT EXISTS (
@@ -6844,18 +6852,10 @@ function listMetaPublishableContent(callback) {
                     AND m.status IN ('pending', 'published')
               )
             UNION ALL
-            SELECT 'social_post' AS source, id AS source_content_id, NULL AS title, body, created_at
-            FROM social_posts
-            WHERE visibility = 'public' AND moderation_status = 'approved' AND deleted_at IS NULL
-              AND NOT EXISTS (
-                  SELECT 1 FROM meta_page_publications m
-                  WHERE m.source = 'social_post' AND m.source_content_id = social_posts.id
-                    AND m.status IN ('pending', 'published')
-              )
-            UNION ALL
-            SELECT 'paid_public_content' AS source, id AS source_content_id, title, body, created_at
+            SELECT 'paid_public_content' AS source, id AS source_content_id, content_type, title, body, created_at
             FROM paid_public_contents
-            WHERE publication_status = 'approved' AND payment_status = 'succeeded'
+            WHERE content_type IN ('announcement', 'advertisement')
+              AND publication_status = 'approved' AND payment_status = 'succeeded'
               AND NOT EXISTS (
                   SELECT 1 FROM meta_page_publications m
                   WHERE m.source = 'paid_public_content' AND m.source_content_id = paid_public_contents.id
@@ -6867,29 +6867,25 @@ function listMetaPublishableContent(callback) {
     );
 }
 
-function getMetaPublishableContent(source, sourceContentId, callback, advertisementsOnly = false) {
+function getMetaPublishableContent(source, sourceContentId, callback) {
     const id = Number(sourceContentId);
     if (!Number.isSafeInteger(id) || id < 1) return callback(null, null);
     const queries = {
         public_content: {
-            sql: `SELECT id, title, body FROM public_content
+            sql: `SELECT id, content_type, title, body FROM public_content
                   WHERE id = ? AND audience = 'public' AND active = 1 AND archived_at IS NULL
+                    AND content_type IN ('announcement', 'advertisement')
                     AND datetime(starts_at) <= datetime('now')
-                    AND (ends_at IS NULL OR datetime(ends_at) > datetime('now'))
-                    ${advertisementsOnly ? "AND content_type = 'advertisement'" : ''}`
-        },
-        social_post: {
-            sql: `SELECT id, NULL AS title, body FROM social_posts
-                  WHERE id = ? AND visibility = 'public' AND moderation_status = 'approved' AND deleted_at IS NULL`
+                    AND (ends_at IS NULL OR datetime(ends_at) > datetime('now'))`
         },
         paid_public_content: {
-            sql: `SELECT id, title, body FROM paid_public_contents
-                  WHERE id = ? AND publication_status = 'approved' AND payment_status = 'succeeded'
-                    ${advertisementsOnly ? "AND content_type = 'advertisement'" : ''}`
+            sql: `SELECT id, content_type, title, body FROM paid_public_contents
+                  WHERE id = ? AND content_type IN ('announcement', 'advertisement')
+                    AND publication_status = 'approved' AND payment_status = 'succeeded'`
         }
     };
     const query = queries[source];
-    if (!query || (advertisementsOnly && source === 'social_post')) return callback(null, null);
+    if (!query) return callback(null, null);
     db.get(query.sql, [id], (err, item) => callback(err, item ? { ...item, source, sourceContentId: id } : null));
 }
 
@@ -6897,7 +6893,9 @@ function metaPublicationMessage(item) {
     if (item.source === 'test') return 'AVEC Meta integration test post. No user content was published.';
     const body = safeText(item.body, 4000);
     const title = item.title ? safeText(item.title, 160) : null;
-    return body ? (title ? `${title}\n\n${body}` : body) : null;
+    if (!body) return null;
+    const content = title ? `${title}\n\n${body}` : body;
+    return `${content}\n\nPour les réactions, questions et commentaires, rendez-vous sur ${AVEC_SOCIAL_URL}`;
 }
 
 function metaPublicationAudit(publicationId, actorMemberId, action, details, callback) {
@@ -6946,7 +6944,7 @@ function listMetaPublicationFailures(callback) {
     );
 }
 
-function publishMetaPageContent({ source, sourceContentId, actorMemberId, idempotencyKey, advertisementsOnly = false }, callback) {
+function publishMetaPageContent({ source, sourceContentId, actorMemberId, idempotencyKey, automatic = false }, callback) {
     const configuration = getMetaConfiguration();
     if (!configuration.publishingReady) {
         return callback(Object.assign(new Error('La configuration de publication Meta est incomplète ou invalide.'), { status: 503 }));
@@ -6974,7 +6972,9 @@ function publishMetaPageContent({ source, sourceContentId, actorMemberId, idempo
                     if (insertErr) return callback(Object.assign(new Error('Ce contenu est déjà en cours de publication ou a déjà été publié sur Meta.'), { status: 409 }));
                     metaPublicationAudit(publicationId, actorMemberId, 'requested', {
                         source,
-                        source_content_id: sourceContentId
+                        source_content_id: sourceContentId,
+                        automatic: Boolean(automatic),
+                        retry_attempt: automatic ? Number(String(idempotencyKey).split('-').at(-1)) || 1 : null
                     }, auditErr => {
                         if (auditErr) return callback(Object.assign(auditErr, { status: 500 }));
                         const payload = new URLSearchParams({ message, access_token: configuration.pageAccessToken }).toString();
@@ -7022,27 +7022,72 @@ function publishMetaPageContent({ source, sourceContentId, actorMemberId, idempo
         if (source === 'test') return continueWithItem({ source: 'test' });
         getMetaPublishableContent(source, sourceContentId, (contentErr, item) => {
             if (contentErr) return callback(Object.assign(contentErr, { status: 500 }));
-            if (!item) return callback(Object.assign(new Error('Le contenu sélectionné n’est pas approuvé ou n’est plus public.'), { status: 409 }));
+            if (!item) return callback(Object.assign(new Error('Le contenu sélectionné n’est pas promotionnel, public et actif.'), { status: 409 }));
             continueWithItem(item);
-        }, advertisementsOnly);
+        });
     });
 }
 
-function scheduleMetaAdvertisementPublication(source, sourceContentId, actorMemberId = null) {
+function nextMetaAutomaticIdempotencyKey(source, sourceContentId, callback) {
+    db.get(
+        `SELECT COUNT(*) AS failed_attempts FROM meta_page_publications
+         WHERE source = ? AND source_content_id = ? AND status = 'failed'`,
+        [source, sourceContentId],
+        (err, row) => {
+            if (err) return callback(err);
+            const attempt = Math.max(1, Number(row && row.failed_attempts) + 1);
+            callback(null, `auto-meta-${source}-${sourceContentId}-${attempt}`);
+        }
+    );
+}
+
+function scheduleMetaPromotionPublication(source, sourceContentId, actorMemberId = null) {
     setImmediate(() => {
         if (!getMetaConfiguration().publishingReady) return;
-        const publish = memberId => publishMetaPageContent({
-            source,
-            sourceContentId,
-            actorMemberId: memberId,
-            idempotencyKey: `auto-meta-${source}-${sourceContentId}`,
-            advertisementsOnly: true
-        }, () => {});
+        const publish = memberId => nextMetaAutomaticIdempotencyKey(source, sourceContentId, (keyErr, idempotencyKey) => {
+            if (keyErr) return;
+            publishMetaPageContent({
+                source,
+                sourceContentId,
+                actorMemberId: memberId,
+                idempotencyKey,
+                automatic: true
+            }, () => {});
+        });
         if (Number.isSafeInteger(Number(actorMemberId)) && Number(actorMemberId) > 0) return publish(Number(actorMemberId));
         db.get(`SELECT id FROM members WHERE role = 'plateforme' ORDER BY id ASC LIMIT 1`, [], (err, administrator) => {
             if (!err && administrator) publish(administrator.id);
         });
     });
+}
+
+function reconcileMetaPromotionPublications() {
+    if (!getMetaConfiguration().publishingReady) return;
+    db.all(
+        `SELECT 'public_content' AS source, id AS source_content_id, updated_by_member_id AS actor_member_id
+         FROM public_content
+         WHERE content_type IN ('announcement', 'advertisement') AND audience = 'public' AND active = 1 AND archived_at IS NULL
+           AND datetime(starts_at) <= datetime('now') AND (ends_at IS NULL OR datetime(ends_at) > datetime('now'))
+           AND NOT EXISTS (
+               SELECT 1 FROM meta_page_publications m
+               WHERE m.source = 'public_content' AND m.source_content_id = public_content.id
+                 AND m.status IN ('pending', 'published')
+           )
+         UNION ALL
+         SELECT 'paid_public_content' AS source, id AS source_content_id, NULL AS actor_member_id
+         FROM paid_public_contents
+         WHERE content_type IN ('announcement', 'advertisement') AND publication_status = 'approved' AND payment_status = 'succeeded'
+           AND NOT EXISTS (
+               SELECT 1 FROM meta_page_publications m
+               WHERE m.source = 'paid_public_content' AND m.source_content_id = paid_public_contents.id
+                 AND m.status IN ('pending', 'published')
+           )
+         LIMIT 100`,
+        [],
+        (err, items) => {
+            if (!err) items.forEach(item => scheduleMetaPromotionPublication(item.source, item.source_content_id, item.actor_member_id));
+        }
+    );
 }
 
 app.get('/api/admin/meta/status', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
@@ -7058,6 +7103,7 @@ app.get('/api/admin/meta/publishable-content', authenticateToken, authorizeRole(
                 items: items.map(item => ({
                     source: item.source,
                     sourceContentId: item.source_content_id,
+                    contentType: item.content_type,
                     title: item.title || null,
                     body: item.body,
                     createdAt: item.created_at
@@ -7073,7 +7119,7 @@ app.post('/api/admin/meta/publish', authenticateToken, authorizeRole(['plateform
     const source = String(req.body && req.body.source || '');
     const idempotencyKey = paymentIdempotencyKey(req);
     const sourceContentId = source === 'test' ? null : Number(req.body && req.body.sourceContentId);
-    if (!idempotencyKey || !['public_content', 'social_post', 'paid_public_content', 'test'].includes(source)
+    if (!idempotencyKey || !['public_content', 'paid_public_content', 'test'].includes(source)
         || (source !== 'test' && (!Number.isSafeInteger(sourceContentId) || sourceContentId < 1))) {
         return res.status(400).json({ error: 'Sélection Meta ou clé Idempotency-Key invalide.' });
     }
@@ -7142,8 +7188,8 @@ app.post('/api/admin/public-content', authenticateToken, authorizeRole(['platefo
                     content_type: input.contentType, audience: input.audience, placement: input.placement, active: Boolean(input.active)
                 }, auditErr => {
                     if (auditErr) return res.status(500).json({ error: 'Annonce créée mais audit impossible.' });
-                    if (input.contentType === 'advertisement' && input.audience === 'public' && input.active) {
-                        scheduleMetaAdvertisementPublication('public_content', this.lastID, req.user.id);
+                    if (isMetaPromotionalContentType(input.contentType) && input.audience === 'public' && input.active) {
+                        scheduleMetaPromotionPublication('public_content', this.lastID, req.user.id);
                     }
                     res.status(201).json({ id: this.lastID });
                 });
@@ -7170,8 +7216,8 @@ app.put('/api/admin/public-content/:contentId', authenticateToken, authorizeRole
                         content_type: input.contentType, audience: input.audience, placement: input.placement, active: Boolean(input.active)
                     }, auditErr => {
                         if (auditErr) return res.status(500).json({ error: 'Annonce modifiée mais audit impossible.' });
-                        if (input.contentType === 'advertisement' && input.audience === 'public' && input.active) {
-                            scheduleMetaAdvertisementPublication('public_content', existing.id, req.user.id);
+                        if (isMetaPromotionalContentType(input.contentType) && input.audience === 'public' && input.active) {
+                            scheduleMetaPromotionPublication('public_content', existing.id, req.user.id);
                         }
                         res.json({ id: existing.id });
                     });
@@ -7296,7 +7342,8 @@ app.post('/api/member-content', authenticateAccount, (req, res) => {
             const amountMinor = paidPublicContentPrice(input, media);
             const paymentId = `SANDBOX-CONTENT-${crypto.createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 18).toUpperCase()}`;
             const classification = moderationClassification(`${input.title || ''} ${input.body}`);
-            const publishStatus = classification.status === 'pending' ? 'pending_review' : 'approved';
+            const isPromotionalCampaign = isMetaPromotionalContentType(input.contentType);
+            const publishStatus = isPromotionalCampaign || classification.status !== 'pending' ? 'approved' : 'pending_review';
             const pendingMomo = input.paymentMethod === 'momo_sandbox';
             const contentValues = [
                 req.account.id, input.contentType, input.body, input.title, input.productPrice || null, input.productTotal || null,
@@ -7323,12 +7370,12 @@ app.post('/api/member-content', authenticateAccount, (req, res) => {
                             pendingMomo ? `SANDBOX-MOMO-INTENT-${paymentId.slice(-8)}` : `SANDBOX-WALLET-${paymentId.slice(-8)}`, status],
                         callback
                     );
-                    const finish = (contentId, status, autoPublishAdvertisement = false) => {
+                    const finish = (contentId, status, autoPublishPromotion = false) => {
                         const receipt = paidPublicContentReceipt({ paymentId, status, provider: input.paymentMethod, amountMinor });
                         db.run('COMMIT', commitErr => {
                             if (commitErr) return complete(500, { error: commitErr.message });
-                            if (autoPublishAdvertisement) {
-                                scheduleMetaAdvertisementPublication('paid_public_content', contentId);
+                            if (autoPublishPromotion) {
+                                scheduleMetaPromotionPublication('paid_public_content', contentId);
                             }
                             complete(pendingMomo ? 202 : 201, {
                                 content: { id: contentId, publication_status: pendingMomo ? 'payment_pending' : publishStatus, payment_status: status },
@@ -7381,7 +7428,7 @@ app.post('/api/member-content', authenticateAccount, (req, res) => {
                                                     if (walletAuditErr) return rollbackPaidContent(walletAuditErr, complete);
                                                     paidContentAudit(contentId, paymentId, req.account.id, publishStatus === 'approved' ? 'published' : 'pending_review', { sandbox: true }, publishAuditErr => {
                                                         if (publishAuditErr) return rollbackPaidContent(publishAuditErr, complete);
-                                                        finish(contentId, 'succeeded', input.contentType === 'advertisement' && publishStatus === 'approved');
+                                                        finish(contentId, 'succeeded', isPromotionalCampaign && publishStatus === 'approved');
                                                         }
                                                     );
                                                 });
@@ -7409,7 +7456,8 @@ app.post('/api/member-content/payments/:paymentId/simulate-confirmation', authen
                 if (!payment || payment.provider !== 'momo_sandbox') return complete(404, { error: 'Intent Momo SANDBOX introuvable.' });
                 if (payment.status === 'succeeded') return complete(200, { receipt: paidPublicContentReceipt({ paymentId: payment.payment_id, status: 'succeeded', provider: payment.provider, amountMinor: payment.amount_minor }) });
                 const classification = moderationClassification(`${payment.title || ''} ${payment.body}`);
-                const publicationStatus = classification.status === 'pending' ? 'pending_review' : 'approved';
+                const isPromotionalCampaign = isMetaPromotionalContentType(payment.content_type);
+                const publicationStatus = isPromotionalCampaign || classification.status !== 'pending' ? 'approved' : 'pending_review';
                 db.serialize(() => {
                     db.run('BEGIN IMMEDIATE', beginErr => {
                         if (beginErr) return complete(500, { error: beginErr.message });
@@ -7432,8 +7480,8 @@ app.post('/api/member-content/payments/:paymentId/simulate-confirmation', authen
                                             if (publicationAuditErr) return rollbackPaidContent(publicationAuditErr, complete);
                                             db.run('COMMIT', commitErr => {
                                                 if (commitErr) return complete(500, { error: commitErr.message });
-                                                if (payment.content_type === 'advertisement' && publicationStatus === 'approved') {
-                                                    scheduleMetaAdvertisementPublication('paid_public_content', payment.content_id);
+                                                if (isPromotionalCampaign && publicationStatus === 'approved') {
+                                                    scheduleMetaPromotionPublication('paid_public_content', payment.content_id);
                                                 }
                                                 complete(200, {
                                                     content: { id: payment.content_id, publication_status: publicationStatus, payment_status: 'succeeded' },
@@ -7722,6 +7770,11 @@ app.get('/api/public/news/social-media/:mediaId', (req, res) => {
 function start(port = PORT) {
     return databaseReady.then(() => new Promise(resolve => {
         const server = app.listen(port, () => {
+            reconcileMetaPromotionPublications();
+            if (!metaPromotionRetryTimer) {
+                metaPromotionRetryTimer = setInterval(reconcileMetaPromotionPublications, META_PROMOTION_RETRY_INTERVAL_MS);
+                metaPromotionRetryTimer.unref();
+            }
             console.log(`Server running on http://localhost:${server.address().port}`);
             resolve(server);
         });

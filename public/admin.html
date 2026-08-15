@@ -189,16 +189,16 @@
             <h2>Actualités &amp; publicités publiques</h2>
             <p class="field-hint">Les annonces sont du texte brut. Seules les publications membres <strong>publiques et approuvées</strong> apparaissent automatiquement sur la page publique; les contenus de contacts, privés, en attente ou retirés n’y figurent jamais.</p>
             <div class="card" aria-labelledby="metaPublishingTitle">
-                <h3 id="metaPublishingTitle">Publication Facebook / Meta</h3>
+                <h3 id="metaPublishingTitle">Publication automatique sur la Page Facebook</h3>
                 <p id="metaPublishingStatus" class="field-hint" role="status">Vérification de la configuration Meta…</p>
                 <div class="form-group">
-                    <label for="metaPublishTarget">Contenu approuvé à publier</label>
+                    <label for="metaPublishTarget">Contenu à réessayer (facultatif)</label>
                     <select id="metaPublishTarget" disabled>
-                        <option value="">Chargement des contenus approuvés…</option>
+                        <option value="">Chargement des contenus promotionnels…</option>
                     </select>
-                    <p class="field-hint">Les publicités publiques actives et les publicités membres approuvées sont publiées automatiquement sur la Page Meta configurée. Les actualités, publications sociales et autres contenus non publicitaires restent manuels. Les contenus de contacts, privés, en attente ou archivés ne sont jamais envoyés.</p>
+                    <p class="field-hint">Toute actualité, publicité ou campagne promotionnelle publique active est envoyée automatiquement à la Page Facebook configurée, sans seconde approbation de la plateforme. Sont exclus les publications sociales, les contenus privés ou entre amis, les brouillons, contenus inactifs, expirés ou archivés. Les publications Facebook renvoient les réactions, questions et commentaires vers AVEC Communauté; aucun commentaire Facebook n’est importé ni synchronisé.</p>
                 </div>
-                <button id="metaPublishSelected" class="btn btn-primary" type="button" disabled>Publier la sélection sur Meta</button>
+                <button id="metaPublishSelected" class="btn btn-primary" type="button" disabled>Réessayer la sélection sur Facebook</button>
                 <div id="metaPublicationFailures" class="field-hint" aria-live="polite"></div>
             </div>
             <form id="publicContentForm">
@@ -218,7 +218,7 @@
                 </div>
                 <label class="deployment-check"><input id="publicContentActive" type="checkbox" checked> Activer à la période indiquée</label>
                 <p id="publicContentSaveStatus" class="field-hint" role="status"></p>
-                <div class="button-grid"><button id="publicContentSave" class="btn btn-primary" type="submit">Publier l’annonce</button><button id="publicContentReset" class="btn btn-secondary" type="button">Nouvelle annonce</button></div>
+                <div class="button-grid"><button id="publicContentSave" class="btn btn-primary" type="submit">Publier l’annonce</button><button id="publicContentLaunchPreset" class="btn btn-secondary" type="button">Préparer la campagne de lancement AVEC</button><button id="publicContentReset" class="btn btn-secondary" type="button">Nouvelle annonce</button></div>
             </form>
             <div id="publicContentList" class="feed-list" aria-live="polite"></div>
             <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>

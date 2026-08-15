@@ -167,7 +167,8 @@ test('platform dashboard initializes payment ledger and all administrator action
     [
         'btnShowPlatformSetup', 'btnBackToPlatformLogin', 'btnViewAllGroups',
         'btnViewAllMembers', 'btnViewAlerts', 'btnReviewRequests', 'btnPlatformMessages',
-        'btnManageMomo', 'btnPaymentLedger', 'btnSocialModeration', 'btnPlatformStats', 'btnAddMomo'
+        'btnManageMomo', 'btnPaymentLedger', 'btnSocialModeration', 'btnPlatformStats', 'btnAddMomo',
+        'publicContentLaunchPreset'
     ].forEach(id => hasListener(elements, id, 'click'));
     [
         'platformLoginForm', 'platformSetupForm', 'platformConversationForm'

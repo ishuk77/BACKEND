@@ -45,6 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('publicContentSaveStatus').textContent = error.message;
     }));
     document.getElementById('publicContentReset').addEventListener('click', resetPublicContentForm);
+    document.getElementById('publicContentLaunchPreset').addEventListener('click', prepareAvecLaunchCampaign);
     document.getElementById('metaPublishTarget').addEventListener('change', updateMetaPublishButton);
     document.getElementById('metaPublishSelected').addEventListener('click', () => publishSelectedMetaContent().catch(error => {
         document.getElementById('metaPublishingStatus').textContent = error.message;
@@ -830,6 +831,23 @@ function resetPublicContentForm() {
     document.getElementById('publicContentSave').textContent = 'Publier l’annonce';
 }
 
+function prepareAvecLaunchCampaign() {
+    resetPublicContentForm();
+    document.getElementById('publicContentType').value = 'advertisement';
+    document.getElementById('publicContentAudience').value = 'public';
+    document.getElementById('publicContentPlacement').value = 'news';
+    document.getElementById('publicContentTitle').value = 'Découvrez AVEC, la plateforme et sa communauté';
+    document.getElementById('publicContentBody').value = `Découvrez l’application AVEC et ses espaces dédiés aux membres et aux groupes : https://www.avec.my/platform.html
+
+Retrouvez aussi AVEC Communauté : https://www.avec.my/social.html
+
+Pour vos réactions, questions et commentaires, rendez-vous sur AVEC Communauté.`;
+    document.getElementById('publicContentStarts').value = publicContentDateTime(new Date().toISOString());
+    document.getElementById('publicContentActive').checked = true;
+    document.getElementById('publicContentSave').textContent = 'Publier la campagne de lancement';
+    document.getElementById('publicContentTitle').focus();
+}
+
 function publicContentSummary(item) {
     const period = item.ends_at
         ? `Du ${new Date(item.starts_at).toLocaleString('fr-FR')} au ${new Date(item.ends_at).toLocaleString('fr-FR')}`
@@ -903,9 +921,8 @@ function updateMetaPublishButton() {
 
 function metaPublishOptionLabel(item) {
     if (item.source === 'test') return item.label;
-    const kind = item.source === 'public_content' ? 'Actualité plateforme'
-        : item.source === 'paid_public_content' ? 'Contenu public payé approuvé'
-            : 'Publication sociale approuvée';
+    const kind = item.source === 'public_content' ? 'Contenu promotionnel plateforme'
+        : 'Campagne publique payée';
     const text = item.title || item.body || '';
     return `${kind} — ${text.slice(0, 100)}`;
 }
@@ -915,7 +932,7 @@ function renderMetaPublicationFailures(failures) {
     container.replaceChildren();
     if (!failures.length) return;
     const heading = document.createElement('strong');
-    heading.textContent = 'Échecs Meta à reprendre manuellement : ';
+    heading.textContent = 'Échecs Facebook à réessayer : ';
     const details = document.createElement('span');
     details.textContent = failures.map(item => `${item.source} #${item.sourceContentId} — ${item.reason}`).join(' · ');
     container.append(heading, details);
@@ -929,10 +946,10 @@ async function loadMetaPublishing() {
         apiRequest('/api/admin/meta/publishable-content')
     ]);
     const configuration = status.publishingReady
-        ? 'Configuration de publication Meta prête. Sélectionnez un seul contenu approuvé.'
+        ? 'Configuration Facebook prête. Les contenus promotionnels publics actifs sont publiés automatiquement.'
         : `Publication Meta indisponible : ${[...status.missing, ...status.invalid].join(', ') || 'configuration incomplète'}.`;
     statusElement.textContent = configuration;
-    target.replaceChildren(new Option('Sélectionner un contenu à publier', ''));
+    target.replaceChildren(new Option('Sélectionner un contenu à réessayer', ''));
     const options = [publishable.testPost, ...publishable.items];
     options.forEach(item => {
         const option = new Option(metaPublishOptionLabel(item), item.source === 'test'
@@ -956,7 +973,7 @@ async function publishSelectedMetaContent() {
     const button = document.getElementById('metaPublishSelected');
     const idempotencyKey = window.crypto?.randomUUID ? window.crypto.randomUUID() : `meta-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     button.disabled = true;
-    status.textContent = 'Publication Meta en cours…';
+    status.textContent = 'Nouvel essai de publication Facebook en cours…';
     try {
         const result = await apiRequest('/api/admin/meta/publish', {
             method: 'POST',
@@ -968,8 +985,8 @@ async function publishSelectedMetaContent() {
         });
         await loadMetaPublishing();
         status.textContent = result.idempotent_replay
-            ? 'Cette sélection avait déjà été publiée sur Meta.'
-            : 'Publication Meta réussie et historisée.';
+            ? 'Cette sélection avait déjà été publiée sur Facebook.'
+            : 'Publication Facebook réussie et historisée.';
     } finally {
         updateMetaPublishButton();
     }
@@ -1020,8 +1037,10 @@ async function savePublicContent(event) {
     await apiRequest(id ? `/api/admin/public-content/${encodeURIComponent(id)}` : '/api/admin/public-content', {
         method: id ? 'PUT' : 'POST', body: JSON.stringify(payload)
     });
-    document.getElementById('publicContentSaveStatus').textContent = id ? 'Annonce mise à jour.' : 'Annonce enregistrée.';
-    await loadPublicContent();
+    document.getElementById('publicContentSaveStatus').textContent = id
+        ? 'Contenu promotionnel mis à jour; la publication Facebook sera tentée automatiquement.'
+        : 'Contenu promotionnel enregistré; la publication Facebook sera tentée automatiquement.';
+    await Promise.all([loadPublicContent(), loadMetaPublishing()]);
     resetPublicContentForm();
 }
 

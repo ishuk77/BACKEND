@@ -77,7 +77,7 @@ test.after(async () => {
     fs.rmSync(databasePath, { force: true });
 });
 
-test('Meta page publishing remains admin-only, explicit, and server-side', async () => {
+test('Meta page publishing automatically sends declared public promotions server-side', async () => {
     const admin = await request('POST', '/api/platform-admin', {
         body: { prenom: 'Admin', name: 'Meta', phone: '+22990000666', idNumber: 'ADMIN-META' }
     });
@@ -89,11 +89,6 @@ test('Meta page publishing remains admin-only, explicit, and server-side', async
     assert.equal(unconfigured.data.publishingReady, false);
     assert.equal(Object.prototype.hasOwnProperty.call(unconfigured.data, 'pageAccessToken'), false);
     assert.equal((await request('GET', '/api/admin/meta/status')).status, 401);
-
-    process.env.META_APP_ID = '1234567890';
-    process.env.META_APP_SECRET = 'a'.repeat(32);
-    process.env.META_PAGE_ID = '9876543210';
-    process.env.META_PAGE_ACCESS_TOKEN = 'test-page-access-token';
 
     const publicContent = await request('POST', '/api/admin/public-content', {
         token: admin.data.accessToken,
@@ -127,7 +122,12 @@ test('Meta page publishing remains admin-only, explicit, and server-side', async
         assert.fail('Timed out waiting for asynchronous Meta publication');
     }
 
-    async function testAutomaticAdvertisementPublication() {
+    process.env.META_APP_ID = '1234567890';
+    process.env.META_APP_SECRET = 'a'.repeat(32);
+    process.env.META_PAGE_ID = '9876543210';
+    process.env.META_PAGE_ACCESS_TOKEN = 'test-page-access-token';
+
+    async function testAutomaticPromotionPublication() {
         const originalRequest = https.request;
         const calls = [];
         let failNextPublication = false;
@@ -169,25 +169,35 @@ test('Meta page publishing remains admin-only, explicit, and server-side', async
         });
 
         try {
-            const publicAdvertisement = await createAdminContent({});
-            assert.equal(publicAdvertisement.status, 201);
+            const publicAnnouncement = await createAdminContent({
+                content_type: 'announcement',
+                title: 'Annonce publique automatique'
+            });
+            assert.equal(publicAnnouncement.status, 201);
             await waitFor(async () => calls.length === 1);
             const publication = await get(
                 `SELECT status FROM meta_page_publications
                  WHERE source = ? AND source_content_id = ?`,
-                ['public_content', publicAdvertisement.data.id]
+                ['public_content', publicAnnouncement.data.id]
             );
             assert.equal(publication.status, 'published');
+            assert.match(new URLSearchParams(calls[0].body).get('message'), /https:\/\/www\.avec\.my\/social\.html/);
 
             assert.equal((await createAdminContent({ audience: 'members', title: 'Publicité membres' })).status, 201);
-            assert.equal((await createAdminContent({ content_type: 'announcement', title: 'Actualité manuelle' })).status, 201);
             const inactiveAdvertisement = await createAdminContent({ active: false, title: 'Publicité inactive' });
             assert.equal(inactiveAdvertisement.status, 201);
             assert.equal((await request('POST', `/api/admin/public-content/${inactiveAdvertisement.data.id}/archive`, {
                 token: adminAccessToken, body: {}
             })).status, 200);
             await new Promise(resolve => setTimeout(resolve, 30));
-            assert.equal(calls.length, 1, 'private, non-advertising, inactive, and archived content must not publish');
+            assert.equal(calls.length, 1, 'member, inactive, and archived content must not publish');
+
+            const publicMarketingCampaign = await createAdminContent({
+                title: 'Campagne de lancement AVEC',
+                body: 'Découvrez la plateforme AVEC.'
+            });
+            assert.equal(publicMarketingCampaign.status, 201);
+            await waitFor(async () => calls.length === 2);
 
             const phone = '+22995556666';
             const browserSessionId = 'meta-auto-publication-session';
@@ -208,14 +218,14 @@ test('Meta page publishing remains admin-only, explicit, and server-side', async
                 token: registration.data.accessToken,
                 headers: { 'Idempotency-Key': 'meta-auto-paid-ad-0001' },
                 body: {
-                    content_type: 'advertisement', title: 'Savon AVEC', body: 'Savon artisanal disponible.',
+                    content_type: 'advertisement', title: 'Campagne produit AVEC', body: 'Offre xxx lancée sans seconde modération.',
                     product_price: '5 USD', product_total: '5 USD', availability: 'En stock', address: 'Cotonou',
                     contact_phone: '+229 90 00 00 00', contact_email: 'vente@example.test', payment_method: 'internal_wallet'
                 }
             });
             assert.equal(paidAdvertisement.status, 201);
             assert.equal(paidAdvertisement.data.content.publication_status, 'approved');
-            await waitFor(async () => calls.length === 2);
+            await waitFor(async () => calls.length === 3);
 
             const genericPaidPost = await request('POST', '/api/member-content', {
                 token: registration.data.accessToken,
@@ -224,25 +234,29 @@ test('Meta page publishing remains admin-only, explicit, and server-side', async
             });
             assert.equal(genericPaidPost.status, 201);
             await new Promise(resolve => setTimeout(resolve, 30));
-            assert.equal(calls.length, 2, 'generic social posts remain manual');
+            assert.equal(calls.length, 3, 'generic paid posts must not publish to Facebook');
 
-            const pendingAdvertisement = await request('POST', '/api/member-content', {
+            const socialPost = await request('POST', '/api/social/posts', {
                 token: registration.data.accessToken,
-                headers: { 'Idempotency-Key': 'meta-auto-pending-ad-0001' },
-                body: {
-                    content_type: 'advertisement', title: 'Offre xxx', body: 'Publicité à examiner.',
-                    product_price: '1 USD', product_total: '1 USD', availability: 'En stock', address: 'Cotonou',
-                    contact_phone: '+22990000000', contact_email: 'vente@example.test', payment_method: 'internal_wallet'
-                }
+                headers: { 'Idempotency-Key': 'meta-auto-social-post-0001' },
+                body: { body: 'Publication sociale publique, sans campagne.', visibility: 'public' }
             });
-            assert.equal(pendingAdvertisement.status, 201);
-            assert.equal(pendingAdvertisement.data.content.publication_status, 'pending_review');
+            assert.equal(socialPost.status, 201);
             await new Promise(resolve => setTimeout(resolve, 30));
-            assert.equal(calls.length, 2, 'pending advertisements must not publish');
-            assert.equal((await request('POST', `/api/admin/social/moderation/paid_content/${pendingAdvertisement.data.content.id}`, {
-                token: adminAccessToken, body: { action: 'approve', reason: 'Publicité conforme.' }
-            })).status, 200);
-            await waitFor(async () => calls.length === 3);
+            assert.equal(calls.length, 3, 'arbitrary public social posts must not publish to Facebook');
+            const friendsPost = await request('POST', '/api/social/posts', {
+                token: registration.data.accessToken,
+                headers: { 'Idempotency-Key': 'meta-auto-friends-post-0001' },
+                body: { body: 'Publication entre amis.', visibility: 'friends' }
+            });
+            assert.equal(friendsPost.status, 201);
+            await new Promise(resolve => setTimeout(resolve, 30));
+            assert.equal(calls.length, 3, 'friends-only content must not publish to Facebook');
+            assert.equal((await request('POST', '/api/admin/meta/publish', {
+                token: adminAccessToken,
+                headers: { 'Idempotency-Key': 'meta-social-post-manual-0001' },
+                body: { source: 'social_post', sourceContentId: socialPost.data.id }
+            })).status, 400);
 
             failNextPublication = true;
             const failingAdvertisement = await createAdminContent({ title: 'Publicité avec échec Meta' });
@@ -259,6 +273,28 @@ test('Meta page publishing remains admin-only, explicit, and server-side', async
             assert.ok(publishable.data.failures.some(item => item.source === 'public_content'
                 && item.sourceContentId === failingAdvertisement.data.id
                 && item.reason.includes('Meta 190: Page token rejected for test')));
+            const retry = await request('PUT', `/api/admin/public-content/${failingAdvertisement.data.id}`, {
+                token: adminAccessToken,
+                body: {
+                    content_type: 'advertisement',
+                    audience: 'public',
+                    placement: 'news',
+                    title: 'Publicité avec nouvel essai Meta',
+                    body: 'La mise à jour relance automatiquement la publication.',
+                    starts_at: new Date(Date.now() - 60_000).toISOString(),
+                    ends_at: null,
+                    active: true,
+                    media_id: null
+                }
+            });
+            assert.equal(retry.status, 200);
+            await waitFor(async () => calls.length === 5);
+            const retries = await get(
+                `SELECT COUNT(*) AS count FROM meta_page_publications
+                 WHERE source = ? AND source_content_id = ?`,
+                ['public_content', failingAdvertisement.data.id]
+            );
+            assert.equal(retries.count, 2, 'a failed automatic publication must be retryable without duplicating a successful post');
         } finally {
             https.request = originalRequest;
         }
@@ -316,6 +352,7 @@ test('Meta page publishing remains admin-only, explicit, and server-side', async
         assert.match(calls.at(-1).options.path, /\/9876543210\/feed$/);
         assert.match(calls.at(-1).body, /message=/);
         assert.match(calls.at(-1).body, /access_token=test-page-access-token/);
+        assert.match(new URLSearchParams(calls.at(-1).body).get('message'), /https:\/\/www\.avec\.my\/social\.html/);
 
         const replay = await request('POST', '/api/admin/meta/publish', {
             token: admin.data.accessToken,
@@ -328,5 +365,5 @@ test('Meta page publishing remains admin-only, explicit, and server-side', async
     } finally {
         https.request = originalRequest;
     }
-    await testAutomaticAdvertisementPublication();
+    await testAutomaticPromotionPublication();
 });

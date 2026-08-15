@@ -112,19 +112,15 @@ test('paid public content debits only the internal sandbox wallet and confirms M
         body: { content_type: 'advertisement', body: 'x', title: 'x', product_price: '1', product_total: '1', availability: 'x', address: 'x', contact_phone: '+22990000000', contact_email: 'x@example.test', payment_method: 'momo_sandbox', media_ids: [1, 2, 3, 4, 5] }
     })).status, 400);
 
-    const pendingAd = await request('POST', '/api/member-content', {
+    const promotionalAd = await request('POST', '/api/member-content', {
         token: registration.data.accessToken,
         headers: { 'Idempotency-Key': 'paid-content-pending-moderation-0001' },
         body: { content_type: 'advertisement', title: 'Offre xxx', body: 'Publicité à examiner.', product_price: '1 USD', product_total: '1 USD', availability: 'En stock', address: 'Cotonou', contact_phone: '+22990000000', contact_email: 'vente@example.test', payment_method: 'internal_wallet' }
     });
-    assert.equal(pendingAd.status, 201);
-    assert.equal(pendingAd.data.content.publication_status, 'pending_review');
+    assert.equal(promotionalAd.status, 201);
+    assert.equal(promotionalAd.data.content.publication_status, 'approved');
     const moderationQueue = await request('GET', '/api/admin/social/moderation', { token: admin.data.accessToken });
     assert.equal(moderationQueue.status, 200, JSON.stringify(moderationQueue.data));
-    const queuedAd = moderationQueue.data.items.find(item => item.content_type === 'paid_content' && item.content_id === pendingAd.data.content.id);
-    assert.ok(queuedAd);
-    assert.equal((await request('POST', `/api/admin/social/moderation/paid_content/${pendingAd.data.content.id}`, {
-        token: admin.data.accessToken, body: { action: 'approve', reason: 'Publicité conforme.' }
-    })).status, 200);
-    assert.ok((await request('GET', '/api/public/news')).data.items.some(item => item.source === 'member_content' && item.id === pendingAd.data.content.id));
+    assert.equal(moderationQueue.data.items.some(item => item.content_type === 'paid_content' && item.content_id === promotionalAd.data.content.id), false);
+    assert.ok((await request('GET', '/api/public/news')).data.items.some(item => item.source === 'member_content' && item.id === promotionalAd.data.content.id));
 });
