@@ -188,6 +188,18 @@
         <section id="publicContentSection" class="card" style="display:none;">
             <h2>Actualités &amp; publicités publiques</h2>
             <p class="field-hint">Les annonces sont du texte brut. Seules les publications membres <strong>publiques et approuvées</strong> apparaissent automatiquement sur la page publique; les contenus de contacts, privés, en attente ou retirés n’y figurent jamais.</p>
+            <div class="card" aria-labelledby="metaPublishingTitle">
+                <h3 id="metaPublishingTitle">Publication Facebook / Meta</h3>
+                <p id="metaPublishingStatus" class="field-hint" role="status">Vérification de la configuration Meta…</p>
+                <div class="form-group">
+                    <label for="metaPublishTarget">Contenu approuvé à publier</label>
+                    <select id="metaPublishTarget" disabled>
+                        <option value="">Chargement des contenus approuvés…</option>
+                    </select>
+                    <p class="field-hint">La publication est manuelle : aucun contenu utilisateur n’est envoyé automatiquement à Meta.</p>
+                </div>
+                <button id="metaPublishSelected" class="btn btn-primary" type="button" disabled>Publier la sélection sur Meta</button>
+            </div>
             <form id="publicContentForm">
                 <input id="publicContentId" type="hidden">
                 <input id="publicContentMediaId" type="hidden">

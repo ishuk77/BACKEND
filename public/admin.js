@@ -45,6 +45,10 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('publicContentSaveStatus').textContent = error.message;
     }));
     document.getElementById('publicContentReset').addEventListener('click', resetPublicContentForm);
+    document.getElementById('metaPublishTarget').addEventListener('change', updateMetaPublishButton);
+    document.getElementById('metaPublishSelected').addEventListener('click', () => publishSelectedMetaContent().catch(error => {
+        document.getElementById('metaPublishingStatus').textContent = error.message;
+    }));
     document.getElementById('flashForm').addEventListener('submit', event => saveFlash(event).catch(error => alert(error.message)));
     document.getElementById('socialLinksForm').addEventListener('submit', event => saveSocialLinks(event).catch(error => alert(error.message)));
     document.querySelectorAll('.platform-back').forEach(button => button.addEventListener('click', showPlatformDashboard));
@@ -891,6 +895,74 @@ function renderPublicContent(items) {
     });
 }
 
+function updateMetaPublishButton() {
+    const target = document.getElementById('metaPublishTarget');
+    const configured = target.dataset.publishingReady === 'true';
+    document.getElementById('metaPublishSelected').disabled = !configured || !target.value;
+}
+
+function metaPublishOptionLabel(item) {
+    if (item.source === 'test') return item.label;
+    const kind = item.source === 'public_content' ? 'Actualité plateforme'
+        : item.source === 'paid_public_content' ? 'Contenu public payé approuvé'
+            : 'Publication sociale approuvée';
+    const text = item.title || item.body || '';
+    return `${kind} — ${text.slice(0, 100)}`;
+}
+
+async function loadMetaPublishing() {
+    const statusElement = document.getElementById('metaPublishingStatus');
+    const target = document.getElementById('metaPublishTarget');
+    const [status, publishable] = await Promise.all([
+        apiRequest('/api/admin/meta/status'),
+        apiRequest('/api/admin/meta/publishable-content')
+    ]);
+    const configuration = status.publishingReady
+        ? 'Configuration de publication Meta prête. Sélectionnez un seul contenu approuvé.'
+        : `Publication Meta indisponible : ${[...status.missing, ...status.invalid].join(', ') || 'configuration incomplète'}.`;
+    statusElement.textContent = configuration;
+    target.replaceChildren(new Option('Sélectionner un contenu à publier', ''));
+    const options = [publishable.testPost, ...publishable.items];
+    options.forEach(item => {
+        const option = new Option(metaPublishOptionLabel(item), item.source === 'test'
+            ? 'test'
+            : `${item.source}:${item.sourceContentId}`);
+        option.dataset.source = item.source;
+        if (item.source !== 'test') option.dataset.sourceContentId = String(item.sourceContentId);
+        target.appendChild(option);
+    });
+    target.disabled = !status.publishingReady;
+    target.dataset.publishingReady = String(Boolean(status.publishingReady));
+    updateMetaPublishButton();
+}
+
+async function publishSelectedMetaContent() {
+    const target = document.getElementById('metaPublishTarget');
+    const selected = target.options[target.selectedIndex];
+    if (!selected || !selected.dataset.source) throw new Error('Sélectionnez un contenu Meta.');
+    const status = document.getElementById('metaPublishingStatus');
+    const button = document.getElementById('metaPublishSelected');
+    const idempotencyKey = window.crypto?.randomUUID ? window.crypto.randomUUID() : `meta-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    button.disabled = true;
+    status.textContent = 'Publication Meta en cours…';
+    try {
+        const result = await apiRequest('/api/admin/meta/publish', {
+            method: 'POST',
+            headers: { 'Idempotency-Key': idempotencyKey },
+            body: JSON.stringify({
+                source: selected.dataset.source,
+                ...(selected.dataset.sourceContentId ? { sourceContentId: Number(selected.dataset.sourceContentId) } : {})
+            })
+        });
+        await loadMetaPublishing();
+        status.textContent = result.idempotent_replay
+            ? 'Cette sélection avait déjà été publiée sur Meta.'
+            : 'Publication Meta réussie et historisée.';
+    } finally {
+        updateMetaPublishButton();
+    }
+}
+
 async function loadPublicContent() {
     const data = await apiRequest('/api/admin/public-content');
     renderPublicContent(data.items);
@@ -900,7 +972,7 @@ async function showPublicContent() {
     hideAllSections();
     document.getElementById('publicContentSection').style.display = 'block';
     resetPublicContentForm();
-    await loadPublicContent();
+    await Promise.all([loadPublicContent(), loadMetaPublishing()]);
 }
 
 async function uploadPublicContentMedia(file) {

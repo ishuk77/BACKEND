@@ -124,6 +124,24 @@ Utilisez une URL publique HTTPS et des origines CORS HTTPS. Configurez un volume
 
 Les SMS, paiements Momo et vidéo ne sont pas activés par cette configuration : l’application reste en **SANDBOX** tant qu’un adaptateur officiellement validé, un contrat fournisseur, des tests et une revue sécurité ne sont pas réalisés. Vérifiez régulièrement qu’une sauvegarde peut être restaurée avant de déclarer la production prête.
 
+### Publication Facebook / Meta Page sur Render
+
+La publication Meta est **manuelle et réservée à l’administrateur plateforme**. L’administration affiche uniquement l’état non secret de l’intégration et permet de sélectionner explicitement une actualité plateforme active ou un contenu public déjà approuvé (ou un post de test). Aucun contenu membre n’est envoyé automatiquement, et aucun secret n’est renvoyé au navigateur.
+
+Dans le tableau de bord Render, ajoutez les variables d’environnement suivantes, sans placer leurs valeurs dans le dépôt, la base de données ou les journaux :
+
+```text
+META_APP_ID
+META_APP_SECRET
+META_PAGE_ID
+META_PAGE_ACCESS_TOKEN
+META_REDIRECT_URI
+```
+
+`META_REDIRECT_URI` est facultative seulement si elle correspond à la valeur par défaut `https://www.avec.my/auth/meta/callback`. Dans Meta for Developers, enregistrez exactement cette URL dans **Valid OAuth Redirect URIs** et configurez l’URL de désautorisation `https://www.avec.my/auth/meta/deauthorize`. L’application valide que toute URL de redirection est HTTPS et utilise le chemin `/auth/meta/callback`.
+
+Pour générer manuellement le jeton de Page, utilisez un administrateur de la Page dans l’outil officiel Meta (Graph API Explorer ou le flux OAuth de l’application), accordez uniquement les permissions nécessaires à la gestion/publication de la Page, sélectionnez la Page concernée, puis obtenez un **Page Access Token** durable selon la procédure Meta en vigueur. Enregistrez-le uniquement comme `META_PAGE_ACCESS_TOKEN` dans Render et planifiez son renouvellement avant expiration. Ne copiez jamais ce jeton dans le frontend, des tests, un fichier `.env` versionné ou une capture d’écran. Vérifiez ensuite l’intégration avec le post de test explicite dans `admin.html`.
+
 ### PostgreSQL sur Render
 
 Lorsque `DATABASE_URL` est définie, le serveur utilise exclusivement PostgreSQL; `DATABASE_PATH` est alors ignorée. Au démarrage, les migrations versionnées de `migrations/` sont protégées par un verrou PostgreSQL et appliquées avant que le serveur n’accepte du trafic. Ne placez jamais l’URL, son mot de passe ou une copie de ses valeurs dans le dépôt, les journaux ou les paramètres enregistrés par l’application.
@@ -275,6 +293,8 @@ Les fonctions existantes sont conservées comme titulaires **bootstrap** pendant
 - `GET /api/public/news/media/:mediaId`, `GET /api/public/news/social-media/:mediaId` — médias contrôlés des éléments actuellement publics.
 - `GET/POST /api/admin/public-content`, `PUT /api/admin/public-content/:contentId`, `POST /api/admin/public-content/:contentId/archive` — gestion réservée à l’administrateur plateforme.
 - `POST /api/admin/public-content/media` — image d’annonce validée (JPEG, PNG, GIF ou WebP, 3 Mo maximum), réservée à l’administrateur plateforme.
+- `GET /api/admin/meta/status`, `GET /api/admin/meta/publishable-content`, `POST /api/admin/meta/publish` — état non secret, sélection et publication Meta réservés à l’administrateur plateforme; `Idempotency-Key` est obligatoire pour publier.
+- `GET /auth/meta/start`, `GET /auth/meta/callback`, `POST /auth/meta/deauthorize` — flux OAuth/désautorisation Meta. Le démarrage exige un bearer token d’administrateur plateforme; le callback n’expose aucun jeton.
 - `GET /api/member-content/prices` — table de prix déterministe SANDBOX pour les contenus membres.
 - `POST /api/member-content` — crée un post, une annonce ou une publicité membre payante; `Idempotency-Key` obligatoire. Le portefeuille interne est le seul débit immédiat et reste SANDBOX.
 - `POST /api/member-content/payments/:paymentId/simulate-confirmation` — confirme explicitement un intent Momo **SANDBOX**; cette route ne remplace pas un webhook fournisseur réel.
@@ -282,7 +302,7 @@ Les fonctions existantes sont conservées comme titulaires **bootstrap** pendant
 - Un commentaire sur une publication publique coûte exactement **0,25 USD-équivalent SANDBOX**, avec reçu idempotent et répartition **0,125 plateforme / 0,125 auteur**. Les commentaires privés, entre contacts et de groupe ne sont pas facturés.
 - `GET /api/public/flashes`, `GET /api/public/social-links` — flashs éditoriaux AVEC filtrables par catégorie/localité et liens officiels. `GET/POST /api/admin/flashes`, `POST /api/admin/flashes/:flashId/archive`, `GET/PUT /api/admin/social-links/:network` sont réservés à la plateforme.
 
-Les flashs sont saisis et contrôlés par l’administration : AVEC ne récupère ni ne reproduit automatiquement de contenu sportif, international ou local de tiers et ne prétend fournir aucun flux en direct. Les liens Facebook, Instagram, YouTube et TikTok sont des liens sortants validés; l’auto-publication ne pourra être configurée qu’avec les API, contrats et identifiants officiels appropriés.
+Les flashs sont saisis et contrôlés par l’administration : AVEC ne récupère ni ne reproduit automatiquement de contenu sportif, international ou local de tiers et ne prétend fournir aucun flux en direct. Les liens Facebook, Instagram, YouTube et TikTok sont des liens sortants validés; Meta ne reçoit qu’un contenu explicitement sélectionné par un administrateur autorisé.
 
 ### Autres
 - `GET /api/stats` - Statistiques
