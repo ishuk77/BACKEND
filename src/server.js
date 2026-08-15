@@ -2462,7 +2462,12 @@ function metaGraphRequest(method, requestPath, body = null) {
                     return reject(new Error('Invalid Meta Graph response'));
                 }
                 if (response.statusCode < 200 || response.statusCode >= 300) {
-                    return reject(new Error('Meta Graph request rejected'));
+                    const graphError = parsed && typeof parsed.error === 'object' ? parsed.error : {};
+                    const code = Number(graphError.code);
+                    const message = safeText(graphError.message, 240) || 'Requête Meta refusée';
+                    const error = new Error(Number.isSafeInteger(code) ? `Meta ${code}: ${message}` : message);
+                    error.metaCode = Number.isSafeInteger(code) ? code : null;
+                    return reject(error);
                 }
                 resolve(parsed);
             });
@@ -6997,12 +7002,14 @@ app.post('/api/admin/meta/publish', authenticateToken, authorizeRole(['plateform
                                     }
                                 );
                             })
-                            .catch(() => {
+                            .catch(error => {
+                                const metaReason = safeText(error && error.message, 280) || 'Raison non fournie par Meta.';
                                 db.run('UPDATE meta_page_publications SET status = ? WHERE publication_id = ? AND status = ?', ['failed', publicationId, 'pending'], () => {
                                     metaPublicationAudit(publicationId, req.user.id, 'failed', {
                                         source,
-                                        source_content_id: sourceContentId
-                                    }, () => res.status(502).json({ error: 'La publication Meta a échoué. Aucun contenu n’a été marqué comme publié localement.' }));
+                                        source_content_id: sourceContentId,
+                                        meta_error_code: error && Number.isSafeInteger(error.metaCode) ? error.metaCode : null
+                                    }, () => res.status(502).json({ error: `La publication Meta a échoué : ${metaReason}` }));
                                 });
                             });
                     });
