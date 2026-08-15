@@ -910,6 +910,17 @@ function metaPublishOptionLabel(item) {
     return `${kind} — ${text.slice(0, 100)}`;
 }
 
+function renderMetaPublicationFailures(failures) {
+    const container = document.getElementById('metaPublicationFailures');
+    container.replaceChildren();
+    if (!failures.length) return;
+    const heading = document.createElement('strong');
+    heading.textContent = 'Échecs Meta à reprendre manuellement : ';
+    const details = document.createElement('span');
+    details.textContent = failures.map(item => `${item.source} #${item.sourceContentId} — ${item.reason}`).join(' · ');
+    container.append(heading, details);
+}
+
 async function loadMetaPublishing() {
     const statusElement = document.getElementById('metaPublishingStatus');
     const target = document.getElementById('metaPublishTarget');
@@ -933,6 +944,7 @@ async function loadMetaPublishing() {
     });
     target.disabled = !status.publishingReady;
     target.dataset.publishingReady = String(Boolean(status.publishingReady));
+    renderMetaPublicationFailures(publishable.failures || []);
     updateMetaPublishButton();
 }
 

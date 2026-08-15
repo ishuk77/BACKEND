@@ -21,6 +21,7 @@ const { start, db } = require('../src/server');
 
 let server;
 let port;
+let adminAccessToken;
 
 function request(method, route, { body, token, headers = {} } = {}) {
     return new Promise((resolve, reject) => {
@@ -81,6 +82,7 @@ test('Meta page publishing remains admin-only, explicit, and server-side', async
         body: { prenom: 'Admin', name: 'Meta', phone: '+22990000666', idNumber: 'ADMIN-META' }
     });
     assert.equal(admin.status, 201);
+    adminAccessToken = admin.data.accessToken;
 
     const unconfigured = await request('GET', '/api/admin/meta/status', { token: admin.data.accessToken });
     assert.equal(unconfigured.status, 200);
@@ -107,6 +109,160 @@ test('Meta page publishing remains admin-only, explicit, and server-side', async
             media_id: null
         }
     });
+
+    function run(sql, values = []) {
+        return new Promise((resolve, reject) => db.run(sql, values, err => err ? reject(err) : resolve()));
+    }
+
+    function get(sql, values = []) {
+        return new Promise((resolve, reject) => db.get(sql, values, (err, row) => err ? reject(err) : resolve(row)));
+    }
+
+    async function waitFor(check, timeoutMs = 500) {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+            if (await check()) return;
+            await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        assert.fail('Timed out waiting for asynchronous Meta publication');
+    }
+
+    async function testAutomaticAdvertisementPublication() {
+        const originalRequest = https.request;
+        const calls = [];
+        let failNextPublication = false;
+        https.request = (options, callback) => {
+            const req = new EventEmitter();
+            let body = '';
+            req.write = chunk => { body += chunk; };
+            req.end = () => {
+                process.nextTick(() => {
+                    const response = new EventEmitter();
+                    const failed = failNextPublication;
+                    failNextPublication = false;
+                    response.statusCode = failed ? 400 : 200;
+                    callback(response);
+                    response.emit('data', Buffer.from(JSON.stringify(failed
+                        ? { error: { code: 190, message: 'Page token rejected for test' } }
+                        : { id: `9876543210_auto_${calls.length + 1}` })));
+                    response.emit('end');
+                });
+            };
+            req.destroy = error => { if (error) req.emit('error', error); };
+            calls.push({ options, get body() { return body; } });
+            return req;
+        };
+        const createAdminContent = body => request('POST', '/api/admin/public-content', {
+            token: adminAccessToken,
+            body: {
+                content_type: 'advertisement',
+                audience: 'public',
+                placement: 'news',
+                title: 'Offre publique',
+                body: 'Publicité automatiquement approuvée.',
+                starts_at: new Date(Date.now() - 60_000).toISOString(),
+                ends_at: null,
+                active: true,
+                media_id: null,
+                ...body
+            }
+        });
+
+        try {
+            const publicAdvertisement = await createAdminContent({});
+            assert.equal(publicAdvertisement.status, 201);
+            await waitFor(async () => calls.length === 1);
+            const publication = await get(
+                `SELECT status FROM meta_page_publications
+                 WHERE source = ? AND source_content_id = ?`,
+                ['public_content', publicAdvertisement.data.id]
+            );
+            assert.equal(publication.status, 'published');
+
+            assert.equal((await createAdminContent({ audience: 'members', title: 'Publicité membres' })).status, 201);
+            assert.equal((await createAdminContent({ content_type: 'announcement', title: 'Actualité manuelle' })).status, 201);
+            const inactiveAdvertisement = await createAdminContent({ active: false, title: 'Publicité inactive' });
+            assert.equal(inactiveAdvertisement.status, 201);
+            assert.equal((await request('POST', `/api/admin/public-content/${inactiveAdvertisement.data.id}/archive`, {
+                token: adminAccessToken, body: {}
+            })).status, 200);
+            await new Promise(resolve => setTimeout(resolve, 30));
+            assert.equal(calls.length, 1, 'private, non-advertising, inactive, and archived content must not publish');
+
+            const phone = '+22995556666';
+            const browserSessionId = 'meta-auto-publication-session';
+            const delivery = await request('POST', '/api/platform/phone-verifications/request', { body: { phone, browserSessionId } });
+            const verification = await request('POST', '/api/platform/phone-verifications/verify', {
+                body: { phone, browserSessionId, code: delivery.data.sandboxCode }
+            });
+            const registration = await request('POST', '/api/platform/auth/register', {
+                body: {
+                    prenom: 'Awa', name: 'Meta', phone, identityNumber: 'META-AUTO-1', pin: '1234', pinConfirmation: '1234',
+                    browserSessionId, phoneVerificationToken: verification.data.verificationToken
+                }
+            });
+            assert.equal(registration.status, 201);
+            await run('UPDATE platform_accounts SET internal_wallet = 5 WHERE id = ?', [registration.data.account.id]);
+
+            const paidAdvertisement = await request('POST', '/api/member-content', {
+                token: registration.data.accessToken,
+                headers: { 'Idempotency-Key': 'meta-auto-paid-ad-0001' },
+                body: {
+                    content_type: 'advertisement', title: 'Savon AVEC', body: 'Savon artisanal disponible.',
+                    product_price: '5 USD', product_total: '5 USD', availability: 'En stock', address: 'Cotonou',
+                    contact_phone: '+229 90 00 00 00', contact_email: 'vente@example.test', payment_method: 'internal_wallet'
+                }
+            });
+            assert.equal(paidAdvertisement.status, 201);
+            assert.equal(paidAdvertisement.data.content.publication_status, 'approved');
+            await waitFor(async () => calls.length === 2);
+
+            const genericPaidPost = await request('POST', '/api/member-content', {
+                token: registration.data.accessToken,
+                headers: { 'Idempotency-Key': 'meta-auto-generic-post-0001' },
+                body: { content_type: 'post', body: 'Publication sociale publique, sans publicité.', payment_method: 'internal_wallet' }
+            });
+            assert.equal(genericPaidPost.status, 201);
+            await new Promise(resolve => setTimeout(resolve, 30));
+            assert.equal(calls.length, 2, 'generic social posts remain manual');
+
+            const pendingAdvertisement = await request('POST', '/api/member-content', {
+                token: registration.data.accessToken,
+                headers: { 'Idempotency-Key': 'meta-auto-pending-ad-0001' },
+                body: {
+                    content_type: 'advertisement', title: 'Offre xxx', body: 'Publicité à examiner.',
+                    product_price: '1 USD', product_total: '1 USD', availability: 'En stock', address: 'Cotonou',
+                    contact_phone: '+22990000000', contact_email: 'vente@example.test', payment_method: 'internal_wallet'
+                }
+            });
+            assert.equal(pendingAdvertisement.status, 201);
+            assert.equal(pendingAdvertisement.data.content.publication_status, 'pending_review');
+            await new Promise(resolve => setTimeout(resolve, 30));
+            assert.equal(calls.length, 2, 'pending advertisements must not publish');
+            assert.equal((await request('POST', `/api/admin/social/moderation/paid_content/${pendingAdvertisement.data.content.id}`, {
+                token: adminAccessToken, body: { action: 'approve', reason: 'Publicité conforme.' }
+            })).status, 200);
+            await waitFor(async () => calls.length === 3);
+
+            failNextPublication = true;
+            const failingAdvertisement = await createAdminContent({ title: 'Publicité avec échec Meta' });
+            assert.equal(failingAdvertisement.status, 201, 'local approval must succeed even when Meta fails');
+            await waitFor(async () => {
+                const failed = await get(
+                    `SELECT status FROM meta_page_publications WHERE source = ? AND source_content_id = ?`,
+                    ['public_content', failingAdvertisement.data.id]
+                );
+                return failed && failed.status === 'failed';
+            });
+            const publishable = await request('GET', '/api/admin/meta/publishable-content', { token: adminAccessToken });
+            assert.equal(publishable.status, 200);
+            assert.ok(publishable.data.failures.some(item => item.source === 'public_content'
+                && item.sourceContentId === failingAdvertisement.data.id
+                && item.reason.includes('Meta 190: Page token rejected for test')));
+        } finally {
+            https.request = originalRequest;
+        }
+    }
     assert.equal(publicContent.status, 201);
 
     const publishable = await request('GET', '/api/admin/meta/publishable-content', { token: admin.data.accessToken });
@@ -172,4 +328,5 @@ test('Meta page publishing remains admin-only, explicit, and server-side', async
     } finally {
         https.request = originalRequest;
     }
+    await testAutomaticAdvertisementPublication();
 });

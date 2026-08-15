@@ -196,9 +196,10 @@
                     <select id="metaPublishTarget" disabled>
                         <option value="">Chargement des contenus approuvés…</option>
                     </select>
-                    <p class="field-hint">La publication est manuelle : aucun contenu utilisateur n’est envoyé automatiquement à Meta.</p>
+                    <p class="field-hint">Les publicités publiques actives et les publicités membres approuvées sont publiées automatiquement sur la Page Meta configurée. Les actualités, publications sociales et autres contenus non publicitaires restent manuels. Les contenus de contacts, privés, en attente ou archivés ne sont jamais envoyés.</p>
                 </div>
                 <button id="metaPublishSelected" class="btn btn-primary" type="button" disabled>Publier la sélection sur Meta</button>
+                <div id="metaPublicationFailures" class="field-hint" aria-live="polite"></div>
             </div>
             <form id="publicContentForm">
                 <input id="publicContentId" type="hidden">

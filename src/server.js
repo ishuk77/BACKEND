@@ -6726,7 +6726,7 @@ app.post('/api/admin/social/moderation/:contentType/:contentId', authenticateTok
         return res.status(400).json({ error: 'Type, décision (approve, remove ou ban) et motif d’examen manuel requis' });
     }
     const table = contentType === 'post' ? 'social_posts' : contentType === 'comment' ? 'post_comments' : 'paid_public_contents';
-    db.get(`SELECT id, author_account_id FROM ${table} WHERE id = ?`, [req.params.contentId], (lookupErr, content) => {
+    db.get(`SELECT id, author_account_id${contentType === 'paid_content' ? ', content_type' : ''} FROM ${table} WHERE id = ?`, [req.params.contentId], (lookupErr, content) => {
         if (lookupErr) return res.status(500).json({ error: lookupErr.message });
         if (!content) return res.status(404).json({ error: 'Contenu introuvable' });
         const status = action === 'approve' ? 'approved' : 'removed';
@@ -6747,9 +6747,13 @@ app.post('/api/admin/social/moderation/:contentType/:contentId', authenticateTok
                     const values = contentType === 'paid_content'
                         ? [newSecureId(), content.id, auditAction, req.user.id, reason]
                         : [newSecureId(), contentType, content.id, auditAction, req.user.id, reason];
-                    db.run(query, values, auditErr => auditErr
-                        ? res.status(500).json({ error: auditErr.message })
-                        : res.json({ action, content_type: contentType, content_id: content.id }));
+                    db.run(query, values, auditErr => {
+                        if (auditErr) return res.status(500).json({ error: auditErr.message });
+                        if (action === 'approve' && contentType === 'paid_content' && content.content_type === 'advertisement') {
+                            scheduleMetaAdvertisementPublication('paid_public_content', content.id, req.user.id);
+                        }
+                        res.json({ action, content_type: contentType, content_id: content.id });
+                    });
                 };
                 if (action !== 'ban') return audit();
                 db.run('UPDATE platform_accounts SET status = ? WHERE id = ?', ['suspended', content.author_account_id], banErr => banErr ? res.status(500).json({ error: banErr.message }) : audit());
@@ -6863,7 +6867,7 @@ function listMetaPublishableContent(callback) {
     );
 }
 
-function getMetaPublishableContent(source, sourceContentId, callback) {
+function getMetaPublishableContent(source, sourceContentId, callback, advertisementsOnly = false) {
     const id = Number(sourceContentId);
     if (!Number.isSafeInteger(id) || id < 1) return callback(null, null);
     const queries = {
@@ -6871,7 +6875,8 @@ function getMetaPublishableContent(source, sourceContentId, callback) {
             sql: `SELECT id, title, body FROM public_content
                   WHERE id = ? AND audience = 'public' AND active = 1 AND archived_at IS NULL
                     AND datetime(starts_at) <= datetime('now')
-                    AND (ends_at IS NULL OR datetime(ends_at) > datetime('now'))`
+                    AND (ends_at IS NULL OR datetime(ends_at) > datetime('now'))
+                    ${advertisementsOnly ? "AND content_type = 'advertisement'" : ''}`
         },
         social_post: {
             sql: `SELECT id, NULL AS title, body FROM social_posts
@@ -6879,11 +6884,12 @@ function getMetaPublishableContent(source, sourceContentId, callback) {
         },
         paid_public_content: {
             sql: `SELECT id, title, body FROM paid_public_contents
-                  WHERE id = ? AND publication_status = 'approved' AND payment_status = 'succeeded'`
+                  WHERE id = ? AND publication_status = 'approved' AND payment_status = 'succeeded'
+                    ${advertisementsOnly ? "AND content_type = 'advertisement'" : ''}`
         }
     };
     const query = queries[source];
-    if (!query) return callback(null, null);
+    if (!query || (advertisementsOnly && source === 'social_post')) return callback(null, null);
     db.get(query.sql, [id], (err, item) => callback(err, item ? { ...item, source, sourceContentId: id } : null));
 }
 
@@ -6917,64 +6923,60 @@ function metaPublicationResponse(publication, idempotentReplay = false) {
     };
 }
 
-app.get('/api/admin/meta/status', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
-    res.json(metaConfigurationStatus());
-});
+function listMetaPublicationFailures(callback) {
+    db.all(
+        `SELECT p.source, p.source_content_id, p.created_at, a.details_json
+         FROM meta_page_publications p
+         JOIN meta_page_publication_audit a ON a.publication_id = p.publication_id AND a.action = 'failed'
+         WHERE p.status = 'failed'
+         ORDER BY a.created_at DESC LIMIT 50`,
+        [],
+        (err, rows) => {
+            if (err) return callback(err);
+            callback(null, rows.map(row => {
+                const details = parseStoredJson(row.details_json, {});
+                return {
+                    source: row.source,
+                    sourceContentId: row.source_content_id,
+                    failedAt: row.created_at,
+                    reason: safeText(details.meta_error_reason, 280) || 'Raison non fournie par Meta.'
+                };
+            }));
+        }
+    );
+}
 
-app.get('/api/admin/meta/publishable-content', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
-    listMetaPublishableContent((err, items) => {
-        if (err) return res.status(500).json({ error: 'Impossible de lire les contenus Meta publiables.' });
-        res.json({
-            items: items.map(item => ({
-                source: item.source,
-                sourceContentId: item.source_content_id,
-                title: item.title || null,
-                body: item.body,
-                createdAt: item.created_at
-            })),
-            testPost: { source: 'test', label: 'Publication de test Meta (sans contenu utilisateur)' }
-        });
-    });
-});
-
-app.post('/api/admin/meta/publish', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+function publishMetaPageContent({ source, sourceContentId, actorMemberId, idempotencyKey, advertisementsOnly = false }, callback) {
     const configuration = getMetaConfiguration();
     if (!configuration.publishingReady) {
-        return res.status(503).json({ error: 'La configuration de publication Meta est incomplète ou invalide.' });
-    }
-    const source = String(req.body && req.body.source || '');
-    const idempotencyKey = paymentIdempotencyKey(req);
-    const sourceContentId = source === 'test' ? null : Number(req.body && req.body.sourceContentId);
-    if (!idempotencyKey || !['public_content', 'social_post', 'paid_public_content', 'test'].includes(source)
-        || (source !== 'test' && (!Number.isSafeInteger(sourceContentId) || sourceContentId < 1))) {
-        return res.status(400).json({ error: 'Sélection Meta ou clé Idempotency-Key invalide.' });
+        return callback(Object.assign(new Error('La configuration de publication Meta est incomplète ou invalide.'), { status: 503 }));
     }
     db.get('SELECT * FROM meta_page_publications WHERE idempotency_key = ?', [idempotencyKey], (existingErr, existing) => {
-        if (existingErr) return res.status(500).json({ error: 'Impossible de vérifier la publication Meta.' });
+        if (existingErr) return callback(Object.assign(existingErr, { status: 500 }));
         if (existing) {
-            if (Number(existing.actor_member_id) !== Number(req.user.id)) {
-                return res.status(409).json({ error: 'Cette clé de publication est déjà utilisée.' });
+            if (Number(existing.actor_member_id) !== Number(actorMemberId)) {
+                return callback(Object.assign(new Error('Cette clé de publication est déjà utilisée.'), { status: 409 }));
             }
-            if (existing.status === 'published') return res.json(metaPublicationResponse(existing, true));
-            return res.status(409).json({ error: 'Cette publication Meta existe déjà et requiert une vérification manuelle.' });
+            if (existing.status === 'published') return callback(null, existing, true);
+            return callback(Object.assign(new Error('Cette publication Meta existe déjà et requiert une vérification manuelle.'), { status: 409 }));
         }
         const continueWithItem = item => {
             const message = metaPublicationMessage(item);
-            if (!message) return res.status(409).json({ error: 'Le contenu sélectionné n’est plus publiable sur Meta.' });
+            if (!message) return callback(Object.assign(new Error('Le contenu sélectionné n’est plus publiable sur Meta.'), { status: 409 }));
             const publicationId = newSecureId();
             const messageSha256 = crypto.createHash('sha256').update(message, 'utf8').digest('hex');
             db.run(
                 `INSERT INTO meta_page_publications
                  (publication_id, idempotency_key, source, source_content_id, actor_member_id, message_sha256, status)
                  VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-                [publicationId, idempotencyKey, source, sourceContentId, req.user.id, messageSha256],
+                [publicationId, idempotencyKey, source, sourceContentId, actorMemberId, messageSha256],
                 insertErr => {
-                    if (insertErr) return res.status(409).json({ error: 'Ce contenu est déjà en cours de publication ou a déjà été publié sur Meta.' });
-                    metaPublicationAudit(publicationId, req.user.id, 'requested', {
+                    if (insertErr) return callback(Object.assign(new Error('Ce contenu est déjà en cours de publication ou a déjà été publié sur Meta.'), { status: 409 }));
+                    metaPublicationAudit(publicationId, actorMemberId, 'requested', {
                         source,
                         source_content_id: sourceContentId
                     }, auditErr => {
-                        if (auditErr) return res.status(500).json({ error: 'Impossible d’historiser la publication Meta.' });
+                        if (auditErr) return callback(Object.assign(auditErr, { status: 500 }));
                         const payload = new URLSearchParams({ message, access_token: configuration.pageAccessToken }).toString();
                         metaGraphRequest('POST', `/${META_GRAPH_VERSION}/${configuration.pageId}/feed`, payload)
                             .then(graphResponse => {
@@ -6987,16 +6989,16 @@ app.post('/api/admin/meta/publish', authenticateToken, authorizeRole(['plateform
                                      WHERE publication_id = ? AND status = 'pending'`,
                                     [graphResponse.id, publicationId],
                                     updateErr => {
-                                        if (updateErr) return res.status(500).json({ error: 'Publication Meta effectuée mais enregistrement local impossible.' });
-                                        metaPublicationAudit(publicationId, req.user.id, 'published', {
+                                        if (updateErr) return callback(Object.assign(new Error('Publication Meta effectuée mais enregistrement local impossible.'), { status: 500 }));
+                                        metaPublicationAudit(publicationId, actorMemberId, 'published', {
                                             source,
                                             source_content_id: sourceContentId,
                                             page_post_id: graphResponse.id
                                         }, finalAuditErr => {
-                                            if (finalAuditErr) return res.status(500).json({ error: 'Publication Meta effectuée mais audit local impossible.' });
+                                            if (finalAuditErr) return callback(Object.assign(new Error('Publication Meta effectuée mais audit local impossible.'), { status: 500 }));
                                             db.get('SELECT * FROM meta_page_publications WHERE publication_id = ?', [publicationId], (readErr, publication) => {
-                                                if (readErr || !publication) return res.status(500).json({ error: 'Publication Meta effectuée mais lecture locale impossible.' });
-                                                res.status(201).json(metaPublicationResponse(publication));
+                                                if (readErr || !publication) return callback(Object.assign(new Error('Publication Meta effectuée mais lecture locale impossible.'), { status: 500 }));
+                                                callback(null, publication);
                                             });
                                         });
                                     }
@@ -7005,11 +7007,12 @@ app.post('/api/admin/meta/publish', authenticateToken, authorizeRole(['plateform
                             .catch(error => {
                                 const metaReason = safeText(error && error.message, 280) || 'Raison non fournie par Meta.';
                                 db.run('UPDATE meta_page_publications SET status = ? WHERE publication_id = ? AND status = ?', ['failed', publicationId, 'pending'], () => {
-                                    metaPublicationAudit(publicationId, req.user.id, 'failed', {
+                                    metaPublicationAudit(publicationId, actorMemberId, 'failed', {
                                         source,
                                         source_content_id: sourceContentId,
-                                        meta_error_code: error && Number.isSafeInteger(error.metaCode) ? error.metaCode : null
-                                    }, () => res.status(502).json({ error: `La publication Meta a échoué : ${metaReason}` }));
+                                        meta_error_code: error && Number.isSafeInteger(error.metaCode) ? error.metaCode : null,
+                                        meta_error_reason: metaReason
+                                    }, () => callback(Object.assign(error || new Error(metaReason), { status: 502 })));
                                 });
                             });
                     });
@@ -7018,10 +7021,65 @@ app.post('/api/admin/meta/publish', authenticateToken, authorizeRole(['plateform
         };
         if (source === 'test') return continueWithItem({ source: 'test' });
         getMetaPublishableContent(source, sourceContentId, (contentErr, item) => {
-            if (contentErr) return res.status(500).json({ error: 'Impossible de vérifier le contenu Meta sélectionné.' });
-            if (!item) return res.status(409).json({ error: 'Le contenu sélectionné n’est pas approuvé ou n’est plus public.' });
+            if (contentErr) return callback(Object.assign(contentErr, { status: 500 }));
+            if (!item) return callback(Object.assign(new Error('Le contenu sélectionné n’est pas approuvé ou n’est plus public.'), { status: 409 }));
             continueWithItem(item);
+        }, advertisementsOnly);
+    });
+}
+
+function scheduleMetaAdvertisementPublication(source, sourceContentId, actorMemberId = null) {
+    setImmediate(() => {
+        if (!getMetaConfiguration().publishingReady) return;
+        const publish = memberId => publishMetaPageContent({
+            source,
+            sourceContentId,
+            actorMemberId: memberId,
+            idempotencyKey: `auto-meta-${source}-${sourceContentId}`,
+            advertisementsOnly: true
+        }, () => {});
+        if (Number.isSafeInteger(Number(actorMemberId)) && Number(actorMemberId) > 0) return publish(Number(actorMemberId));
+        db.get(`SELECT id FROM members WHERE role = 'plateforme' ORDER BY id ASC LIMIT 1`, [], (err, administrator) => {
+            if (!err && administrator) publish(administrator.id);
         });
+    });
+}
+
+app.get('/api/admin/meta/status', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    res.json(metaConfigurationStatus());
+});
+
+app.get('/api/admin/meta/publishable-content', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    listMetaPublishableContent((err, items) => {
+        if (err) return res.status(500).json({ error: 'Impossible de lire les contenus Meta publiables.' });
+        listMetaPublicationFailures((failureErr, failures) => {
+            if (failureErr) return res.status(500).json({ error: 'Impossible de lire les échecs de publication Meta.' });
+            res.json({
+                items: items.map(item => ({
+                    source: item.source,
+                    sourceContentId: item.source_content_id,
+                    title: item.title || null,
+                    body: item.body,
+                    createdAt: item.created_at
+                })),
+                failures,
+                testPost: { source: 'test', label: 'Publication de test Meta (sans contenu utilisateur)' }
+            });
+        });
+    });
+});
+
+app.post('/api/admin/meta/publish', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    const source = String(req.body && req.body.source || '');
+    const idempotencyKey = paymentIdempotencyKey(req);
+    const sourceContentId = source === 'test' ? null : Number(req.body && req.body.sourceContentId);
+    if (!idempotencyKey || !['public_content', 'social_post', 'paid_public_content', 'test'].includes(source)
+        || (source !== 'test' && (!Number.isSafeInteger(sourceContentId) || sourceContentId < 1))) {
+        return res.status(400).json({ error: 'Sélection Meta ou clé Idempotency-Key invalide.' });
+    }
+    publishMetaPageContent({ source, sourceContentId, actorMemberId: req.user.id, idempotencyKey }, (err, publication, idempotentReplay) => {
+        if (err) return res.status(err.status || 500).json({ error: err.message });
+        res.status(idempotentReplay ? 200 : 201).json(metaPublicationResponse(publication, idempotentReplay));
     });
 });
 
@@ -7082,7 +7140,13 @@ app.post('/api/admin/public-content', authenticateToken, authorizeRole(['platefo
                 if (err) return res.status(500).json({ error: err.message });
                 auditPublicContent(this.lastID, req.user.id, 'created', {
                     content_type: input.contentType, audience: input.audience, placement: input.placement, active: Boolean(input.active)
-                }, auditErr => auditErr ? res.status(500).json({ error: 'Annonce créée mais audit impossible.' }) : res.status(201).json({ id: this.lastID }));
+                }, auditErr => {
+                    if (auditErr) return res.status(500).json({ error: 'Annonce créée mais audit impossible.' });
+                    if (input.contentType === 'advertisement' && input.audience === 'public' && input.active) {
+                        scheduleMetaAdvertisementPublication('public_content', this.lastID, req.user.id);
+                    }
+                    res.status(201).json({ id: this.lastID });
+                });
             }
         );
     });
@@ -7104,7 +7168,13 @@ app.put('/api/admin/public-content/:contentId', authenticateToken, authorizeRole
                     if (updateErr) return res.status(500).json({ error: updateErr.message });
                     auditPublicContent(existing.id, req.user.id, 'updated', {
                         content_type: input.contentType, audience: input.audience, placement: input.placement, active: Boolean(input.active)
-                    }, auditErr => auditErr ? res.status(500).json({ error: 'Annonce modifiée mais audit impossible.' }) : res.json({ id: existing.id }));
+                    }, auditErr => {
+                        if (auditErr) return res.status(500).json({ error: 'Annonce modifiée mais audit impossible.' });
+                        if (input.contentType === 'advertisement' && input.audience === 'public' && input.active) {
+                            scheduleMetaAdvertisementPublication('public_content', existing.id, req.user.id);
+                        }
+                        res.json({ id: existing.id });
+                    });
                 }
             );
         });
@@ -7253,10 +7323,13 @@ app.post('/api/member-content', authenticateAccount, (req, res) => {
                             pendingMomo ? `SANDBOX-MOMO-INTENT-${paymentId.slice(-8)}` : `SANDBOX-WALLET-${paymentId.slice(-8)}`, status],
                         callback
                     );
-                    const finish = (contentId, status) => {
+                    const finish = (contentId, status, autoPublishAdvertisement = false) => {
                         const receipt = paidPublicContentReceipt({ paymentId, status, provider: input.paymentMethod, amountMinor });
                         db.run('COMMIT', commitErr => {
                             if (commitErr) return complete(500, { error: commitErr.message });
+                            if (autoPublishAdvertisement) {
+                                scheduleMetaAdvertisementPublication('paid_public_content', contentId);
+                            }
                             complete(pendingMomo ? 202 : 201, {
                                 content: { id: contentId, publication_status: pendingMomo ? 'payment_pending' : publishStatus, payment_status: status },
                                 receipt
@@ -7308,7 +7381,7 @@ app.post('/api/member-content', authenticateAccount, (req, res) => {
                                                     if (walletAuditErr) return rollbackPaidContent(walletAuditErr, complete);
                                                     paidContentAudit(contentId, paymentId, req.account.id, publishStatus === 'approved' ? 'published' : 'pending_review', { sandbox: true }, publishAuditErr => {
                                                         if (publishAuditErr) return rollbackPaidContent(publishAuditErr, complete);
-                                                        finish(contentId, 'succeeded');
+                                                        finish(contentId, 'succeeded', input.contentType === 'advertisement' && publishStatus === 'approved');
                                                         }
                                                     );
                                                 });
@@ -7359,6 +7432,9 @@ app.post('/api/member-content/payments/:paymentId/simulate-confirmation', authen
                                             if (publicationAuditErr) return rollbackPaidContent(publicationAuditErr, complete);
                                             db.run('COMMIT', commitErr => {
                                                 if (commitErr) return complete(500, { error: commitErr.message });
+                                                if (payment.content_type === 'advertisement' && publicationStatus === 'approved') {
+                                                    scheduleMetaAdvertisementPublication('paid_public_content', payment.content_id);
+                                                }
                                                 complete(200, {
                                                     content: { id: payment.content_id, publication_status: publicationStatus, payment_status: 'succeeded' },
                                                     receipt: paidPublicContentReceipt({ paymentId: payment.payment_id, status: 'succeeded', provider: payment.provider, amountMinor: payment.amount_minor })
