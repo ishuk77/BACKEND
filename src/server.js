@@ -6302,7 +6302,7 @@ app.get('/api/social/feed', authenticateAccount, (req, res) => {
             SELECT 1 FROM friendships f WHERE f.status = 'accepted' AND
              ((f.account_one_id = p.author_account_id AND f.account_two_id = ?) OR (f.account_two_id = p.author_account_id AND f.account_one_id = ?))
          )) ORDER BY p.created_at DESC LIMIT 100`,
-        [req.account.id, req.account.id, req.account.id, req.account.id],
+        [req.account.id, req.account.id, req.account.id, req.account.id, req.account.id],
         (err, posts) => {
            if (err) return res.status(500).json({ error: err.message });
            if (!posts.length) return res.json({ posts });

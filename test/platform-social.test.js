@@ -134,6 +134,9 @@ test('platform account, group admission, social privacy, and moderation contract
     const comment = await request('POST', `/api/social/posts/${post.data.id}/comments`, { token: bob.data.accessToken, body: { body: 'Très utile.' } });
     assert.equal(comment.status, 201);
     assert.equal((await request('POST', `/api/social/comments/${comment.data.id}/reactions`, { token: alice.data.accessToken, body: { reaction: '❤️' } })).status, 201);
+    const feed = await request('GET', '/api/social/feed', { token: alice.data.accessToken });
+    assert.equal(feed.status, 200, JSON.stringify(feed.data));
+    assert.equal(feed.data.posts.find(item => item.id === post.data.id).comment_count, 1);
     const postWithComment = await request('GET', `/api/social/posts/${post.data.id}`, { token: alice.data.accessToken });
     assert.equal(postWithComment.data.comments[0].reactions[0].reaction, '❤️');
     assert.equal((await request('DELETE', `/api/social/posts/${post.data.id}`, { token: bob.data.accessToken })).status, 404);
