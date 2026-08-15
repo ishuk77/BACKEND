@@ -3,13 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AVEC — Espace membre</title>
+    <title>AVEC Communauté — Social</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
     <!-- THESIS: un espace membre donne d'abord une identité, puis des chemins distincts vers l'AVEC et le lien social. OWN-WORLD: le bleu AVEC existant, des surfaces blanches lisibles et des actions de navigation nettes. STORY: s'inscrire, protéger son profil, rejoindre un groupe et échanger sans confondre les portefeuilles. FIRST VIEWPORT: une connexion courte, avec inscription côte à côte et la promesse SANDBOX immédiatement visible. FORM: extension opérationnelle de la surface existante, sans nouveau langage visuel. -->
-    <header class="app-header"><div><h1>AVEC — accueil membre</h1><p id="portalStatus" role="status">Créez votre compte membre avant de rejoindre ou créer un groupe.</p></div><div class="header-actions"><label class="sr-only" for="uiLanguage">Langue de l’interface</label><select id="uiLanguage" title="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option></select><a class="btn btn-secondary" href="social.html">Communauté sociale</a><a class="btn btn-secondary" href="index.html">Accueil public</a></div></header>
+    <header class="app-header"><div><h1>AVEC Communauté</h1><p id="portalStatus" role="status">Contacts, fil, annonces et publicités avec votre compte AVEC.</p></div><div class="header-actions"><label class="sr-only" for="uiLanguage">Langue de l’interface</label><select id="uiLanguage" title="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option></select><a class="btn btn-secondary" href="platform.html">Espace AVEC</a><a class="btn btn-secondary" href="index.html">Accueil public</a></div></header>
     <main class="container">
         <section id="authSection" class="card">
             <h2>Votre compte plateforme</h2>
@@ -44,6 +44,13 @@
                 <button data-screen="walletScreen" class="btn btn-primary icon-button" type="button" aria-label="Ouvrir mon portefeuille et recharger" title="Portefeuille"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#wallet"></use></svg><span>Portefeuille</span></button>
             </nav>
             <div id="portalNotice" class="notifications" role="status"></div>
+            <nav class="group-action-nav social-surface-nav" aria-label="Communauté sociale">
+                <button data-screen="friendsScreen" class="btn btn-secondary" type="button">Contacts et messages</button>
+                <button data-screen="discoverScreen" class="btn btn-secondary" type="button">Découvrir des membres</button>
+                <button data-screen="feedScreen" class="btn btn-primary" type="button">Fil social</button>
+                <button data-screen="contentScreen" class="btn btn-secondary" type="button">Annonces et publicités</button>
+                <button data-screen="calendarScreen" class="btn btn-secondary" type="button">Agenda social</button>
+            </nav>
 
             <section id="profileScreen" class="portal-screen">
                 <h3>Accueil membre</h3>
@@ -115,6 +122,7 @@
     </main>
     <script src="momo-countries.js"></script>
     <script src="platform.js"></script>
+    <script src="social-surface.js"></script>
     <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 </body>
 </html>

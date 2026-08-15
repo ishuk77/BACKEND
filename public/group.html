@@ -31,8 +31,8 @@
             </section>
             <nav class="group-action-nav" aria-label="Actions membre">
                 <button class="btn btn-primary" data-action="contribution" type="button">Contribuer</button>
-                <button class="btn btn-secondary" data-action="credit" type="button">Demander un crédit</button>
-                <button class="btn btn-secondary" data-action="repayment" type="button">Rembourser</button>
+                <button id="creditAction" class="btn btn-secondary" data-action="credit" type="button">Demander un crédit</button>
+                <button id="repaymentAction" class="btn btn-secondary" data-action="repayment" type="button">Rembourser</button>
                 <button class="btn btn-secondary" data-action="withdrawal" type="button">Retirer vers Momo</button>
                 <button id="showMemberMovements" class="btn btn-secondary" type="button">Mon registre</button>
                 <button id="showFraudReport" class="btn btn-danger" type="button">Alerter la plateforme</button>
@@ -50,11 +50,14 @@
                 <button id="showCreditRequests" class="btn btn-secondary" type="button">Demandes de crédit</button>
                 <button id="closeCycle" class="btn btn-warning" type="button">Clôturer le cycle</button>
                 <button id="distributeCycle" class="btn btn-primary" type="button">Partager le cycle</button>
+                <button id="newCycle" class="btn btn-primary" type="button">Nouveau cycle</button>
                 <button id="showGroupSettings" class="btn btn-secondary" type="button">Paramètres et règles</button>
             </nav>
             <section id="groupSettingsSection" class="group-member-panel" hidden>
                 <h3>Paramètres et règles de gestion</h3>
-                <form id="groupSettingsForm"><div class="form-group"><label for="cycleLength">Durée du cycle (mois)</label><input id="cycleLength" type="number" min="1" max="36" required></div><button class="btn btn-primary">Enregistrer les règles</button></form>
+                <p id="cycleState" class="field-hint"></p>
+                <form id="groupSettingsForm"><div class="form-group"><label for="cycleLength">Durée du cycle (mois)</label><input id="cycleLength" type="number" min="1" max="36" required></div><div id="epargneSettings" hidden><div class="form-group"><label for="groupSavingsPeriodicity">Périodicité</label><select id="groupSavingsPeriodicity"><option value="weekly">Hebdomadaire</option><option value="monthly">Mensuelle</option></select></div><div class="form-group"><label for="groupSavingsPeriod">Période</label><input id="groupSavingsPeriod" type="number" min="1" max="52"></div><p class="field-hint">Epargne ne facture aucun intérêt. L’ordre des bénéficiaires est irréversible dès le démarrage du cycle.</p><button id="lockBeneficiaryOrder" class="btn btn-secondary" type="button">Verrouiller l’ordre automatique des bénéficiaires</button></div><button class="btn btn-primary">Enregistrer les règles</button></form>
+                <button id="restoreCycle" class="btn btn-warning" type="button">Restaurer le cycle clôturé par erreur</button>
             </section>
             <section id="joinRequestsSection" class="group-member-panel" hidden><h3>Demandes pour rejoindre le groupe</h3><p class="field-hint">Acceptez ou refusez chaque demande. Une acceptation crée automatiquement l’espace membre AVEC du demandeur.</p><div id="joinRequestsList" class="member-list"></div></section>
             <section id="creditRequestsSection" class="group-member-panel" hidden><h3>Demandes de crédit des membres</h3><div id="creditRequestsList" class="member-list"></div></section>

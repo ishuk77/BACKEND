@@ -174,7 +174,7 @@ test('dashboard, staff, chat, fraud review, Momo, and platform contracts work on
         token: presidentToken, body: { cycle_length: 3 }
     })).status, 200);
     assert.equal((await request('POST', `/api/groups/${group.data.groupId}/cycle/close`, {
-        token: presidentToken, body: {}
+        token: presidentToken, body: { confirmed: true }
     })).status, 201);
     assert.equal((await request('GET', '/api/stats', { token: presidentToken })).status, 200);
     assert.equal((await request('GET', `/api/history?member_id=${memberId}`, { token: memberToken })).status, 200);

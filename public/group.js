@@ -57,6 +57,18 @@ async function loadGroup() {
     group$('memberRole').textContent = groupMember.role;
     group$('groupRole').textContent = `Rôle : ${groupMember.role}`;
     group$('cycleLength').value = groupData.cycle_length || 6;
+    group$('cycleState').textContent = `Cycle ${groupData.cycle_number || 1} : ${groupData.cycle_status || 'open'}.`;
+    const isEpargne = groupData.group_type === 'Epargne';
+    group$('epargneSettings').hidden = !isEpargne;
+    group$('creditAction').hidden = isEpargne;
+    group$('repaymentAction').hidden = isEpargne;
+    if (isEpargne) {
+        group$('groupSavingsPeriodicity').value = groupData.savings_periodicity || 'weekly';
+        group$('groupSavingsPeriod').value = groupData.savings_period || 1;
+    }
+    group$('restoreCycle').hidden = groupData.cycle_status !== 'closed';
+    group$('newCycle').hidden = groupData.cycle_status !== 'closed';
+    group$('lockBeneficiaryOrder').hidden = !isEpargne || groupData.cycle_status !== 'planning';
     group$('showGroupAdminDashboard').hidden = !isGroupStaff();
     if (isGroupStaff()) {
         loadJoinRequests().catch(error => { group$('groupStatus').textContent = error.message; });
@@ -232,17 +244,42 @@ document.addEventListener('DOMContentLoaded', () => {
     group$('showGroupSettings').addEventListener('click', () => { group$('groupSettingsSection').hidden = !group$('groupSettingsSection').hidden; });
     group$('groupSettingsForm').addEventListener('submit', async event => {
         event.preventDefault();
-        await groupRequest(`/api/groups/${groupId}`, { method: 'PUT', body: JSON.stringify({ cycle_length: Number(group$('cycleLength').value) }) });
+        const settings = { cycle_length: Number(group$('cycleLength').value) };
+        if (groupData.group_type === 'Epargne') {
+            settings.savings_periodicity = group$('groupSavingsPeriodicity').value;
+            settings.savings_period = Number(group$('groupSavingsPeriod').value);
+        }
+        await groupRequest(`/api/groups/${groupId}`, { method: 'PUT', body: JSON.stringify(settings) });
         group$('groupStatus').textContent = 'Règles du cycle enregistrées.';
         await loadGroup();
     });
     group$('closeCycle').addEventListener('click', async () => {
-        await groupRequest(`/api/groups/${groupId}/cycle/close`, { method: 'POST', body: '{}' });
-        group$('groupStatus').textContent = 'Cycle clôturé.';
+        if (!window.confirm('Confirmez-vous la clôture du cycle ? Les opérations financières seront bloquées jusqu’au nouveau cycle ou à une restauration par le personnel.')) return;
+        await groupRequest(`/api/groups/${groupId}/cycle/close`, { method: 'POST', body: JSON.stringify({ confirmed: true }) });
+        group$('groupStatus').textContent = 'Cycle clôturé après confirmation.';
+        await loadGroup();
     });
     group$('distributeCycle').addEventListener('click', async () => {
         await groupRequest(`/api/groups/${groupId}/cycle/distribute`, { method: 'POST', body: '{}' });
         group$('groupStatus').textContent = 'Partage du cycle effectué.';
+        await loadGroup();
+    });
+    group$('restoreCycle').addEventListener('click', async () => {
+        if (!window.confirm('Restaurer ce cycle clôturé par erreur ?')) return;
+        await groupRequest(`/api/groups/${groupId}/cycle/restore`, { method: 'POST', body: '{}' });
+        group$('groupStatus').textContent = 'Cycle restauré.';
+        await loadGroup();
+    });
+    group$('newCycle').addEventListener('click', async () => {
+        await groupRequest(`/api/groups/${groupId}/cycle/new`, { method: 'POST', body: '{}' });
+        group$('groupStatus').textContent = 'Nouveau cycle créé.';
+        await loadGroup();
+    });
+    group$('lockBeneficiaryOrder').addEventListener('click', async () => {
+        const memberIds = groupMembers.map(member => Number(member.id));
+        if (!window.confirm(`Verrouiller l’ordre automatique des ${memberIds.length} bénéficiaires avant le début du cycle ?`)) return;
+        await groupRequest(`/api/groups/${groupId}/cycle/beneficiary-order`, { method: 'PUT', body: JSON.stringify({ member_ids: memberIds }) });
+        group$('groupStatus').textContent = 'Ordre automatique des bénéficiaires verrouillé.';
         await loadGroup();
     });
     group$('groupChatForm').addEventListener('submit', async event => {

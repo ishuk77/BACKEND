@@ -1,5 +1,6 @@
 const api = window.location.origin;
 const $p = id => document.getElementById(id);
+const isSocialSurface = typeof window.location.pathname === 'string' && /\/social\.html$/i.test(window.location.pathname);
 const DM_REACTIONS = ['👍', '❤️', '😂', '😮', '🙏', '🎉'];
 let account = null;
 let friends = [];
@@ -250,10 +251,10 @@ async function confirmWalletTopup() {
 }
 async function enter() {
     await loadProfile();
-    await loadGroups();
+    if (!isSocialSurface) await loadGroups();
     $p('authSection').hidden = true;
     $p('portalSection').hidden = false;
-    show('profileScreen', { history: false });
+    show(isSocialSurface ? 'feedScreen' : 'profileScreen', { history: false });
 }
 async function register(event) {
     event.preventDefault();
@@ -378,7 +379,9 @@ async function createGroup(event) {
     event.preventDefault();
     const data = await request('/api/groups', { method: 'POST', body: JSON.stringify({
         name: $p('groupName').value.trim(), country: $p('groupCountry').value, province: $p('groupProvince').value.trim(),
-        city: $p('groupCity').value.trim(), momo_provider: $p('groupProvider').value,
+        city: $p('groupCity').value.trim(), group_type: $p('groupType').value,
+        savings_periodicity: $p('savingsPeriodicity').value, savings_period: Number($p('savingsPeriod').value),
+        momo_provider: $p('groupProvider').value,
         phone: normalizeMomoPhone($p('groupCountry').value, $p('groupPhone').value)
     }) });
     if (!data.dashboard || !data.accessToken || !data.refreshToken) throw new Error('Réponse de création de groupe incomplète.');
@@ -388,6 +391,9 @@ async function createGroup(event) {
     localStorage.setItem('groupId', String(data.dashboard.groupId));
     localStorage.setItem('userId', String(data.dashboard.memberId));
     window.location.assign(data.dashboard.path);
+}
+function updateEpargneTerms() {
+    $p('epargneTerms').hidden = $p('groupType').value !== 'Epargne';
 }
 async function openGroupDashboard(groupId) {
     const data = await request(`/api/platform/groups/${encodeURIComponent(groupId)}/dashboard`, { method: 'POST', body: '{}' });
@@ -422,7 +428,13 @@ function renderCandidates(group, candidates) {
     hydrateProtectedMedia($p('inviteCandidates'));
 }
 async function loadGroups() {
-    const [groupsData, invitations, mine] = await Promise.all([request('/api/platform/groups'), request('/api/platform/invitations'), request('/api/platform/my-groups')]);
+    const query = new URLSearchParams();
+    [['filterCountry', 'country'], ['filterProvince', 'province'], ['filterCity', 'city']].forEach(([id, key]) => {
+        const value = $p(id).value.trim();
+        if (value) query.set(key, value);
+    });
+    const groupPath = `/api/platform/groups${query.size ? `?${query}` : ''}`;
+    const [groupsData, invitations, mine] = await Promise.all([request(groupPath), request('/api/platform/invitations'), request('/api/platform/my-groups')]);
     const isPresident = mine.groups.some(group => group.role === 'president');
     $p('createGroupForm').hidden = true;
     $p('showCreateGroupForm').hidden = isPresident;
@@ -430,7 +442,10 @@ async function loadGroups() {
     $p('groupList').replaceChildren(...groupsData.groups.map(group => {
         const row = document.createElement('div');
         row.className = 'member-item';
-        row.innerHTML = `<strong>${esc(group.name)}</strong> · ${esc(group.city || group.country)} · ${Number(group.member_count)} membre(s)`;
+        const type = group.group_type === 'Epargne'
+            ? `Epargne sans intérêt · ${group.savings_periodicity === 'weekly' ? 'hebdomadaire' : 'mensuelle'}`
+            : 'AVEC Microcredit';
+        row.innerHTML = `<strong>${esc(group.name)}</strong> · ${esc(group.city || group.country)} · ${esc(type)} · ${Number(group.member_count)} membre(s)`;
         const button = document.createElement('button');
         button.className = 'btn btn-secondary';
         button.textContent = 'Demander à rejoindre';
@@ -446,7 +461,7 @@ async function loadGroups() {
     $p('invitationList').replaceChildren(...invitations.invitations.filter(item => item.status === 'pending').map(invite => {
         const row = document.createElement('div');
         row.className = 'member-item';
-        row.textContent = `${invite.group_name} — invitation de ${invite.inviter_prenom}`;
+        row.textContent = `${invite.group_name} — invitation de ${invite.inviter_prenom}${invite.sponsor_prenom ? ` · parrain référent : ${invite.sponsor_prenom} (sans responsabilité financière)` : ''}`;
         ['Accepter', 'Décliner'].forEach((label, index) => {
             const button = document.createElement('button');
             button.className = `btn ${index ? 'btn-secondary' : 'btn-primary'}`;
@@ -691,12 +706,17 @@ function renderComments(post) {
 }
 async function loadFeed() {
     await loadFriends();
-    const [data, mine] = await Promise.all([request('/api/social/feed'), request('/api/platform/my-groups')]);
-    const staffGroup = mine.groups.find(group => ['president', 'vice_president', 'comptable', 'secretaire'].includes(group.role));
-    if (staffGroup) {
-        const candidates = await request(`/api/platform/groups/${staffGroup.id}/invite-candidates`);
-        renderCandidates(staffGroup, candidates.members);
-    } else renderCandidates(null, []);
+    const data = await request('/api/social/feed');
+    if (!isSocialSurface) {
+        const mine = await request('/api/platform/my-groups');
+        const staffGroup = mine.groups.find(group => ['president', 'vice_president', 'comptable', 'secretaire'].includes(group.role));
+        if (staffGroup) {
+            const candidates = await request(`/api/platform/groups/${staffGroup.id}/invite-candidates`);
+            renderCandidates(staffGroup, candidates.members);
+        } else renderCandidates(null, []);
+    } else {
+        renderCandidates(null, []);
+    }
     $p('feedList').innerHTML = data.posts.map(post => {
         const media = !post.media_id ? '' : `<${post.media_mime_type?.startsWith('video/') ? 'video controls' : 'img alt="Média partagé"'} class="feed-image protected-media" data-media-id="${Number(post.media_id)}"></${post.media_mime_type?.startsWith('video/') ? 'video' : 'img'}>`;
         const pending = post.moderation_status === 'pending' ? '<p class="field-hint">Votre publication est en examen humain et n’est visible que par vous.</p>' : '';
@@ -855,7 +875,10 @@ document.addEventListener('DOMContentLoaded', () => {
     applyUiLanguage(localStorage.getItem('platformUiLanguage') || 'fr');
     populateGroupCountries();
     populateRegisterCountries();
+    updateEpargneTerms();
     $p('groupCountry').addEventListener('change', updateGroupMomoFields);
+    $p('groupType').addEventListener('change', updateEpargneTerms);
+    $p('groupDiscoveryFilters').addEventListener('submit', event => { event.preventDefault(); loadGroups().catch(error => notice(error.message)); });
     $p('registerCountry').addEventListener('change', updateRegisterDialCode);
     $p('registerRequestCode').addEventListener('click', () => requestPhoneVerification('register', 'registerPhone', 'registerVerificationStatus').catch(error => showVerificationStatus('registerVerificationStatus', error.message)));
     $p('registerVerifyCode').addEventListener('click', () => verifyPhoneVerification('register', 'registerPhone', 'registerVerificationCode', 'registerVerificationStatus').catch(error => showVerificationStatus('registerVerificationStatus', error.message)));

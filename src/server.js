@@ -132,6 +132,14 @@ function initDatabase(onReady) {
             wallet_minor INTEGER NOT NULL DEFAULT 0,
             blocked BOOLEAN DEFAULT 0,
             cycle_length INTEGER DEFAULT 6,
+            group_type TEXT NOT NULL DEFAULT 'AVEC' CHECK (group_type IN ('AVEC', 'Epargne')),
+            savings_periodicity TEXT CHECK (savings_periodicity IN ('weekly', 'monthly')),
+            savings_period INTEGER NOT NULL DEFAULT 1,
+            cycle_status TEXT NOT NULL DEFAULT 'open' CHECK (cycle_status IN ('planning', 'open', 'closed')),
+            cycle_number INTEGER NOT NULL DEFAULT 1,
+            cycle_started_at DATETIME,
+            cycle_closed_at DATETIME,
+            cycle_closed_by_member_id INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`, logDatabaseError('creating groups table'));
 
@@ -159,6 +167,7 @@ function initDatabase(onReady) {
             withdrawals_count INTEGER DEFAULT 0,
             refresh_token TEXT,
             credit_request TEXT,
+            sponsor_account_id INTEGER,
             availability TEXT NOT NULL DEFAULT 'offline',
             profile_photo_filename TEXT,
             FOREIGN KEY (group_id) REFERENCES groups (id)
@@ -298,6 +307,7 @@ function initDatabase(onReady) {
             group_id INTEGER NOT NULL,
             account_id INTEGER NOT NULL,
             invited_by_account_id INTEGER NOT NULL,
+            sponsor_account_id INTEGER,
             role TEXT NOT NULL DEFAULT 'membre',
             status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -306,6 +316,31 @@ function initDatabase(onReady) {
             FOREIGN KEY (group_id) REFERENCES groups(id),
             FOREIGN KEY (account_id) REFERENCES platform_accounts(id)
         )`, logDatabaseError('creating group invitations table'));
+        db.run(`CREATE TABLE IF NOT EXISTS group_cycle_beneficiaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_id INTEGER NOT NULL,
+            cycle_number INTEGER NOT NULL,
+            member_id INTEGER NOT NULL,
+            beneficiary_order INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'paid')),
+            locked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            paid_at DATETIME,
+            UNIQUE(group_id, cycle_number, member_id),
+            UNIQUE(group_id, cycle_number, beneficiary_order),
+            FOREIGN KEY (group_id) REFERENCES groups(id),
+            FOREIGN KEY (member_id) REFERENCES members(id)
+        )`, logDatabaseError('creating Epargne beneficiary schedule table'));
+        db.run(`CREATE TABLE IF NOT EXISTS group_cycle_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_id INTEGER NOT NULL,
+            cycle_number INTEGER NOT NULL,
+            actor_member_id INTEGER,
+            action TEXT NOT NULL CHECK (action IN ('created', 'beneficiary_order_locked', 'closed', 'restored', 'new_cycle')),
+            details_json TEXT NOT NULL DEFAULT '{}',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (group_id) REFERENCES groups(id),
+            FOREIGN KEY (actor_member_id) REFERENCES members(id)
+        )`, logDatabaseError('creating group cycle audit table'));
         db.run(`CREATE TABLE IF NOT EXISTS group_elections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             group_id INTEGER NOT NULL,
@@ -723,6 +758,9 @@ function initDatabase(onReady) {
         [
             'CREATE INDEX IF NOT EXISTS idx_memberships_account_group ON platform_account_memberships(account_id, group_id)',
             'CREATE INDEX IF NOT EXISTS idx_join_requests_group_status ON group_join_requests(group_id, status)',
+            'CREATE INDEX IF NOT EXISTS idx_groups_discovery_location ON groups(country, province, city)',
+            'CREATE INDEX IF NOT EXISTS idx_cycle_beneficiaries_group_cycle ON group_cycle_beneficiaries(group_id, cycle_number, beneficiary_order)',
+            'CREATE INDEX IF NOT EXISTS idx_cycle_audit_group_cycle ON group_cycle_audit(group_id, cycle_number, created_at DESC)',
             'CREATE INDEX IF NOT EXISTS idx_notifications_account_created ON account_notifications(account_id, created_at DESC)',
             'CREATE INDEX IF NOT EXISTS idx_friendships_status ON friendships(account_one_id, account_two_id, status)',
             'CREATE INDEX IF NOT EXISTS idx_direct_messages_conversation ON direct_messages(sender_account_id, recipient_account_id, created_at)',
@@ -954,6 +992,14 @@ function initDatabase(onReady) {
             ['groups', 'blocked', 'BOOLEAN DEFAULT 0'],
             ['groups', 'cycle_length', 'INTEGER DEFAULT 6'],
             ['groups', 'wallet_minor', 'INTEGER NOT NULL DEFAULT 0'],
+            ['groups', 'group_type', "TEXT NOT NULL DEFAULT 'AVEC'"],
+            ['groups', 'savings_periodicity', 'TEXT'],
+            ['groups', 'savings_period', 'INTEGER NOT NULL DEFAULT 1'],
+            ['groups', 'cycle_status', "TEXT NOT NULL DEFAULT 'open'"],
+            ['groups', 'cycle_number', 'INTEGER NOT NULL DEFAULT 1'],
+            ['groups', 'cycle_started_at', 'DATETIME'],
+            ['groups', 'cycle_closed_at', 'DATETIME'],
+            ['groups', 'cycle_closed_by_member_id', 'INTEGER'],
             ['groups', 'created_at', 'DATETIME'],
             ['members', 'member_id', 'TEXT'],
             ['members', 'prenom', 'TEXT'],
@@ -968,6 +1014,8 @@ function initDatabase(onReady) {
             ['members', 'withdrawals_count', 'INTEGER DEFAULT 0'],
             ['members', 'refresh_token', 'TEXT'],
             ['members', 'credit_request', 'TEXT'],
+            ['members', 'sponsor_account_id', 'INTEGER'],
+            ['group_invitations', 'sponsor_account_id', 'INTEGER'],
             ['members', 'role_origin', "TEXT NOT NULL DEFAULT 'member'"],
             ['platform_accounts', 'wallet_currency', "TEXT NOT NULL DEFAULT 'USD'"],
             ['platform_accounts', 'country', 'TEXT'],
@@ -1005,8 +1053,7 @@ function migratePlatformAccountSecurityFields(onComplete) {
                     indexErr => {
                         if (indexErr) console.error('Error creating platform identity index:', indexErr.message);
                         onComplete();
-                    }
-                );
+                    });
             }
             const [column, definition] = missing[index];
             db.run(`ALTER TABLE platform_accounts ADD COLUMN ${column} ${definition}`, alterErr => {
@@ -1856,6 +1903,25 @@ function recordHistory(groupId, memberId, action, callback) {
     );
 }
 
+function recordCycleAudit(groupId, cycleNumber, actorMemberId, action, details = {}, callback = () => {}) {
+    db.run(
+        `INSERT INTO group_cycle_audit (group_id, cycle_number, actor_member_id, action, details_json)
+         VALUES (?, ?, ?, ?, ?)`,
+        [groupId, cycleNumber, actorMemberId || null, action, JSON.stringify(details)],
+        callback
+    );
+}
+
+function groupTypeConfiguration(group) {
+    const groupType = String(group.group_type || 'AVEC');
+    return {
+        groupType,
+        isEpargne: groupType === 'Epargne',
+        periodicity: group.savings_periodicity || null,
+        period: Number(group.savings_period || 1)
+    };
+}
+
 function memberResponse(member) {
     const { pin, password, refresh_token, ...safeMember } = member;
     return safeMember;
@@ -2547,37 +2613,39 @@ function writeSocialSandboxCharge({ idempotencyKey, contentType, contentId, char
     const authorAmountMinor = contentType === 'comment' ? Math.floor(amountMinor / 2) : 0;
     const platformAmountMinor = amountMinor - authorAmountMinor;
     const paymentId = `SANDBOX-SOCIAL-${crypto.createHash('sha256').update(idempotencyKey).digest('hex').slice(0, 18).toUpperCase()}`;
-    db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
-        if (beginErr) return callback(beginErr);
-        db.run(
-            `UPDATE platform_accounts
-             SET internal_wallet = internal_wallet - ?,
-                 internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) - ?
-             WHERE id = ? AND CAST(ROUND(internal_wallet * 100) AS INTEGER) >= ?`,
-            [amountMinor / 100, amountMinor, chargedAccountId, amountMinor],
-            function debitWallet(debitErr) {
-                if (debitErr || !this.changes) {
-                    db.run('ROLLBACK');
-                    const error = debitErr || new Error('Solde insuffisant dans le portefeuille interne SANDBOX.');
-                    error.status = debitErr ? 500 : 402;
-                    return callback(error);
-                }
-                db.run(
-                    `INSERT INTO social_sandbox_ledger
-                     (payment_id, idempotency_key, content_type, content_id, charged_account_id, post_author_account_id, amount_minor, platform_amount_minor, author_amount_minor, currency)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [paymentId, idempotencyKey, contentType, contentId, chargedAccountId, postAuthorAccountId || null, amountMinor, platformAmountMinor, authorAmountMinor, SOCIAL_SANDBOX_PRICING.currency],
-                    ledgerErr => {
-                        if (ledgerErr) {
-                            db.run('ROLLBACK');
-                            return callback(ledgerErr);
-                        }
-                        db.run('COMMIT', commitErr => callback(commitErr, socialReceipt(paymentId, amountMinor, platformAmountMinor, authorAmountMinor)));
+    db.serialize(() => {
+        db.run('BEGIN IMMEDIATE', beginErr => {
+            if (beginErr) return callback(beginErr);
+            db.run(
+                `UPDATE platform_accounts
+                 SET internal_wallet = internal_wallet - ?,
+                     internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) - ?
+                 WHERE id = ? AND CAST(ROUND(internal_wallet * 100) AS INTEGER) >= ?`,
+                [amountMinor / 100, amountMinor, chargedAccountId, amountMinor],
+                function debitWallet(debitErr) {
+                    if (debitErr || !this.changes) {
+                        db.run('ROLLBACK');
+                        const error = debitErr || new Error('Solde insuffisant dans le portefeuille interne SANDBOX.');
+                        error.status = debitErr ? 500 : 402;
+                        return callback(error);
                     }
-                );
-            }
-        );
-    }));
+                    db.run(
+                        `INSERT INTO social_sandbox_ledger
+                         (payment_id, idempotency_key, content_type, content_id, charged_account_id, post_author_account_id, amount_minor, platform_amount_minor, author_amount_minor, currency)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [paymentId, idempotencyKey, contentType, contentId, chargedAccountId, postAuthorAccountId || null, amountMinor, platformAmountMinor, authorAmountMinor, SOCIAL_SANDBOX_PRICING.currency],
+                        ledgerErr => {
+                            if (ledgerErr) {
+                                db.run('ROLLBACK');
+                                return callback(ledgerErr);
+                            }
+                            db.run('COMMIT', commitErr => callback(commitErr, socialReceipt(paymentId, amountMinor, platformAmountMinor, authorAmountMinor)));
+                        }
+                    );
+                }
+            );
+        });
+    });
 }
 
 function beginSocialMutation(req, res, scope, callback) {
@@ -2625,6 +2693,7 @@ function outstandingCreditOutsideGroup(accountId, groupId, callback) {
 
 function addAccountToGroup(account, groupId, role, callback, options = {}) {
     const bootstrap = options.bootstrap === true;
+    const sponsorAccountId = Number.isInteger(options.sponsorAccountId) ? options.sponsorAccountId : null;
     if (role !== 'membre' && !bootstrap) {
         return callback(new Error('Les rôles du personnel sont attribués uniquement par une élection clôturée.'));
     }
@@ -2633,10 +2702,11 @@ function addAccountToGroup(account, groupId, role, callback, options = {}) {
         if (lookupErr) return callback(lookupErr);
         if (existing) return callback(new Error('Cette personne est déjà membre du groupe'));
         db.run(
-            `INSERT INTO members (group_id, member_id, prenom, name, phone, id_number, role, role_origin, pin, availability)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO members (group_id, member_id, prenom, name, phone, id_number, role, role_origin, pin, availability, sponsor_account_id, parrain)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [groupId, createMemberId(), account.prenom, account.name, account.phone, account.identifier, role,
-                bootstrap ? 'bootstrap' : 'member', bcrypt.hashSync(crypto.randomUUID(), 10), account.availability],
+                bootstrap ? 'bootstrap' : 'member', bcrypt.hashSync(crypto.randomUUID(), 10), account.availability,
+                sponsorAccountId, sponsorAccountId ? 'Parrain référent — sans responsabilité financière' : null],
             function insertMember(memberErr) {
                 if (memberErr) return callback(memberErr);
                 const memberId = this.lastID;
@@ -2667,9 +2737,15 @@ function createGroupForAccount(account, group, res) {
     const country = safeText(group.country || group.pays, 80);
     const province = safeText(group.province, 100);
     const city = safeText(group.city || group.ville, 100);
+    const groupType = String(group.group_type || group.groupType || 'AVEC');
+    const savingsPeriodicity = group.savings_periodicity || group.savingsPeriodicity || null;
+    const savingsPeriod = Number(group.savings_period || group.savingsPeriod || 1);
     const provider = safeText(group.momo_provider || group.momoProvider, 40);
     const selection = country && provider ? validMomoSelection(country, provider, group.phone) : null;
-    if (!groupName || !country || !province || !city || !selection) {
+    if (!['AVEC', 'Epargne'].includes(groupType)
+        || (groupType === 'Epargne' && !['weekly', 'monthly'].includes(savingsPeriodicity))
+        || !Number.isInteger(savingsPeriod) || savingsPeriod < 1 || savingsPeriod > 52
+        || !groupName || !country || !province || !city || !selection) {
         return res.status(400).json({ error: 'Informations du groupe ou portefeuille Momo invalides' });
     }
     db.get(
@@ -2685,8 +2761,12 @@ function createGroupForAccount(account, group, res) {
 
     function createGroup() {
     db.run(
-        'INSERT INTO groups (name, country, province, city, currency, phone, momo_provider) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [groupName, country, province, city, selection.countryInfo.currency, selection.normalizedPhone, provider],
+        `INSERT INTO groups
+         (name, country, province, city, currency, phone, momo_provider, group_type, savings_periodicity, savings_period, cycle_status, cycle_started_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [groupName, country, province, city, selection.countryInfo.currency, selection.normalizedPhone, provider,
+            groupType, groupType === 'Epargne' ? savingsPeriodicity : null, savingsPeriod,
+            groupType === 'Epargne' ? 'planning' : 'open', groupType === 'Epargne' ? null : new Date().toISOString()],
         function insertGroup(err) {
             if (err) return res.status(500).json({ error: err.message });
             const groupId = this.lastID;
@@ -2698,9 +2778,18 @@ function createGroupForAccount(account, group, res) {
                     if (lookupErr || !member) return res.status(500).json({ error: lookupErr ? lookupErr.message : 'Président introuvable' });
                     createTokens(member, (tokenErr, tokens) => {
                         if (tokenErr) return res.status(500).json({ error: tokenErr.message });
+                        recordCycleAudit(groupId, 1, member.id, 'created', {
+                            group_type: groupType,
+                            savings_periodicity: groupType === 'Epargne' ? savingsPeriodicity : null,
+                            savings_period: savingsPeriod
+                        });
                         res.status(201).json({
                             groupId, memberId: member.id, member: memberResponse(member), ...tokens,
-                            group: { id: groupId, name: groupName, country, province, city, currency: selection.countryInfo.currency },
+                            group: {
+                                id: groupId, name: groupName, country, province, city, currency: selection.countryInfo.currency,
+                                group_type: groupType, savings_periodicity: groupType === 'Epargne' ? savingsPeriodicity : null,
+                                savings_period: savingsPeriod, cycle_status: groupType === 'Epargne' ? 'planning' : 'open'
+                            },
                             dashboard: { path: 'group.html', groupId, memberId: member.id },
                             president: accountPublicResponse(account)
                         });
@@ -3201,7 +3290,7 @@ app.get('/api/groups/:groupId', authenticateToken, (req, res) => {
 
 app.put('/api/groups/:groupId', authenticateToken, (req, res) => {
     const groupId = req.params.groupId;
-    const allowedFields = ['cycle_length'];
+    const allowedFields = ['cycle_length', 'savings_periodicity', 'savings_period'];
     const updates = Object.entries(req.body).filter(([key]) => allowedFields.includes(key));
 
     if (updates.length === 0) {
@@ -3209,10 +3298,22 @@ app.put('/api/groups/:groupId', authenticateToken, (req, res) => {
     }
 
     requireGroupStaff(req, res, groupId, () => {
-        const fields = updates.map(([key]) => `${key} = ?`).join(', ');
-        const values = updates.map(([, value]) => value);
-        values.push(groupId);
-        db.run(`UPDATE groups SET ${fields} WHERE id = ?`, values, function updateGroup(err) {
+        db.get('SELECT * FROM groups WHERE id = ?', [groupId], (groupErr, group) => {
+            if (groupErr) return res.status(500).json({ error: groupErr.message });
+            if (!group) return res.status(404).json({ error: 'Groupe introuvable' });
+            if (group.group_type !== 'Epargne' && updates.some(([key]) => key.startsWith('savings_'))) {
+                return res.status(400).json({ error: 'Les paramètres d’épargne sont réservés aux groupes Epargne.' });
+            }
+            const periodicity = req.body.savings_periodicity === undefined ? group.savings_periodicity : req.body.savings_periodicity;
+            const period = req.body.savings_period === undefined ? Number(group.savings_period) : Number(req.body.savings_period);
+            if (group.group_type === 'Epargne'
+                && (!['weekly', 'monthly'].includes(periodicity) || !Number.isInteger(period) || period < 1 || period > 52)) {
+                return res.status(400).json({ error: 'Un groupe Epargne requiert une périodicité hebdomadaire ou mensuelle et une période de 1 à 52.' });
+            }
+            const fields = updates.map(([key]) => `${key} = ?`).join(', ');
+            const values = updates.map(([key, value]) => key === 'savings_period' ? Number(value) : value);
+            values.push(groupId);
+            db.run(`UPDATE groups SET ${fields} WHERE id = ?`, values, function updateGroup(err) {
             if (err) {
                 return res.status(500).json({ error: err.message });
             }
@@ -3220,26 +3321,213 @@ app.put('/api/groups/:groupId', authenticateToken, (req, res) => {
                 return res.status(404).json({ error: 'Groupe introuvable' });
             }
             res.json({ changes: this.changes });
+            });
         });
     });
 });
 
 app.post('/api/groups/:groupId/cycle/close', authenticateToken, (req, res) => {
     const groupId = req.params.groupId;
+    if (req.body.confirmed !== true) {
+        return res.status(400).json({ error: 'Une confirmation explicite est requise pour clôturer le cycle.' });
+    }
     requireGroupStaff(req, res, groupId, () => {
         requireOpenGroup(req, res, groupId, group => {
-            recordHistory(groupId, req.user.id, 'Cycle clôturé', historyErr => {
-                if (historyErr) return res.status(500).json({ error: historyErr.message });
-                res.status(201).json({ closed: true, cycleLength: group.cycle_length });
-            });
+            if (group.cycle_status !== 'open') {
+                return res.status(409).json({ error: 'Seul un cycle ouvert peut être clôturé.' });
+            }
+            const close = () => db.run(
+                `UPDATE groups SET cycle_status = 'closed', cycle_closed_at = CURRENT_TIMESTAMP, cycle_closed_by_member_id = ?
+                 WHERE id = ? AND cycle_status = 'open'`,
+                [req.user.id, groupId],
+                function closeCycle(closeErr) {
+                    if (closeErr) return res.status(500).json({ error: closeErr.message });
+                    if (!this.changes) return res.status(409).json({ error: 'Le cycle a déjà changé d’état.' });
+                    recordCycleAudit(groupId, group.cycle_number, req.user.id, 'closed', { confirmed: true }, auditErr => {
+                        if (auditErr) return res.status(500).json({ error: auditErr.message });
+                        recordHistory(groupId, req.user.id, 'Cycle clôturé après confirmation explicite', historyErr => {
+                            if (historyErr) return res.status(500).json({ error: historyErr.message });
+                            res.status(201).json({ closed: true, cycleNumber: group.cycle_number, cycleLength: group.cycle_length });
+                        });
+                    });
+                }
+            );
+            if (group.group_type !== 'Epargne') return close();
+            db.get(
+                `SELECT COUNT(*) AS scheduled_count FROM group_cycle_beneficiaries
+                 WHERE group_id = ? AND cycle_number = ?`,
+                [groupId, group.cycle_number],
+                (scheduleErr, schedule) => {
+                    if (scheduleErr) return res.status(500).json({ error: scheduleErr.message });
+                    if (!Number(schedule.scheduled_count)) {
+                        return res.status(409).json({ error: 'Fixez l’ordre automatique des bénéficiaires avant de clôturer un cycle Epargne.' });
+                    }
+                    close();
+                }
+            );
         });
     });
 });
+
+app.post('/api/groups/:groupId/cycle/restore', authenticateToken, (req, res) => {
+    const groupId = req.params.groupId;
+    requireGroupStaff(req, res, groupId, () => {
+        requireOpenGroup(req, res, groupId, group => {
+            if (group.cycle_status !== 'closed') return res.status(409).json({ error: 'Seul un cycle clôturé peut être restauré.' });
+            db.run(
+                `UPDATE groups SET cycle_status = 'open', cycle_closed_at = NULL, cycle_closed_by_member_id = NULL
+                 WHERE id = ? AND cycle_status = 'closed'`,
+                [groupId],
+                function restoreCycle(err) {
+                    if (err) return res.status(500).json({ error: err.message });
+                    if (!this.changes) return res.status(409).json({ error: 'Le cycle a déjà changé d’état.' });
+                    recordCycleAudit(groupId, group.cycle_number, req.user.id, 'restored', {}, auditErr => {
+                        if (auditErr) return res.status(500).json({ error: auditErr.message });
+                        recordHistory(groupId, req.user.id, 'Cycle restauré dans les paramètres', historyErr => {
+                            if (historyErr) return res.status(500).json({ error: historyErr.message });
+                            res.json({ restored: true, cycleNumber: group.cycle_number, cycle_status: 'open' });
+                        });
+                    });
+                }
+            );
+        });
+    });
+});
+
+app.post('/api/groups/:groupId/cycle/new', authenticateToken, (req, res) => {
+    const groupId = req.params.groupId;
+    requireGroupStaff(req, res, groupId, () => {
+        requireOpenGroup(req, res, groupId, group => {
+            if (group.cycle_status !== 'closed') return res.status(409).json({ error: 'Clôturez le cycle en cours avant d’en créer un nouveau.' });
+            if (Number(group.wallet_minor || Math.round(Number(group.wallet || 0) * 100)) !== 0) {
+                return res.status(409).json({ error: 'Distribuez le solde du cycle clôturé avant d’en créer un nouveau.' });
+            }
+            const nextCycleNumber = Number(group.cycle_number) + 1;
+            const nextStatus = group.group_type === 'Epargne' ? 'planning' : 'open';
+            db.run(
+                `UPDATE groups SET cycle_number = ?, cycle_status = ?, cycle_started_at = ?,
+                 cycle_closed_at = NULL, cycle_closed_by_member_id = NULL WHERE id = ? AND cycle_status = 'closed'`,
+                [nextCycleNumber, nextStatus, nextStatus === 'open' ? new Date().toISOString() : null, groupId],
+                function newCycle(err) {
+                    if (err) return res.status(500).json({ error: err.message });
+                    if (!this.changes) return res.status(409).json({ error: 'Le cycle a déjà changé d’état.' });
+                    recordCycleAudit(groupId, nextCycleNumber, req.user.id, 'new_cycle', { status: nextStatus }, auditErr => {
+                        if (auditErr) return res.status(500).json({ error: auditErr.message });
+                        recordHistory(groupId, req.user.id, `Nouveau cycle ${nextCycleNumber} créé`, historyErr => {
+                            if (historyErr) return res.status(500).json({ error: historyErr.message });
+                            res.status(201).json({ created: true, cycleNumber: nextCycleNumber, cycle_status: nextStatus });
+                        });
+                    });
+                }
+            );
+        });
+    });
+});
+
+app.put('/api/groups/:groupId/cycle/beneficiary-order', authenticateToken, (req, res) => {
+    const groupId = req.params.groupId;
+    const memberIds = [...new Set((Array.isArray(req.body.member_ids) ? req.body.member_ids : []).map(Number))].filter(Number.isInteger);
+    requireActiveGroupStaff(req, res, groupId, actor => {
+        requireOpenGroup(req, res, groupId, group => {
+            if (group.group_type !== 'Epargne') return res.status(400).json({ error: 'L’ordre des bénéficiaires est réservé aux groupes Epargne.' });
+            if (group.cycle_status !== 'planning') return res.status(409).json({ error: 'L’ordre est verrouillé dès le démarrage du cycle.' });
+            db.all(
+                `SELECT m.id FROM members m JOIN platform_account_memberships pam ON pam.member_id = m.id
+                 WHERE m.group_id = ? AND pam.status = 'active' ORDER BY m.id`,
+                [groupId],
+                (membersErr, members) => {
+                    if (membersErr) return res.status(500).json({ error: membersErr.message });
+                    if (!members.length || members.length !== memberIds.length || members.some(member => !memberIds.includes(member.id))) {
+                        return res.status(400).json({ error: 'L’ordre doit contenir chaque membre actif du groupe une seule fois.' });
+                    }
+                    db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
+                        if (beginErr) return res.status(500).json({ error: beginErr.message });
+                        let pending = memberIds.length;
+                        const rollback = error => { db.run('ROLLBACK'); res.status(500).json({ error: error.message }); };
+                        memberIds.forEach((memberId, index) => db.run(
+                            `INSERT INTO group_cycle_beneficiaries (group_id, cycle_number, member_id, beneficiary_order)
+                             VALUES (?, ?, ?, ?)`,
+                            [groupId, group.cycle_number, memberId, index + 1],
+                            insertErr => {
+                                if (insertErr) return rollback(insertErr);
+                                pending -= 1;
+                                if (pending) return;
+                                db.run(
+                                    `UPDATE groups SET cycle_status = 'open', cycle_started_at = CURRENT_TIMESTAMP
+                                     WHERE id = ? AND cycle_status = 'planning'`,
+                                    [groupId],
+                                    function startCycle(startErr) {
+                                        if (startErr || !this.changes) {
+                                            db.run('ROLLBACK');
+                                            return res.status(startErr ? 500 : 409).json({ error: startErr ? startErr.message : 'Le cycle a déjà changé d’état.' });
+                                        }
+                                        recordCycleAudit(groupId, group.cycle_number, actor.id, 'beneficiary_order_locked', { member_ids: memberIds }, auditErr => {
+                                            if (auditErr) return rollback(auditErr);
+                                            db.run('COMMIT', commitErr => commitErr
+                                                ? res.status(500).json({ error: commitErr.message })
+                                                : res.status(201).json({ locked: true, cycleNumber: group.cycle_number, member_ids: memberIds }));
+                                        });
+                                    }
+                                );
+                            }
+                        ));
+                    }));
+                }
+            );
+        });
+    });
+});
+
+app.get('/api/groups/:groupId/cycle/history', authenticateToken, (req, res) => {
+    requireGroupStaff(req, res, req.params.groupId, () => {
+        db.all(
+            `SELECT id, group_id, cycle_number, actor_member_id, action, details_json, created_at
+             FROM group_cycle_audit WHERE group_id = ? ORDER BY created_at DESC, id DESC`,
+            [req.params.groupId],
+            (err, events) => err ? res.status(500).json({ error: err.message }) : res.json({ events })
+        );
+    });
+});
+
+function distributeEpargneCycle(group, actorMemberId, res) {
+    db.get(
+        `SELECT * FROM group_cycle_beneficiaries
+         WHERE group_id = ? AND cycle_number = ? AND status = 'scheduled'
+         ORDER BY beneficiary_order LIMIT 1`,
+        [group.id, group.cycle_number],
+        (beneficiaryErr, beneficiary) => {
+            if (beneficiaryErr) return res.status(500).json({ error: beneficiaryErr.message });
+            if (!beneficiary || Number(group.wallet) <= 0) return res.status(400).json({ error: 'Aucun bénéficiaire planifié ou aucune épargne à distribuer.' });
+            const amount = Number(group.wallet);
+            db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
+                if (beginErr) return res.status(500).json({ error: beginErr.message });
+                db.run('UPDATE members SET wallet = wallet + ?, cycle_contribution = 0 WHERE id = ?', [amount, beneficiary.member_id], memberErr => {
+                    if (memberErr) { db.run('ROLLBACK'); return res.status(500).json({ error: memberErr.message }); }
+                    db.run('UPDATE groups SET wallet = 0, wallet_minor = 0 WHERE id = ? AND cycle_status = ?', [group.id, 'closed'], function clearErr() {
+                        if (!this.changes) { db.run('ROLLBACK'); return res.status(409).json({ error: 'Le cycle doit rester clôturé pendant la distribution.' }); }
+                        db.run('UPDATE group_cycle_beneficiaries SET status = ?, paid_at = CURRENT_TIMESTAMP WHERE id = ?', ['paid', beneficiary.id], scheduleErr => {
+                            if (scheduleErr) { db.run('ROLLBACK'); return res.status(500).json({ error: scheduleErr.message }); }
+                            recordHistory(group.id, actorMemberId, `Épargne distribuée au bénéficiaire automatique n°${beneficiary.beneficiary_order}`, historyErr => {
+                                if (historyErr) { db.run('ROLLBACK'); return res.status(500).json({ error: historyErr.message }); }
+                                db.run('COMMIT', commitErr => commitErr
+                                    ? res.status(500).json({ error: commitErr.message })
+                                    : res.status(201).json({ distributed: amount, beneficiary_member_id: beneficiary.member_id, beneficiary_order: beneficiary.beneficiary_order }));
+                            });
+                        });
+                    });
+                });
+            }));
+        });
+}
 
 app.post('/api/groups/:groupId/cycle/distribute', authenticateToken, (req, res) => {
     const groupId = req.params.groupId;
     requireGroupStaff(req, res, groupId, () => {
         requireOpenGroup(req, res, groupId, group => {
+            if (group.cycle_status !== 'closed') {
+                return res.status(409).json({ error: 'Le cycle doit être clôturé avant la distribution.' });
+            }
+            if (group.group_type === 'Epargne') return distributeEpargneCycle(group, req.user.id, res);
             db.all(
                 'SELECT id, cycle_contribution FROM members WHERE group_id = ? AND cycle_contribution > 0',
                 [groupId],
@@ -3389,7 +3677,12 @@ function requireFinancialMember(req, res, memberId, next) {
         if (!hasGroupAccess(req.user, member.group_id)) {
             return res.status(403).json({ error: 'Accès refusé pour ce groupe' });
         }
-        requireOpenGroup(req, res, member.group_id, group => next(member, group));
+        requireOpenGroup(req, res, member.group_id, group => {
+            if (group.cycle_status !== 'open') {
+                return res.status(409).json({ error: 'Les opérations financières exigent un cycle ouvert.' });
+            }
+            next(member, group);
+        });
     });
 }
 
@@ -3799,6 +4092,9 @@ app.post('/api/members/:memberId/credit-request', authenticateToken, (req, res) 
     }
 
     requireFinancialMember(req, res, req.params.memberId, (member, group) => {
+        if (group.group_type === 'Epargne') {
+            return res.status(409).json({ error: 'Les groupes Epargne n’accordent pas de crédit et ne facturent aucun intérêt.' });
+        }
         db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
             if (beginErr) return res.status(500).json({ error: beginErr.message });
             db.get(
@@ -3877,6 +4173,9 @@ app.post('/api/members/:memberId/repayments', authenticateToken, (req, res) => {
     }
 
     requireFinancialMember(req, res, req.params.memberId, (member, group) => {
+        if (group.group_type === 'Epargne') {
+            return res.status(409).json({ error: 'Les groupes Epargne ne comportent aucun crédit à rembourser.' });
+        }
         db.serialize(() => {
             db.run('BEGIN IMMEDIATE', beginErr => {
                 if (beginErr) return res.status(500).json({ error: beginErr.message });
@@ -4894,11 +5193,13 @@ app.get('/api/groups/:groupId/account-search', authenticateToken, (req, res) => 
 app.get('/api/groups/:groupId/invitations', authenticateToken, (req, res) => {
     requireActiveGroupStaff(req, res, req.params.groupId, () => {
         db.all(
-            `SELECT i.id, i.status, i.created_at, i.responded_at, a.identifier, a.prenom, a.name,
-                    inviter.prenom AS inviter_prenom, inviter.name AS inviter_name
+            `SELECT i.id, i.status, i.created_at, i.responded_at, i.sponsor_account_id, a.identifier, a.prenom, a.name,
+                   inviter.prenom AS inviter_prenom, inviter.name AS inviter_name,
+                   sponsor.prenom AS sponsor_prenom, sponsor.name AS sponsor_name
              FROM group_invitations i
              JOIN platform_accounts a ON a.id = i.account_id
              JOIN platform_accounts inviter ON inviter.id = i.invited_by_account_id
+             LEFT JOIN platform_accounts sponsor ON sponsor.id = i.sponsor_account_id
              WHERE i.group_id = ? ORDER BY CASE i.status WHEN 'pending' THEN 0 ELSE 1 END, i.created_at DESC`,
             [req.params.groupId],
             (err, invitations) => err ? res.status(500).json({ error: err.message }) : res.json({ invitations })
@@ -4929,11 +5230,11 @@ app.post('/api/groups/:groupId/invitations', authenticateToken, (req, res) => {
                         if (membershipErr) return res.status(500).json({ error: membershipErr.message });
                         if (!inviter) return res.status(403).json({ error: 'Adhésion active de l’invitant introuvable' });
                         db.run(
-                            `INSERT INTO group_invitations (group_id, account_id, invited_by_account_id, role)
-                             VALUES (?, ?, ?, 'membre')
+                            `INSERT INTO group_invitations (group_id, account_id, invited_by_account_id, sponsor_account_id, role)
+                             VALUES (?, ?, ?, ?, 'membre')
                              ON CONFLICT(group_id, account_id) DO UPDATE SET invited_by_account_id = excluded.invited_by_account_id,
-                                 role = 'membre', status = 'pending', responded_at = NULL`,
-                            [req.params.groupId, accountId, inviter.account_id],
+                                 sponsor_account_id = excluded.sponsor_account_id, role = 'membre', status = 'pending', responded_at = NULL`,
+                            [req.params.groupId, accountId, inviter.account_id, inviter.account_id],
                             function invite(err) {
                                 if (err) return res.status(500).json({ error: err.message });
                                 notifyAccount(accountId, 'group_invitation', 'Vous avez reçu une invitation à rejoindre un groupe AVEC.', 'group_invitation', this.lastID);
@@ -5225,11 +5526,21 @@ app.post('/api/groups/:groupId/elections/:electionId/close', authenticateToken, 
 });
 
 app.get('/api/platform/groups', authenticateAccount, (req, res) => {
+    const country = safeText(req.query.country || '', 80);
+    const province = safeText(req.query.province || req.query.region || '', 100);
+    const city = safeText(req.query.city || '', 100);
+    const filters = [];
+    const values = [];
+    if (country) { filters.push('g.country = ?'); values.push(country); }
+    if (province) { filters.push('g.province = ?'); values.push(province); }
+    if (city) { filters.push('g.city = ?'); values.push(city); }
     db.all(
-        `SELECT g.id, g.name, g.country, g.city, g.currency, COUNT(pam.id) AS member_count
+        `SELECT g.id, g.name, g.country, g.province, g.city, g.currency, g.group_type, g.savings_periodicity, g.savings_period,
+                COUNT(pam.id) AS member_count
          FROM groups g LEFT JOIN platform_account_memberships pam ON pam.group_id = g.id AND pam.status = 'active'
+         ${filters.length ? `WHERE ${filters.join(' AND ')}` : ''}
          GROUP BY g.id ORDER BY g.created_at DESC`,
-        [], (err, groups) => err ? res.status(500).json({ error: err.message }) : res.json({ groups })
+        values, (err, groups) => err ? res.status(500).json({ error: err.message }) : res.json({ groups })
     );
 });
 
@@ -5365,9 +5676,10 @@ app.post('/api/platform/groups/:groupId/invitations', authenticateAccount, (req,
                 if (membershipErr) return res.status(500).json({ error: membershipErr.message });
                 if (membership) return res.status(409).json({ error: 'Cette personne est déjà membre' });
                 db.run(
-                    `INSERT INTO group_invitations (group_id, account_id, invited_by_account_id, role) VALUES (?, ?, ?, 'membre')
-                     ON CONFLICT(group_id, account_id) DO UPDATE SET invited_by_account_id = excluded.invited_by_account_id, role = 'membre', status = 'pending', responded_at = NULL`,
-                    [req.params.groupId, accountId, req.account.id],
+                    `INSERT INTO group_invitations (group_id, account_id, invited_by_account_id, sponsor_account_id, role) VALUES (?, ?, ?, ?, 'membre')
+                     ON CONFLICT(group_id, account_id) DO UPDATE SET invited_by_account_id = excluded.invited_by_account_id,
+                     sponsor_account_id = excluded.sponsor_account_id, role = 'membre', status = 'pending', responded_at = NULL`,
+                        [req.params.groupId, accountId, req.account.id, req.account.id],
                     function invite(err) {
                         if (err) return res.status(500).json({ error: err.message });
                         notifyAccount(accountId, 'group_invitation', `Vous avez reçu une invitation à rejoindre un groupe AVEC.`, 'group_invitation', this.lastID);
@@ -5415,8 +5727,10 @@ app.get('/api/platform/groups/:groupId/invite-candidates', authenticateAccount, 
 
 app.get('/api/platform/invitations', authenticateAccount, (req, res) => {
     db.all(
-        `SELECT i.*, g.name AS group_name, g.country, a.prenom AS inviter_prenom, a.name AS inviter_name
+        `SELECT i.*, g.name AS group_name, g.country, a.prenom AS inviter_prenom, a.name AS inviter_name,
+                sponsor.prenom AS sponsor_prenom, sponsor.name AS sponsor_name
          FROM group_invitations i JOIN groups g ON g.id = i.group_id JOIN platform_accounts a ON a.id = i.invited_by_account_id
+         LEFT JOIN platform_accounts sponsor ON sponsor.id = i.sponsor_account_id
          WHERE i.account_id = ? ORDER BY i.created_at DESC`,
         [req.account.id], (err, invitations) => err ? res.status(500).json({ error: err.message }) : res.json({ invitations })
     );
@@ -5437,7 +5751,9 @@ app.put('/api/platform/invitations/:invitationId', authenticateAccount, (req, re
         canJoinAnotherGroup(req.account.id, (eligibilityErr, blockedReason) => {
             if (eligibilityErr) return res.status(500).json({ error: eligibilityErr.message });
             if (blockedReason) return res.status(403).json({ error: blockedReason });
-            addAccountToGroup(req.account, invitation.group_id, 'membre', addErr => addErr ? res.status(409).json({ error: addErr.message }) : finish());
+            addAccountToGroup(req.account, invitation.group_id, 'membre',
+                addErr => addErr ? res.status(409).json({ error: addErr.message }) : finish(),
+                { sponsorAccountId: invitation.sponsor_account_id || invitation.invited_by_account_id });
         });
     });
 });
