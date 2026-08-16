@@ -2392,6 +2392,7 @@ function accountPublicResponse(account, includeWallet = false) {
     if (includeWallet) {
         result.phone = account.phone;
         result.country = account.country || null;
+        result.email = account.email || null;
         result.internal_wallet = Number(account.internal_wallet || 0);
         result.momo_wallet = Number(account.momo_wallet || 0);
         result.wallet_currency = account.wallet_currency || 'USD';
@@ -3269,7 +3270,7 @@ app.post('/api/platform/email-verifications/request', async (req, res) => {
 app.post('/api/platform/email-verifications/verify', (req, res) => {
     const email = normalizedEmail(req.body.email);
     const sessionId = browserVerificationSessionId(req.body.browserSessionId);
-    const purpose = ['activation', 'pin_reset'].includes(req.body.purpose) ? req.body.purpose : 'activation';
+    const purpose = ['activation', 'pin_reset', 'profile_email'].includes(req.body.purpose) ? req.body.purpose : 'activation';
     if (!email || !sessionId) return res.status(400).json({ error: 'E-mail et session navigateur valides requis.' });
     const verification = verifyEmailCode(email, sessionId, purpose, req.body.code);
     if (verification.error) return res.status(verification.status || 400).json({ error: verification.error });
@@ -3656,6 +3657,42 @@ app.put('/api/platform/profile', authenticateAccount, (req, res) => {
     db.run('UPDATE platform_accounts SET visibility = ?, availability = ? WHERE id = ?', [visibility, availability, req.account.id], err => {
         if (err) return res.status(500).json({ error: err.message });
         db.get('SELECT * FROM platform_accounts WHERE id = ?', [req.account.id], (lookupErr, account) => lookupErr ? res.status(500).json({ error: lookupErr.message }) : res.json({ account: accountPublicResponse(account, true) }));
+    });
+    app.post('/api/platform/profile/email/request', authenticateAccount, async (req, res) => {
+        const email = normalizedEmail(req.body.email);
+        const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
+        if (!email || !browserSessionId) return res.status(400).json({ error: 'E-mail et session navigateur valides requis.' });
+        db.get('SELECT id FROM platform_accounts WHERE LOWER(email) = LOWER(?) AND id != ?', [email, req.account.id], async (lookupErr, existing) => {
+            if (lookupErr) return res.status(500).json({ error: 'Impossible de vérifier cet e-mail.' });
+            if (existing) return res.status(409).json({ error: 'Cet e-mail est déjà utilisé.' });
+            try {
+                const delivery = await requestEmailVerification(email, browserSessionId, 'profile_email');
+                res.json({ requested: true, sandbox: delivery.sandbox, message: delivery.sandbox ? 'Vérification SANDBOX simulée. Consultez le canal de test configuré.' : 'Code de vérification envoyé par e-mail.' });
+            } catch (_) {
+                res.status(502).json({ error: 'Service e-mail temporairement indisponible.' });
+            }
+        });
+    });
+    app.put('/api/platform/profile/email', authenticateAccount, (req, res) => {
+        const email = normalizedEmail(req.body.email);
+        const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
+        const verificationToken = String(req.body.emailVerificationToken || '');
+        if (!email || !browserSessionId || !consumeVerifiedEmailClaim(email, browserSessionId, 'profile_email', verificationToken)) {
+            return res.status(400).json({ error: 'Vérifiez cet e-mail avant de l’enregistrer.' });
+        }
+        db.run(
+            `UPDATE platform_accounts SET email = ?, email_verified_at = CURRENT_TIMESTAMP
+             WHERE id = ? AND (email IS NULL OR LOWER(email) = LOWER(?))`,
+            [email, req.account.id, email],
+            function updateProfileEmail(err) {
+                if (isConstraintError(err)) return res.status(409).json({ error: 'Cet e-mail est déjà utilisé.' });
+                if (err) return res.status(500).json({ error: err.message });
+                if (!this.changes) return res.status(409).json({ error: 'Un e-mail différent est déjà associé à ce compte. Contactez le support pour le modifier.' });
+                db.get('SELECT * FROM platform_accounts WHERE id = ?', [req.account.id], (lookupErr, account) => lookupErr
+                    ? res.status(500).json({ error: lookupErr.message })
+                    : res.json({ account: accountPublicResponse(account, true) }));
+            }
+        );
     });
 });
 app.put('/api/platform/profile/security', authenticateAccount, (req, res) => {

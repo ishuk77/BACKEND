@@ -186,9 +186,10 @@ test('member platform binds country-aware group creation and all chat controls',
     hasListener(elements, 'dmEmojiButton', 'click');
     hasListener(elements, 'dmMessages', 'click');
     [
-        'registerForm', 'platformLoginForm', 'pinResetForm', 'profileForm', 'securityProfileForm', 'createGroupForm', 'contactPhoneForm',
+        'registerForm', 'platformLoginForm', 'pinResetForm', 'profileForm', 'profileAvatarForm', 'securityProfileForm', 'createGroupForm', 'contactPhoneForm',
         'searchForm', 'dmForm', 'postForm', 'eventForm'
     ].forEach(id => hasListener(elements, id, 'submit'));
+    ['profileEmailRequestCode', 'profileEmailVerifyCode'].forEach(id => hasListener(elements, id, 'click'));
     assert.equal(typeof context.updateGroupMomoFields, 'function');
     assert.equal(typeof context.toggleDmReaction, 'function');
     assert.equal(typeof context.reactOrComment, 'function');

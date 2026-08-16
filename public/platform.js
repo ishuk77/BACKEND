@@ -12,7 +12,7 @@ let pendingWalletTopupId = null;
 const mediaUrls = new Map();
 const PHONE_VERIFICATION_SESSION_KEY = 'platformPhoneVerificationSession';
 const phoneVerificationTokens = { profile: null };
-const emailVerificationTokens = { reset: null };
+const emailVerificationTokens = { reset: null, profile: null };
 const UI_TRANSLATIONS = Object.freeze({
     fr: { nav_profile: 'Profil et paramètres', nav_groups: 'Groupe', nav_messages: 'Collaboration', nav_social: 'Social', profile: 'Mon profil', wallet: 'Mon portefeuille', groups: 'Mes groupes', messages: 'Messages', discover: 'Découvrir des membres', feed: 'Fil social', publish: 'Publier', calendar: 'Agenda' },
     en: { nav_profile: 'Profile and settings', nav_groups: 'Groups', nav_messages: 'Messages', nav_social: 'Social', profile: 'My profile', wallet: 'My wallet', groups: 'My groups', messages: 'Messages', discover: 'Discover members', feed: 'Social feed', publish: 'Publish', calendar: 'Calendar' },
@@ -173,6 +173,7 @@ function renderAccount() {
     $p('profileLastName').value = account.name;
     $p('profileAvailability').value = account.availability;
     $p('profileVisibility').value = account.visibility;
+    $p('profileEmail').value = account.email || '';
     $p('internalWallet').textContent = Number(account.internal_wallet || 0);
     const securityForm = $p('securityProfileForm');
     securityForm.hidden = Boolean(account.onboardingComplete);
@@ -310,7 +311,8 @@ async function verifyEmailVerification(purpose, emailId, codeId, statusId) {
         await enter();
         return;
     }
-    emailVerificationTokens.reset = data.verificationToken;
+    if (purpose === 'profile_email') emailVerificationTokens.profile = data.verificationToken;
+    else emailVerificationTokens.reset = data.verificationToken;
     showVerificationStatus(statusId, 'E-mail vérifié dans cette session.');
 }
 async function resetPin(event) {
@@ -338,6 +340,42 @@ async function saveProfile(event) {
     }) })).account;
     renderAccount();
     notice('Profil mis à jour.');
+}
+async function saveProfileEmail() {
+    if (!emailVerificationTokens.profile) throw new Error('Demandez puis vérifiez le code e-mail avant l’enregistrement.');
+    account = (await request('/api/platform/profile/email', {
+        method: 'PUT',
+        body: JSON.stringify({
+            email: $p('profileEmail').value.trim(),
+            emailVerificationToken: emailVerificationTokens.profile,
+            browserSessionId: browserVerificationSessionId()
+        })
+    })).account;
+    emailVerificationTokens.profile = null;
+    renderAccount();
+    showVerificationStatus('profileEmailStatus', 'E-mail vérifié et enregistré.');
+}
+async function requestProfileEmailVerification() {
+    const data = await request('/api/platform/profile/email/request', {
+        method: 'POST',
+        body: JSON.stringify({ email: $p('profileEmail').value.trim(), browserSessionId: browserVerificationSessionId() })
+    });
+    emailVerificationTokens.profile = null;
+    showVerificationStatus('profileEmailStatus', data.message);
+}
+async function saveProfileAvatar(event) {
+    event.preventDefault();
+    const file = $p('profileAvatar').files[0];
+    if (!file || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024) {
+        throw new Error('Choisissez une photo JPEG, PNG ou WebP de 3 Mo maximum.');
+    }
+    const response = await fetch(`${api}/api/profile/avatar`, { method: 'POST', headers: tokenHeaders({ 'Content-Type': file.type }), body: file });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Photo impossible à enregistrer.');
+    account.avatar_media_id = data.media.id;
+    $p('profileAvatarForm').reset();
+    renderAccount();
+    notice('Photo de profil enregistrée.');
 }
 async function saveSecurityProfile(event) {
     event.preventDefault();
@@ -921,6 +959,9 @@ document.addEventListener('DOMContentLoaded', () => {
     $p('walletTopupForm').addEventListener('submit', event => createWalletTopup(event).catch(error => notice(error.message)));
     $p('simulateWalletTopup').addEventListener('click', () => confirmWalletTopup().catch(error => notice(error.message)));
     $p('profileForm').addEventListener('submit', event => saveProfile(event).catch(error => alert(error.message)));
+    $p('profileEmailRequestCode').addEventListener('click', () => requestProfileEmailVerification().catch(error => showVerificationStatus('profileEmailStatus', error.message)));
+    $p('profileEmailVerifyCode').addEventListener('click', () => verifyEmailVerification('profile_email', 'profileEmail', 'profileEmailCode', 'profileEmailStatus').then(saveProfileEmail).catch(error => showVerificationStatus('profileEmailStatus', error.message)));
+    $p('profileAvatarForm').addEventListener('submit', event => saveProfileAvatar(event).catch(error => notice(error.message)));
     $p('securityProfileForm').addEventListener('submit', event => saveSecurityProfile(event).catch(error => alert(error.message)));
     $p('profileSettingsButton').addEventListener('click', () => {
         const form = $p('profileForm');
