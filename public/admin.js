@@ -837,9 +837,9 @@ function prepareAvecLaunchCampaign() {
     document.getElementById('publicContentAudience').value = 'public';
     document.getElementById('publicContentPlacement').value = 'news';
     document.getElementById('publicContentTitle').value = 'Découvrez AVEC, la plateforme et sa communauté';
-    document.getElementById('publicContentBody').value = `Découvrez l’application AVEC et ses espaces dédiés aux membres et aux groupes : https://www.avec.my/platform.html
+    document.getElementById('publicContentBody').value = `Découvrez l’application AVEC et ses espaces dédiés aux membres et aux groupes : https://www.avec.my/application
 
-Retrouvez aussi AVEC Communauté : https://www.avec.my/social.html
+Retrouvez aussi AVEC Communauté : https://www.avec.my/communaute
 
 Pour vos réactions, questions et commentaires, rendez-vous sur AVEC Communauté.`;
     document.getElementById('publicContentStarts').value = publicContentDateTime(new Date().toISOString());

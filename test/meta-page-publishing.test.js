@@ -181,7 +181,7 @@ test('Meta page publishing automatically sends declared public promotions server
                 ['public_content', publicAnnouncement.data.id]
             );
             assert.equal(publication.status, 'published');
-            assert.match(new URLSearchParams(calls[0].body).get('message'), /https:\/\/www\.avec\.my\/social\.html/);
+            assert.match(new URLSearchParams(calls[0].body).get('message'), /https:\/\/www\.avec\.my\/communaute/);
 
             assert.equal((await createAdminContent({ audience: 'members', title: 'Publicité membres' })).status, 201);
             const inactiveAdvertisement = await createAdminContent({ active: false, title: 'Publicité inactive' });
@@ -352,7 +352,7 @@ test('Meta page publishing automatically sends declared public promotions server
         assert.match(calls.at(-1).options.path, /\/9876543210\/feed$/);
         assert.match(calls.at(-1).body, /message=/);
         assert.match(calls.at(-1).body, /access_token=test-page-access-token/);
-        assert.match(new URLSearchParams(calls.at(-1).body).get('message'), /https:\/\/www\.avec\.my\/social\.html/);
+        assert.match(new URLSearchParams(calls.at(-1).body).get('message'), /https:\/\/www\.avec\.my\/communaute/);
 
         const replay = await request('POST', '/api/admin/meta/publish', {
             token: admin.data.accessToken,

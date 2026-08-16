@@ -64,7 +64,8 @@ const META_GRAPH_VERSION = 'v20.0';
 const META_DEFAULT_REDIRECT_URI = 'https://www.avec.my/auth/meta/callback';
 const META_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const META_PROMOTION_RETRY_INTERVAL_MS = 5 * 60 * 1000;
-const AVEC_SOCIAL_URL = 'https://www.avec.my/social.html';
+const AVEC_APPLICATION_URL = 'https://www.avec.my/application';
+const AVEC_SOCIAL_URL = 'https://www.avec.my/communaute';
 const metaOAuthStates = new Map();
 let metaPromotionRetryTimer = null;
 
@@ -84,6 +85,8 @@ app.use('/api/social/uploads', express.raw({ type: '*/*', limit: `${MAX_SOCIAL_M
 app.use('/api/profile/avatar', express.raw({ type: '*/*', limit: `${MAX_SOCIAL_IMAGE_BYTES}b` }));
 app.use('/api/admin/public-content/media', express.raw({ type: '*/*', limit: `${MAX_PUBLIC_CONTENT_IMAGE_BYTES}b` }));
 app.use(express.json({ limit: '256kb' }));
+app.get('/application', (_req, res) => res.redirect(302, '/platform.html'));
+app.get('/communaute', (_req, res) => res.redirect(302, '/social.html'));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 let resolveDatabaseReady;
