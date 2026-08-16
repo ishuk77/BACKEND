@@ -1117,7 +1117,10 @@ function initDatabase(onReady) {
             ['direct_messages', 'attachment_id', 'INTEGER']
         ].forEach(([table, column, definition]) => ensureColumn(table, column, definition));
         migrateMemberCollaborationFields(() => migratePlatformAccountSecurityFields(() => migratePaidPublicContentFields(() => migratePlatformAccounts(() => migrateSafeWalletAccounting(() => {
-            db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_platform_accounts_email_lower ON platform_accounts(LOWER(email)) WHERE email IS NOT NULL', () => onReady());
+            db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_platform_accounts_email_lower ON platform_accounts(LOWER(email)) WHERE email IS NOT NULL', indexErr => {
+                if (indexErr) console.error('Error creating platform email index:', indexErr.message);
+                onReady();
+            });
         })))));
     });
 }
@@ -2553,6 +2556,12 @@ function validIdentityNumber(identityNumber) {
     return Boolean(identityNumber && /^[\p{L}\p{N}][\p{L}\p{N} ./_-]{2,79}$/u.test(identityNumber));
 }
 
+function normalizedIdentityNumber(value) {
+    const identityNumber = safeText(value, 80);
+    const canonical = identityNumber && identityNumber.toUpperCase();
+    return validIdentityNumber(canonical) ? canonical : null;
+}
+
 function validPlatformPin(pin) {
     return /^\d{4}$/.test(pin);
 }
@@ -2638,39 +2647,56 @@ function normalizedEmail(value) {
     return validEmail(email) ? email.toLowerCase() : null;
 }
 
-function emailVerificationKey(email, sessionId, purpose) {
-    return `${purpose}:${sessionId}:${email}`;
+function emailVerificationKey(email, sessionId, purpose, accountId = null) {
+    return `${purpose}:${accountId || 'public'}:${sessionId}:${email}`;
 }
 
-const SANDBOX_EMAIL_DELIVERY = Object.freeze({
-    deliver() {
-        return { sandbox: true, provider: 'sandbox' };
+function emailOtpProviderConfiguration() {
+    const provider = String(process.env.EMAIL_OTP_PROVIDER || 'sandbox').trim().toLowerCase();
+    if (provider !== 'http') {
+        return {
+            configured: false,
+            message: provider === 'sandbox'
+                ? 'La livraison par e-mail n’est pas configurée. Configurez un fournisseur e-mail sur le serveur avant de demander un code.'
+                : 'Le fournisseur e-mail OTP configuré n’est pas pris en charge.'
+        };
     }
-});
+    const endpoint = String(process.env.EMAIL_OTP_ENDPOINT || '').trim();
+    const apiKey = String(process.env.EMAIL_OTP_API_KEY || '').trim();
+    const from = normalizedEmail(process.env.EMAIL_OTP_FROM);
+    if (!/^https:\/\//.test(endpoint) || !/^\S{8,4096}$/.test(apiKey) || !from) {
+        return {
+            configured: false,
+            message: 'La livraison par e-mail est incomplète. Configurez EMAIL_OTP_ENDPOINT, EMAIL_OTP_API_KEY et EMAIL_OTP_FROM sur le serveur.'
+        };
+    }
+    return { configured: true, endpoint, apiKey, from };
+}
+
+function emailOtpConfigurationError(message) {
+    const error = new Error(message);
+    error.code = 'EMAIL_OTP_NOT_CONFIGURED';
+    return error;
+}
 
 async function deliverEmailVerificationCode(email, code, purpose) {
-    const provider = String(process.env.EMAIL_OTP_PROVIDER || 'sandbox').toLowerCase();
-    if (provider === 'sandbox') return SANDBOX_EMAIL_DELIVERY.deliver();
-    if (provider !== 'http') throw new Error('Fournisseur e-mail OTP non configuré.');
-    const endpoint = String(process.env.EMAIL_OTP_ENDPOINT || '');
-    const apiKey = String(process.env.EMAIL_OTP_API_KEY || '');
-    const from = String(process.env.EMAIL_OTP_FROM || '');
-    if (!/^https:\/\//.test(endpoint) || !apiKey || !from) throw new Error('Fournisseur e-mail OTP incomplet.');
-    const response = await fetch(endpoint, {
+    const configuration = emailOtpProviderConfiguration();
+    if (!configuration.configured) throw emailOtpConfigurationError(configuration.message);
+    const response = await fetch(configuration.endpoint, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${configuration.apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            from, to: email,
+            from: configuration.from, to: email,
             subject: 'Code de vérification AVEC',
             text: `Votre code AVEC est ${code}. Il expire dans 10 minutes. Ne le partagez avec personne.`,
             purpose
         })
     });
     if (!response.ok) throw new Error('Le fournisseur e-mail a refusé l’envoi.');
-    return { sandbox: false, provider: 'http' };
+    return { provider: 'http' };
 }
 
-async function requestEmailVerification(email, sessionId, purpose) {
+async function requestEmailVerification(email, sessionId, purpose, accountId = null) {
     const now = Date.now();
     for (const [key, verification] of emailVerificationSessions) {
         if (verification.expiresAt <= now) emailVerificationSessions.delete(key);
@@ -2683,15 +2709,13 @@ async function requestEmailVerification(email, sessionId, purpose) {
         verified: false,
         verificationToken: null
     };
-    emailVerificationSessions.set(emailVerificationKey(email, sessionId, purpose), verification);
     const delivery = await deliverEmailVerificationCode(email, code, purpose);
-    // Sandbox is deliberately simulated server-side; OTPs are never exposed in unauthenticated API responses.
-    if (delivery.sandbox) console.info(`SANDBOX email OTP issued for ${purpose}; delivery is simulated.`);
+    emailVerificationSessions.set(emailVerificationKey(email, sessionId, purpose, accountId), verification);
     return { ...delivery, expiresAt: new Date(verification.expiresAt).toISOString() };
 }
 
-function verifyEmailCode(email, sessionId, purpose, code) {
-    const key = emailVerificationKey(email, sessionId, purpose);
+function verifyEmailCode(email, sessionId, purpose, code, accountId = null) {
+    const key = emailVerificationKey(email, sessionId, purpose, accountId);
     const verification = emailVerificationSessions.get(key);
     if (!verification || verification.expiresAt <= Date.now()) {
         emailVerificationSessions.delete(key);
@@ -2707,8 +2731,8 @@ function verifyEmailCode(email, sessionId, purpose, code) {
     return { verificationToken: verification.verificationToken };
 }
 
-function consumeVerifiedEmailClaim(email, sessionId, purpose, token) {
-    const key = emailVerificationKey(email, sessionId, purpose);
+function consumeVerifiedEmailClaim(email, sessionId, purpose, token, accountId = null) {
+    const key = emailVerificationKey(email, sessionId, purpose, accountId);
     const verification = emailVerificationSessions.get(key);
     const supplied = Buffer.from(String(token || ''));
     const expected = Buffer.from(verification?.verificationToken || '');
@@ -3224,32 +3248,46 @@ app.post('/api/platform/auth/register', (req, res) => {
     const phoneInput = safeText(req.body.phone, 30);
     const phoneDetails = normalizePlatformPhone(safeText(req.body.country, 80), phoneInput);
     const phone = phoneDetails && phoneDetails.phone;
-    const identityNumber = safeText(req.body.identityNumber, 80) || null;
+    const identityNumber = req.body.identityNumber ? normalizedIdentityNumber(req.body.identityNumber) : null;
     const pin = String(req.body.pin || req.body.password || '');
     const pinConfirmation = String(req.body.pinConfirmation || req.body.passwordConfirmation || '');
     if (!prenom || !name || !email || !phone || !phoneDetails.country || !validPlatformPin(pin) || pin !== pinConfirmation
-        || (identityNumber && !validIdentityNumber(identityNumber))) {
+        || (req.body.identityNumber && !identityNumber)) {
         return res.status(400).json({ error: 'Prénom, nom, e-mail, pays, téléphone et PIN à 4 chiffres confirmé valides requis.' });
     }
     const identifier = `AVEC-${crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`;
-    db.run(
+    db.get(
+        `SELECT 1 FROM platform_accounts
+         WHERE phone = ? OR LOWER(email) = LOWER(?) OR (identity_number IS NOT NULL AND LOWER(identity_number) = LOWER(?))
+         LIMIT 1`,
+        [phone, email, identityNumber || ''],
+        (lookupErr, existing) => {
+            if (lookupErr) return res.status(500).json({ error: 'Impossible de créer le compte.' });
+            if (existing) return res.status(409).json({ error: 'Un compte existe déjà avec au moins une de ces informations. Connectez-vous ou réinitialisez votre PIN.' });
+            createAccount();
+        }
+    );
+
+    function createAccount() {
+        db.run(
         `INSERT INTO platform_accounts
          (identifier, prenom, name, email, phone, country, password, identity_number, pin_configured, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'pending_email')`,
         [identifier, prenom, name, email, phone, phoneDetails.country, bcrypt.hashSync(pin, 10), identityNumber],
         function registerAccount(err) {
-            if (isConstraintError(err)) return res.status(409).json({ error: 'Un compte existe déjà avec ce téléphone, cet e-mail ou cette identité/passeport.' });
+            if (isConstraintError(err)) return res.status(409).json({ error: 'Un compte existe déjà avec au moins une de ces informations. Connectez-vous ou réinitialisez votre PIN.' });
             if (err) return res.status(500).json({ error: err.message });
             db.get('SELECT * FROM platform_accounts WHERE id = ?', [this.lastID], (lookupErr, account) => {
                 if (lookupErr) return res.status(500).json({ error: lookupErr.message });
                 res.status(201).json({
                     account: accountPublicResponse(account),
                     activationRequired: true,
-                    message: 'Compte créé gratuitement. Vérifiez votre e-mail pour activer le compte. En SANDBOX, la vérification est simulée; aucun e-mail réel n’est envoyé.'
+                    message: 'Compte créé gratuitement. Demandez le code d’activation après la configuration du service e-mail.'
                 });
             });
         }
     );
+    }
 });
 
 app.post('/api/platform/email-verifications/request', async (req, res) => {
@@ -3260,19 +3298,29 @@ app.post('/api/platform/email-verifications/request', async (req, res) => {
     db.get('SELECT id FROM platform_accounts WHERE LOWER(email) = LOWER(?)', [email], async (err, account) => {
         if (err) return res.status(500).json({ error: 'Impossible de demander la vérification e-mail.' });
         // Keep account existence private while allowing genuine activation and recovery requests.
-        if (account) {
-            try { await requestEmailVerification(email, sessionId, purpose); } catch (_) { return res.status(502).json({ error: 'Service e-mail temporairement indisponible.' }); }
+        const configuration = emailOtpProviderConfiguration();
+        if (account && configuration.configured) {
+            try {
+                await requestEmailVerification(email, sessionId, purpose);
+            } catch (error) {
+                console.error('Email OTP delivery failed:', error.message);
+            }
         }
-        res.status(202).json({ requested: true, message: 'Si ce compte existe, un code e-mail a été demandé. En SANDBOX, la livraison est simulée.' });
+        res.status(202).json({
+            requested: true,
+            message: configuration.configured
+                ? 'Si ce compte existe, un code e-mail a été demandé.'
+                : 'Si ce compte existe, un code sera envoyé lorsque la livraison e-mail sera configurée.'
+        });
     });
 });
 
-app.post('/api/platform/email-verifications/verify', (req, res) => {
+function verifyEmailVerificationRequest(req, res, purpose) {
     const email = normalizedEmail(req.body.email);
     const sessionId = browserVerificationSessionId(req.body.browserSessionId);
-    const purpose = ['activation', 'pin_reset', 'profile_email'].includes(req.body.purpose) ? req.body.purpose : 'activation';
     if (!email || !sessionId) return res.status(400).json({ error: 'E-mail et session navigateur valides requis.' });
-    const verification = verifyEmailCode(email, sessionId, purpose, req.body.code);
+    const accountId = purpose === 'profile_email' ? req.account.id : null;
+    const verification = verifyEmailCode(email, sessionId, purpose, req.body.code, accountId);
     if (verification.error) return res.status(verification.status || 400).json({ error: verification.error });
     if (purpose !== 'activation') return res.json({ verified: true, verificationToken: verification.verificationToken });
     db.run(`UPDATE platform_accounts SET email_verified_at = CURRENT_TIMESTAMP, status = 'active'
@@ -3288,6 +3336,12 @@ app.post('/api/platform/email-verifications/verify', (req, res) => {
             });
         });
     });
+}
+
+app.post('/api/platform/email-verifications/verify', (req, res) => {
+    const purpose = ['activation', 'pin_reset', 'profile_email'].includes(req.body.purpose) ? req.body.purpose : 'activation';
+    if (purpose === 'profile_email') return authenticateAccount(req, res, () => verifyEmailVerificationRequest(req, res, purpose));
+    verifyEmailVerificationRequest(req, res, purpose);
 });
 
 app.post('/api/platform/phone-verifications/request', authenticateAccount, async (req, res) => {
@@ -3658,26 +3712,31 @@ app.put('/api/platform/profile', authenticateAccount, (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         db.get('SELECT * FROM platform_accounts WHERE id = ?', [req.account.id], (lookupErr, account) => lookupErr ? res.status(500).json({ error: lookupErr.message }) : res.json({ account: accountPublicResponse(account, true) }));
     });
-    app.post('/api/platform/profile/email/request', authenticateAccount, async (req, res) => {
+});
+
+app.post('/api/platform/profile/email/request', authenticateAccount, async (req, res) => {
         const email = normalizedEmail(req.body.email);
         const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
         if (!email || !browserSessionId) return res.status(400).json({ error: 'E-mail et session navigateur valides requis.' });
         db.get('SELECT id FROM platform_accounts WHERE LOWER(email) = LOWER(?) AND id != ?', [email, req.account.id], async (lookupErr, existing) => {
             if (lookupErr) return res.status(500).json({ error: 'Impossible de vérifier cet e-mail.' });
-            if (existing) return res.status(409).json({ error: 'Cet e-mail est déjà utilisé.' });
+            if (existing) return res.status(409).json({ error: 'Cet e-mail ne peut pas être utilisé pour ce compte.' });
             try {
-                const delivery = await requestEmailVerification(email, browserSessionId, 'profile_email');
-                res.json({ requested: true, sandbox: delivery.sandbox, message: delivery.sandbox ? 'Vérification SANDBOX simulée. Consultez le canal de test configuré.' : 'Code de vérification envoyé par e-mail.' });
-            } catch (_) {
+                await requestEmailVerification(email, browserSessionId, 'profile_email', req.account.id);
+                res.status(202).json({ requested: true, message: 'Code de vérification envoyé par e-mail.' });
+            } catch (error) {
+                if (error.code === 'EMAIL_OTP_NOT_CONFIGURED') return res.status(503).json({ error: error.message });
+                console.error('Profile email OTP delivery failed:', error.message);
                 res.status(502).json({ error: 'Service e-mail temporairement indisponible.' });
             }
         });
-    });
-    app.put('/api/platform/profile/email', authenticateAccount, (req, res) => {
+});
+
+app.put('/api/platform/profile/email', authenticateAccount, (req, res) => {
         const email = normalizedEmail(req.body.email);
         const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
         const verificationToken = String(req.body.emailVerificationToken || '');
-        if (!email || !browserSessionId || !consumeVerifiedEmailClaim(email, browserSessionId, 'profile_email', verificationToken)) {
+        if (!email || !browserSessionId || !consumeVerifiedEmailClaim(email, browserSessionId, 'profile_email', verificationToken, req.account.id)) {
             return res.status(400).json({ error: 'Vérifiez cet e-mail avant de l’enregistrer.' });
         }
         db.run(
@@ -3685,7 +3744,7 @@ app.put('/api/platform/profile', authenticateAccount, (req, res) => {
              WHERE id = ? AND (email IS NULL OR LOWER(email) = LOWER(?))`,
             [email, req.account.id, email],
             function updateProfileEmail(err) {
-                if (isConstraintError(err)) return res.status(409).json({ error: 'Cet e-mail est déjà utilisé.' });
+                if (isConstraintError(err)) return res.status(409).json({ error: 'Cet e-mail ne peut pas être utilisé pour ce compte.' });
                 if (err) return res.status(500).json({ error: err.message });
                 if (!this.changes) return res.status(409).json({ error: 'Un e-mail différent est déjà associé à ce compte. Contactez le support pour le modifier.' });
                 db.get('SELECT * FROM platform_accounts WHERE id = ?', [req.account.id], (lookupErr, account) => lookupErr
@@ -3693,7 +3752,6 @@ app.put('/api/platform/profile', authenticateAccount, (req, res) => {
                     : res.json({ account: accountPublicResponse(account, true) }));
             }
         );
-    });
 });
 app.put('/api/platform/profile/security', authenticateAccount, (req, res) => {
     const needsIdentity = !req.account.identity_number;
@@ -3703,7 +3761,7 @@ app.put('/api/platform/profile/security', authenticateAccount, (req, res) => {
         return res.json({ account: accountPublicResponse(req.account, true) });
     }
 
-    const identityNumber = safeText(req.body.identityNumber, 80);
+    const identityNumber = normalizedIdentityNumber(req.body.identityNumber);
     const pin = String(req.body.pin || '');
     const pinConfirmation = String(req.body.pinConfirmation || '');
     const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);

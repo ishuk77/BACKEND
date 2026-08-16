@@ -1,4 +1,6 @@
 (() => {
+    const i18n = window.AVEC_I18N;
+    const t = (key, fallback) => i18n ? i18n.t(key, fallback) : fallback;
     const feed = document.getElementById('newsFeed');
     const status = document.getElementById('newsStatus');
     const more = document.getElementById('newsMore');
@@ -7,7 +9,8 @@
     let offset = 0;
 
     function dateLabel(value) {
-        return value ? new Date(value).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '';
+        const locale = i18n && i18n.locale === 'en' ? 'en-US' : i18n && i18n.locale === 'sw' ? 'sw-TZ' : 'fr-FR';
+        return value ? new Date(value).toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' }) : '';
     }
 
     function mediaUrl(item, mediaId) {
@@ -20,8 +23,8 @@
         const article = document.createElement('article');
         article.className = 'feed-post public-news-item';
         const heading = document.createElement('h3');
-        const label = item.content_type === 'advertisement' ? 'Publicité'
-            : item.content_type === 'member_publication' ? 'Publication membre' : 'Actualité';
+        const label = item.content_type === 'advertisement' ? t('advertisement', 'Publicité')
+            : item.content_type === 'member_publication' ? t('publication', 'Publication membre') : t('announcement', 'Actualité');
         heading.textContent = item.title || label;
         const meta = document.createElement('p');
         meta.className = 'field-hint';
@@ -33,8 +36,8 @@
             const details = document.createElement('div');
             details.className = 'product-details';
             [
-                ['Prix', item.product_price], ['Total', item.product_total], ['Disponibilité', item.availability],
-                ['Adresse', item.address], ['Téléphone', item.contact_phone], ['E-mail', item.contact_email]
+                [t('price', 'Prix'), item.product_price], [t('total', 'Total'), item.product_total], [t('availability', 'Disponibilité'), item.availability],
+                [t('address', 'Adresse'), item.address], [t('phone', 'Téléphone'), item.contact_phone], [t('email', 'E-mail'), item.contact_email]
             ].filter(([, value]) => value).forEach(([label, value]) => {
                 const line = document.createElement('span');
                 line.textContent = `${label} : ${value}`;
@@ -46,22 +49,22 @@
             const image = document.createElement('img');
             image.className = 'feed-image';
             image.src = mediaUrl(item, mediaId);
-            image.alt = item.title ? `Illustration : ${item.title}` : 'Média partagé avec la publication';
+            image.alt = item.title ? `Illustration : ${item.title}` : t('image_shared', 'Média partagé avec la publication');
             image.loading = 'lazy';
             article.appendChild(image);
         });
         const comments = document.createElement('section');
         comments.className = 'public-comments';
         const commentsTitle = document.createElement('h4');
-        commentsTitle.textContent = 'Commentaires publics';
+        commentsTitle.textContent = t('comments', 'Commentaires publics');
         const commentsList = document.createElement('div');
         commentsList.className = 'comment-list';
-        commentsList.textContent = 'Chargement des commentaires…';
+        commentsList.textContent = t('loading', 'Chargement des commentaires…');
         comments.append(commentsTitle, commentsList);
         const form = document.createElement('form');
         form.className = 'public-comment-form';
         const commentLabel = document.createElement('label');
-        commentLabel.textContent = 'Ajouter un commentaire';
+        commentLabel.textContent = t('add_comment', 'Ajouter un commentaire');
         const textarea = document.createElement('textarea');
         textarea.maxLength = 800;
         textarea.required = true;
@@ -72,7 +75,7 @@
         const button = document.createElement('button');
         button.className = 'btn btn-primary';
         button.type = 'submit';
-        button.textContent = 'Commenter';
+        button.textContent = t('comment', 'Commenter');
         form.append(commentLabel, hint, button);
         form.addEventListener('submit', event => submitComment(event, item, textarea, commentsList));
         comments.appendChild(form);
@@ -88,12 +91,12 @@
 
     async function loadComments(item, target) {
         const source = item.source === 'social' ? 'social' : item.source === 'member_content' ? 'member_content' : null;
-        if (!source) { target.textContent = 'Les commentaires sont réservés aux publications membres.'; return; }
+        if (!source) { target.textContent = t('comments_members', 'Les commentaires sont réservés aux publications membres.'); return; }
         const response = await fetch(`/api/public/news/${source}/${encodeURIComponent(item.id)}/comments`);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || 'Commentaires indisponibles.');
         target.replaceChildren();
-        if (!data.comments.length) { target.textContent = 'Aucun commentaire approuvé pour le moment.'; return; }
+        if (!data.comments.length) { target.textContent = t('no_comments', 'Aucun commentaire approuvé pour le moment.'); return; }
         data.comments.forEach(comment => {
             const line = document.createElement('p');
             line.textContent = `${comment.author_name} · ${comment.body}`;
@@ -145,7 +148,7 @@
             offset = 0;
             feed.replaceChildren();
         }
-        status.textContent = 'Chargement des actualités…';
+        status.textContent = t('news_loading', 'Chargement des actualités…');
         more.hidden = true;
         const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
         const type = document.getElementById('newsType').value;
@@ -160,14 +163,14 @@
         if (!data.items.length && offset === 0) {
             const empty = document.createElement('p');
             empty.className = 'empty-state';
-            empty.textContent = 'Aucune actualité ou publicité publique ne correspond à ces critères pour le moment.';
+            empty.textContent = t('news_empty', 'Aucune actualité ou publicité publique ne correspond à ces critères pour le moment.');
             feed.appendChild(empty);
         } else {
             data.items.forEach(item => feed.appendChild(card(item)));
         }
         offset += data.items.length;
         more.hidden = data.items.length < PAGE_SIZE;
-        status.textContent = data.items.length ? `${offset} élément(s) affiché(s).` : 'Fil à jour.';
+        status.textContent = data.items.length ? `${offset} ${t('items_displayed', 'élément(s) affiché(s).')}` : t('feed_current', 'Fil à jour.');
     }
 
     filters.addEventListener('submit', event => {

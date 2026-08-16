@@ -10,7 +10,7 @@ fs.rmSync(databasePath, { force: true });
 process.env.DATABASE_PATH = databasePath;
 process.env.JWT_SECRET = 'platform-onboarding-test-jwt-secret';
 const { start, db } = require('../src/server');
-const { activateAccount, registerActiveAccount } = require('./helpers/account-security');
+const { activateAccount, emailCodeFor, installEmailDeliveryCapture, registerActiveAccount } = require('./helpers/account-security');
 let server;
 let port;
 
@@ -101,6 +101,104 @@ test('registration requires email and activation before the verified-phone group
     assert.ok(stored.email_verified_at);
     assert.ok(stored.phone_verified_at);
     assert.equal(stored.pin_configured, 1);
+});
+
+test('registration normalizes duplicate identity, email, and phone without identifying the matching field', async () => {
+    const duplicateMessage = 'Un compte existe déjà avec au moins une de ces informations. Connectez-vous ou réinitialisez votre PIN.';
+    const first = await request('POST', '/api/platform/auth/register', {
+        body: {
+            prenom: 'Doublon', name: 'Initial', email: 'duplicate-registration@example.test', country: 'Bénin',
+            phone: '+22996666101', identityNumber: 'dup-identity-001', pin: '1234', pinConfirmation: '1234'
+        }
+    });
+    assert.equal(first.status, 201);
+    const stored = await get('SELECT phone, email, identity_number FROM platform_accounts WHERE email = ?', ['duplicate-registration@example.test']);
+    assert.deepEqual(stored, {
+        phone: '+22996666101', email: 'duplicate-registration@example.test', identity_number: 'DUP-IDENTITY-001'
+    });
+
+    const attempts = [
+        {
+            email: 'different-phone@example.test', phone: '+229 96 666 101', identityNumber: 'DUP-IDENTITY-002'
+        },
+        {
+            email: 'DUPLICATE-REGISTRATION@example.test', phone: '+22996666102', identityNumber: 'DUP-IDENTITY-003'
+        },
+        {
+            email: 'different-identity@example.test', phone: '+22996666103', identityNumber: 'dup-identity-001'
+        }
+    ];
+    for (const attempt of attempts) {
+        const response = await request('POST', '/api/platform/auth/register', {
+            body: { prenom: 'Doublon', name: 'Essai', country: 'Bénin', pin: '1234', pinConfirmation: '1234', ...attempt }
+        });
+        assert.equal(response.status, 409);
+        assert.equal(response.data.error, duplicateMessage);
+        assert.doesNotMatch(response.data.error, /téléphone|e-mail|identité|passeport/i);
+    }
+});
+
+test('an authenticated account can complete a missing email with an account-bound OTP', async () => {
+    installEmailDeliveryCapture();
+    const hash = bcrypt.hashSync('1234', 10);
+    await run(
+        `INSERT INTO platform_accounts (identifier, prenom, name, phone, password, status)
+         VALUES (?, ?, ?, ?, ?, 'active')`,
+        ['AVEC-EMAIL-COMPLETION-A', 'Ancien', 'Sans e-mail', '+22995550020', hash]
+    );
+    await run(
+        `INSERT INTO platform_accounts (identifier, prenom, name, phone, password, status)
+         VALUES (?, ?, ?, ?, ?, 'active')`,
+        ['AVEC-EMAIL-COMPLETION-B', 'Autre', 'Compte', '+22995550021', hash]
+    );
+    const firstLogin = await request('POST', '/api/platform/auth/login', { body: { phone: '+22995550020', pin: '1234' } });
+    const secondLogin = await request('POST', '/api/platform/auth/login', { body: { phone: '+22995550021', pin: '1234' } });
+    assert.equal(firstLogin.status, 200);
+    assert.equal(secondLogin.status, 200);
+
+    const email = 'Completed.Email@Example.test';
+    const browserSessionId = 'profile-email-completion-session-001';
+    const requested = await request('POST', '/api/platform/profile/email/request', {
+        token: firstLogin.data.accessToken, body: { email, browserSessionId }
+    });
+    assert.equal(requested.status, 202);
+    assert.equal(requested.data.requested, true);
+    assert.equal(Object.hasOwn(requested.data, 'sandboxCode'), false);
+    const code = emailCodeFor(email.toLowerCase());
+    assert.match(code || '', /^\d{6}$/);
+
+    const unauthenticatedVerification = await request('POST', '/api/platform/email-verifications/verify', {
+        body: { email, browserSessionId, purpose: 'profile_email', code }
+    });
+    assert.equal(unauthenticatedVerification.status, 401);
+
+    const verified = await request('POST', '/api/platform/email-verifications/verify', {
+        token: firstLogin.data.accessToken, body: { email, browserSessionId, purpose: 'profile_email', code }
+    });
+    assert.equal(verified.status, 200);
+    assert.equal(Object.hasOwn(verified.data, 'verificationToken'), true);
+
+    const wrongAccount = await request('PUT', '/api/platform/profile/email', {
+        token: secondLogin.data.accessToken,
+        body: { email, browserSessionId, emailVerificationToken: verified.data.verificationToken }
+    });
+    assert.equal(wrongAccount.status, 400);
+
+    const completed = await request('PUT', '/api/platform/profile/email', {
+        token: firstLogin.data.accessToken,
+        body: { email, browserSessionId, emailVerificationToken: verified.data.verificationToken }
+    });
+    assert.equal(completed.status, 200);
+    assert.equal(completed.data.account.emailVerified, true);
+    const stored = await get('SELECT email, email_verified_at FROM platform_accounts WHERE identifier = ?', ['AVEC-EMAIL-COMPLETION-A']);
+    assert.equal(stored.email, 'completed.email@example.test');
+    assert.ok(stored.email_verified_at);
+
+    const collision = await request('POST', '/api/platform/profile/email/request', {
+        token: secondLogin.data.accessToken, body: { email, browserSessionId: 'profile-email-completion-session-002' }
+    });
+    assert.equal(collision.status, 409);
+    assert.equal(collision.data.error, 'Cet e-mail ne peut pas être utilisé pour ce compte.');
 });
 
 test('a verified creator receives the member dashboard navigation contract', async () => {

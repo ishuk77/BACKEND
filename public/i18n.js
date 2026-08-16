@@ -9,6 +9,7 @@
         fr: {
             loading: 'Chargement…', send: 'Envoyer', save: 'Enregistrer', cancel: 'Annuler', back: 'Retour',
             close: 'Fermer', apply: 'Appliquer', language: 'Langue de l’interface', news: 'Actualités',
+            select_country: 'Sélectionner un pays', select_provider: 'Sélectionner un opérateur', choose_country_first: 'Choisissez d’abord un pays',
             comment: 'Commenter', comments: 'Commentaires publics', add_comment: 'Ajouter un commentaire',
             no_comments: 'Aucun commentaire approuvé pour le moment.', comments_members: 'Les commentaires sont réservés aux publications membres.',
             news_loading: 'Chargement des actualités…', news_empty: 'Aucune actualité ou publicité publique ne correspond à ces critères pour le moment.',
@@ -24,6 +25,7 @@
         en: {
             loading: 'Loading…', send: 'Send', save: 'Save', cancel: 'Cancel', back: 'Back', close: 'Close', apply: 'Apply',
             language: 'Interface language', news: 'News', comment: 'Comment', comments: 'Public comments', add_comment: 'Add a comment',
+            select_country: 'Select a country', select_provider: 'Select an operator', choose_country_first: 'Choose a country first',
             no_comments: 'No approved comments yet.', comments_members: 'Comments are available only for member posts.',
             news_loading: 'Loading news…', news_empty: 'No public news or advertisement matches these criteria at the moment.',
             feed_current: 'Feed is up to date.', more: 'Show more', advertisement: 'Advertisement', publication: 'Member post', announcement: 'News',
@@ -38,6 +40,7 @@
         rw: {
             loading: 'Kwamamaza…', send: 'Ohereza', save: 'Bika', cancel: 'Kureka', back: 'Subira', close: 'Funga', apply: 'Koresha',
             language: 'Ururimi rw’imigaragarire', news: 'Kwamamaza', comment: 'Tanga igitekerezo', comments: 'Ibitekerezo rusange', add_comment: 'Ongeraho igitekerezo',
+            select_country: 'Hitamo igihugu', select_provider: 'Hitamo umukozi', choose_country_first: 'Banza uhitemo igihugu',
             no_comments: 'Nta bitekerezo byemejwe biraboneka.', comments_members: 'Ibitekerezo biremewe gusa ku nyandiko z’abanyamuryango.',
             news_loading: 'Kwamamaza amakuru…', news_empty: 'Nta makuru cyangwa itangazo rusange rihuye n’ibi bisabwa ubu.',
             feed_current: 'Urutonde rugezweho.', more: 'Erekana ibindi', advertisement: 'Kwamamaza', publication: 'Kwamamaza kw’umunyamuryango', announcement: 'Kwamamaza',
@@ -52,6 +55,7 @@
         rn: {
             loading: 'Kwamamaza…', send: 'Rungika', save: 'Bika', cancel: 'Reka', back: 'Subira', close: 'Funga', apply: 'Shira mu ngiro',
             language: 'Ururimi rw’urubuga', news: 'Amakuru', comment: 'Tanga iciyumviro', comments: 'Ivyiyumviro vya bose', add_comment: 'Shiramwo iciyumviro',
+            select_country: 'Hitamwo igihugu', select_provider: 'Hitamwo umukoresha', choose_country_first: 'Banza uhitemwo igihugu',
             no_comments: 'Nta vyiyumviro vyemejwe birahari.', comments_members: 'Ivyiyumviro biremewe gusa ku vyanditswe n’abanywanyi.',
             news_loading: 'Kwamamaza amakuru…', news_empty: 'Nta makuru canke amatangazo rusangi aboneka ubu.',
             feed_current: 'Urutonde ruri ku gihe.', more: 'Raba vyinshi', advertisement: 'Kwamamaza', publication: 'Kwamamaza kw’umunywanyi', announcement: 'Inkuru',
@@ -66,6 +70,7 @@
         sw: {
             loading: 'Inapakia…', send: 'Tuma', save: 'Hifadhi', cancel: 'Ghairi', back: 'Rudi', close: 'Funga', apply: 'Tumia',
             language: 'Lugha ya kiolesura', news: 'Habari', comment: 'Toa maoni', comments: 'Maoni ya umma', add_comment: 'Ongeza maoni',
+            select_country: 'Chagua nchi', select_provider: 'Chagua mtoa huduma', choose_country_first: 'Chagua nchi kwanza',
             no_comments: 'Bado hakuna maoni yaliyoidhinishwa.', comments_members: 'Maoni yanapatikana kwa machapisho ya wanachama pekee.',
             news_loading: 'Inapakia habari…', news_empty: 'Hakuna habari au tangazo la umma linalolingana na vigezo hivi kwa sasa.',
             feed_current: 'Mlisho umesasishwa.', more: 'Onyesha zaidi', advertisement: 'Tangazo', publication: 'Chapisho la mwanachama', announcement: 'Habari',
@@ -80,6 +85,7 @@
         ln: {
             loading: 'Ezali kofungwama…', send: 'Tinda', save: 'Bomba', cancel: 'Tika', back: 'Zonga', close: 'Kanga', apply: 'Salela',
             language: 'Lokóta ya etando', news: 'Bansango', comment: 'Tia likanisi', comments: 'Makanisi ya bato nyonso', add_comment: 'Bakisa likanisi',
+            select_country: 'Pona mboka', select_provider: 'Pona mopesi', choose_country_first: 'Pona mboka liboso',
             no_comments: 'Naino likanisi oyo endimami ezali te.', comments_members: 'Makanisi epesami kaka mpo na mikanda ya bandimi.',
             news_loading: 'Ezali kofungwama bansango…', news_empty: 'Bansango to liyebisi ya bato nyonso ekokani na makambo oyo ezali te sikawa.',
             feed_current: 'Nsango ezali ya sika.', more: 'Lakisa mingi', advertisement: 'Liyebisi', publication: 'Mikanda ya mondimi', announcement: 'Nsango',

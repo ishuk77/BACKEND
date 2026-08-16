@@ -21,12 +21,14 @@ function element() {
     };
 }
 
-function loadPageScript(htmlFile, scriptFile) {
+function loadPageScript(htmlFile, scriptFile, { loadI18n = false } = {}) {
     const html = fs.readFileSync(path.join(root, 'public', htmlFile), 'utf8');
     const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
     const elements = Object.fromEntries(ids.map(id => [id, element()]));
     let domReady;
     const document = {
+        body: {},
+        documentElement: { lang: 'fr' },
         addEventListener(type, listener) {
             if (type === 'DOMContentLoaded') domReady = listener;
         },
@@ -36,6 +38,9 @@ function loadPageScript(htmlFile, scriptFile) {
         },
         querySelectorAll() {
             return [];
+        },
+        createTreeWalker() {
+            return { nextNode: () => null };
         }
     };
     const storage = new Map();
@@ -48,16 +53,48 @@ function loadPageScript(htmlFile, scriptFile) {
         document,
         localStorage,
         Option: function Option(text, value) { this.text = text; this.value = value; },
+        NodeFilter: { SHOW_TEXT: 4, FILTER_REJECT: 2, FILTER_ACCEPT: 1 },
+        CustomEvent: function CustomEvent(type, options) { this.type = type; this.detail = options.detail; },
         alert() {},
         confirm: () => false,
         fetch() { throw new Error('No network request is expected during page initialization'); },
-        window: { location: { origin: 'http://localhost' }, MOMO_COUNTRIES: [], scrollTo() {} }
+        window: { location: { origin: 'http://localhost' }, MOMO_COUNTRIES: [], scrollTo() {}, CustomEvent: function CustomEvent() {}, dispatchEvent() {} }
     };
     context.window.window = context.window;
+    if (loadI18n) vm.runInNewContext(fs.readFileSync(path.join(root, 'public', 'i18n.js'), 'utf8'), context, { filename: 'i18n.js' });
     vm.runInNewContext(fs.readFileSync(path.join(root, 'public', scriptFile), 'utf8'), context, { filename: scriptFile });
     assert.ok(domReady, `${scriptFile} must register DOMContentLoaded`);
     domReady();
     return { elements, context, localStorage };
+}
+
+function loadLocaleController() {
+    const selector = element();
+    selector.value = 'fr';
+    const document = {
+        body: {},
+        documentElement: { lang: 'fr' },
+        createTreeWalker() {
+            return { nextNode: () => null };
+        },
+        querySelectorAll(query) {
+            return query === '[data-language-selector]' ? [selector] : [];
+        }
+    };
+    const storage = new Map();
+    const context = {
+        NodeFilter: { SHOW_TEXT: 4, FILTER_REJECT: 2, FILTER_ACCEPT: 1 },
+        document,
+        localStorage: {
+            getItem: key => storage.has(key) ? storage.get(key) : null,
+            setItem(key, value) { storage.set(key, String(value)); }
+        },
+        CustomEvent: function CustomEvent(type, options) { this.type = type; this.detail = options.detail; },
+        window: { CustomEvent: function CustomEvent() {}, dispatchEvent() {} }
+    };
+    context.window.window = context.window;
+    vm.runInNewContext(fs.readFileSync(path.join(root, 'public', 'i18n.js'), 'utf8'), context, { filename: 'i18n.js' });
+    return { context, document, selector };
 }
 
 function hasListener(elements, id, type) {
@@ -104,7 +141,7 @@ test('navigation groups actions without exposing platform administration publicl
     assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
     assert.match(memberPortal, /<section id="portalSection" class="card" hidden>/);
     assert.match(fs.readFileSync(path.join(root, 'public', 'style.css'), 'utf8'), /#portalSection\[hidden\][\s\S]*?display: none/);
-    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v51/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v52/);
 });
 
 test('all application surfaces load the bundled locale controller and expose a shared selector', () => {
@@ -117,6 +154,24 @@ test('all application surfaces load the bundled locale controller and expose a s
         assert.match(page, /data-language-selector/);
     });
     assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /'i18n\.js'/);
+});
+
+test('locale controller initializes in the node DOM harness and persists language changes', () => {
+    const { context, document, selector } = loadLocaleController();
+    assert.equal(context.window.AVEC_I18N.locale, 'fr');
+    context.window.AVEC_I18N.apply('en');
+    assert.equal(document.documentElement.lang, 'en');
+    assert.equal(selector.value, 'en');
+    selector.value = 'sw';
+    selector.listeners.change[0]({ target: selector });
+    assert.equal(context.window.AVEC_I18N.locale, 'sw');
+});
+
+test('member portal initialization remains compatible with the locale controller', () => {
+    const { context } = loadPageScript('platform.html', 'platform.js', { loadI18n: true });
+    assert.equal(context.window.AVEC_I18N.locale, 'fr');
+    context.window.AVEC_I18N.apply('en');
+    assert.equal(context.document.documentElement.lang, 'en');
 });
 
 test('service worker refreshes the app shell from the network and falls back offline without caching API data', async () => {

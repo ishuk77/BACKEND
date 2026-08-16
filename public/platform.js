@@ -82,6 +82,10 @@ function hydrateProtectedMedia(root = document) {
     });
 }
 function applyUiLanguage(locale) {
+    if (window.AVEC_I18N) {
+        window.AVEC_I18N.apply(locale);
+        return;
+    }
     const dictionary = UI_TRANSLATIONS[locale] || UI_TRANSLATIONS.fr;
     if (document.documentElement) document.documentElement.lang = locale;
     document.querySelectorAll('[data-i18n]').forEach(element => { element.textContent = dictionary[element.dataset.i18n] || element.textContent; });
@@ -399,13 +403,13 @@ async function saveSecurityProfile(event) {
 }
 function populateGroupCountries() {
     const select = $p('groupCountry');
-    select.replaceChildren(new Option('Sélectionner un pays', ''));
+    select.replaceChildren(new Option(window.AVEC_I18N ? window.AVEC_I18N.t('select_country', 'Sélectionner un pays') : 'Sélectionner un pays', ''));
     (window.MOMO_COUNTRIES || []).forEach(country => select.add(new Option(country.name, country.name)));
     updateGroupMomoFields();
 }
 function populateRegisterCountries() {
     const select = $p('registerCountry');
-    select.replaceChildren(new Option('Sélectionner un pays', ''));
+    select.replaceChildren(new Option(window.AVEC_I18N ? window.AVEC_I18N.t('select_country', 'Sélectionner un pays') : 'Sélectionner un pays', ''));
     MEMBER_COUNTRIES().forEach(country => select.add(new Option(`${country.name} (${country.dialCode})`, country.name)));
     updateRegisterDialCode();
 }
@@ -427,7 +431,12 @@ function normalizeRegisterPhone() {
 function updateGroupMomoFields() {
     const country = countryByName($p('groupCountry').value);
     const provider = $p('groupProvider');
-    provider.replaceChildren(new Option(country ? 'Sélectionner un opérateur' : 'Choisissez d’abord un pays', ''));
+    provider.replaceChildren(new Option(
+        country
+            ? (window.AVEC_I18N ? window.AVEC_I18N.t('select_provider', 'Sélectionner un opérateur') : 'Sélectionner un opérateur')
+            : (window.AVEC_I18N ? window.AVEC_I18N.t('choose_country_first', 'Choisissez d’abord un pays') : 'Choisissez d’abord un pays'),
+        ''
+    ));
     provider.disabled = !country;
     if (country) country.providers.forEach(name => provider.add(new Option(name, name)));
     $p('groupDialCode').textContent = country ? country.dialCode : '+--';
@@ -940,7 +949,7 @@ function logout() {
     $p('authSection').hidden = false;
 }
 document.addEventListener('DOMContentLoaded', () => {
-    applyUiLanguage(localStorage.getItem('platformUiLanguage') || 'fr');
+    applyUiLanguage((window.AVEC_I18N && window.AVEC_I18N.locale) || localStorage.getItem('platformUiLanguage') || 'fr');
     populateGroupCountries();
     populateRegisterCountries();
     updateEpargneTerms();

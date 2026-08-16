@@ -124,12 +124,14 @@ CREATE TABLE IF NOT EXISTS platform_accounts (
             prenom TEXT NOT NULL,
             name TEXT NOT NULL,
             phone TEXT UNIQUE,
+            email TEXT,
+            email_verified_at TIMESTAMPTZ,
             country TEXT,
             password TEXT NOT NULL,
             identity_number TEXT,
             phone_verified_at TIMESTAMPTZ,
             pin_configured INTEGER NOT NULL DEFAULT 0,
-            status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
+            status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'pending_email')),
             visibility TEXT NOT NULL DEFAULT 'friends' CHECK (visibility IN ('public', 'friends', 'private')),
             availability TEXT NOT NULL DEFAULT 'offline' CHECK (availability IN ('online', 'offline', 'busy')),
             internal_wallet REAL NOT NULL DEFAULT 0,
@@ -792,6 +794,7 @@ CREATE INDEX IF NOT EXISTS idx_payment_operations_group ON payment_operations (g
 CREATE INDEX IF NOT EXISTS idx_chat_messages_platform_conversation ON chat_messages (group_id, conversation_type, date);
 CREATE INDEX IF NOT EXISTS idx_chat_attachments_group ON chat_attachments (group_id, message_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_platform_accounts_identity_number ON platform_accounts(identity_number) WHERE identity_number IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_platform_accounts_email_lower ON platform_accounts(LOWER(email)) WHERE email IS NOT NULL;
 
 
 CREATE OR REPLACE FUNCTION prevent_immutable_change()

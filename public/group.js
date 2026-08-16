@@ -1,5 +1,6 @@
 const groupApi = window.location.origin;
 const group$ = id => document.getElementById(id);
+const groupT = (key, fallback) => window.AVEC_I18N ? window.AVEC_I18N.t(key, fallback) : fallback;
 let groupMember;
 let groupId;
 let groupData;
@@ -122,7 +123,7 @@ function renderMovements(items, title, includeMemberNames = false) {
     group$('movementTitle').textContent = title;
     group$('movementList').replaceChildren();
     if (!groups.size) {
-        group$('movementList').textContent = 'Aucun mouvement.';
+        group$('movementList').textContent = groupT('no_transactions', 'Aucun mouvement.');
     } else {
         for (const [month, entries] of groups) {
             const section = document.createElement('section');
@@ -147,7 +148,7 @@ function renderMovements(items, title, includeMemberNames = false) {
 async function loadMovements(groupRegister = false) {
     const data = await groupRequest('/api/history');
     const entries = groupRegister ? data : data.filter(item => String(item.member_id) === String(groupMember.id));
-    renderMovements(entries, groupRegister ? 'Registre du groupe AVEC' : 'Mon registre de mouvements', groupRegister);
+    renderMovements(entries, groupRegister ? groupT('group_ledger', 'Registre du groupe AVEC') : groupT('my_ledger', 'Mon registre de mouvements'), groupRegister);
 }
 
 async function loadCreditRequests() {
@@ -158,7 +159,7 @@ async function loadCreditRequests() {
         row.textContent = `${member.prenom} ${member.name} : ${member.credit_request}`;
         group$('creditRequestsList').appendChild(row);
     });
-    if (!requests.length) group$('creditRequestsList').textContent = 'Aucune demande de crédit en attente.';
+    if (!requests.length) group$('creditRequestsList').textContent = groupT('no_credit_requests', 'Aucune demande de crédit en attente.');
     group$('creditRequestsSection').hidden = false;
 }
 
@@ -181,7 +182,7 @@ async function loadJoinRequests() {
             warning.textContent = `Déjà membre de : ${existingGroups}. Président(s) à contacter : ${request.existing_group_presidents || 'coordonnées indisponibles'}.${outstandingCredit > 0 ? ` Crédit restant : ${outstandingCredit.toFixed(2)} USD.` : ''}`;
             row.appendChild(warning);
         }
-        ['Accepter', 'Refuser'].forEach((label, index) => {
+        [groupT('accept', 'Accepter'), groupT('decline', 'Refuser')].forEach((label, index) => {
             const button = document.createElement('button');
             button.className = `btn ${index ? 'btn-danger' : 'btn-primary'}`;
             button.type = 'button';
@@ -211,7 +212,7 @@ async function loadJoinRequests() {
         });
         list.appendChild(row);
     });
-    if (!pending.length) list.textContent = 'Aucune demande d’adhésion en attente.';
+    if (!pending.length) list.textContent = groupT('no_join_requests', 'Aucune demande d’adhésion en attente.');
     group$('joinRequestsSection').hidden = false;
 }
 
@@ -225,7 +226,7 @@ async function loadChat() {
         row.append(author, ` : ${message.message}`);
         group$('groupChat').appendChild(row);
     });
-    if (!data.messages.length) group$('groupChat').textContent = 'Aucun message.';
+    if (!data.messages.length) group$('groupChat').textContent = groupT('no_messages', 'Aucun message.');
     group$('chatSection').hidden = false;
 }
 

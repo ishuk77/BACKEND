@@ -9,6 +9,7 @@ const databasePath = path.join(__dirname, '..', 'avec-security-test.db');
 fs.rmSync(databasePath, { force: true });
 process.env.DATABASE_PATH = databasePath;
 process.env.JWT_SECRET = 'avec-security-test-secret';
+process.env.EMAIL_OTP_PROVIDER = 'sandbox';
 const { start, db } = require('../src/server');
 let server;
 let port;
@@ -47,6 +48,7 @@ test('registration requires email and does not disclose email or OTP', async () 
     const missingEmail = await request('POST', '/api/platform/auth/register', {
         body: { prenom: 'Awa', name: 'Test', country: 'Bénin', phone: '95550001', pin: '1234', pinConfirmation: '1234' }
     });
+
     assert.equal(missingEmail.status, 400);
     const registered = await request('POST', '/api/platform/auth/register', {
         body: { prenom: 'Awa', name: 'Test', email: 'awa@example.test', country: 'Bénin', phone: '95550001', pin: '1234', pinConfirmation: '1234' }
@@ -55,6 +57,24 @@ test('registration requires email and does not disclose email or OTP', async () 
     assert.equal(registered.data.activationRequired, true);
     assert.equal(JSON.stringify(registered.data).includes('awa@example.test'), false);
     assert.equal(Object.hasOwn(registered.data, 'sandboxCode'), false);
+});
+
+test('an unconfigured email provider reports delivery truthfully without exposing an OTP', async () => {
+    const hash = bcrypt.hashSync('1234', 10);
+    await run(
+        `INSERT INTO platform_accounts (identifier, prenom, name, phone, password, status)
+         VALUES (?, ?, ?, ?, ?, 'active')`,
+        ['AVEC-EMAIL-NOT-CONFIGURED', 'Ancien', 'Compte', '+22995550011', hash]
+    );
+    const login = await request('POST', '/api/platform/auth/login', { body: { phone: '+22995550011', pin: '1234' } });
+    assert.equal(login.status, 200);
+    const requested = await request('POST', '/api/platform/profile/email/request', {
+        token: login.data.accessToken,
+        body: { email: 'completion@example.test', browserSessionId: 'email-not-configured-session-001' }
+    });
+    assert.equal(requested.status, 503);
+    assert.match(requested.data.error, /pas configurée/i);
+    assert.equal(Object.hasOwn(requested.data, 'sandboxCode'), false);
 });
 
 test('group creation charges only the personal wallet as platform revenue', async () => {
