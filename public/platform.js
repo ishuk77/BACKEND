@@ -18,7 +18,8 @@ const UI_TRANSLATIONS = Object.freeze({
     en: { nav_profile: 'Profile and settings', nav_groups: 'Groups', nav_messages: 'Messages', nav_social: 'Social', profile: 'My profile', wallet: 'My wallet', groups: 'My groups', messages: 'Messages', discover: 'Discover members', feed: 'Social feed', publish: 'Publish', calendar: 'Calendar' },
     rw: { nav_profile: 'Umwirondoro n’igenamiterere', nav_groups: 'Amatsinda', nav_messages: 'Ubutumwa', nav_social: 'Imbuga nkoranyambaga', profile: 'Umwirondoro wanjye', wallet: 'Agasakoshi kanjye', groups: 'Amatsinda yanjye', messages: 'Ubutumwa', discover: 'Shakisha abanyamuryango', feed: 'Kwamamaza', publish: 'Kwamamaza', calendar: 'Kalendari' },
     rn: { nav_profile: 'Umwirondoro n’ugutunganya', nav_groups: 'Imigwi', nav_messages: 'Ubutumwa', nav_social: 'Kwamamaza', profile: 'Umwirondoro wanje', wallet: 'Ikofi yanje', groups: 'Imigwi yanje', messages: 'Ubutumwa', discover: 'Rondera abanywanyi', feed: 'Kwamamaza', publish: 'Kwamamaza', calendar: 'Kalendari' },
-    sw: { nav_profile: 'Wasifu na mipangilio', nav_groups: 'Vikundi', nav_messages: 'Ujumbe', nav_social: 'Jamii', profile: 'Wasifu wangu', wallet: 'Pochi yangu', groups: 'Vikundi vyangu', messages: 'Ujumbe', discover: 'Tafuta wanachama', feed: 'Mlisho wa jamii', publish: 'Chapisha', calendar: 'Kalenda' }
+    sw: { nav_profile: 'Wasifu na mipangilio', nav_groups: 'Vikundi', nav_messages: 'Ujumbe', nav_social: 'Jamii', profile: 'Wasifu wangu', wallet: 'Pochi yangu', groups: 'Vikundi vyangu', messages: 'Ujumbe', discover: 'Tafuta wanachama', feed: 'Mlisho wa jamii', publish: 'Chapisha', calendar: 'Kalenda' },
+    ln: { nav_profile: 'Profil mpe bobongisi', nav_groups: 'Masanga', nav_messages: 'Bansango', nav_social: 'Lisanga', profile: 'Profil na ngai', wallet: 'Portefeuille na ngai', groups: 'Masanga na ngai', messages: 'Bansango', discover: 'Luka bandimi', feed: 'Nsango ya lisanga', publish: 'Kobimisa', calendar: 'Kalendali' }
 });
 const COUNTRY_LOCALES = Object.freeze({ Rwanda: 'rw', Burundi: 'rn', Tanzanie: 'sw', Kenya: 'sw', 'Afrique du Sud': 'en', Ghana: 'en', Nigeria: 'en', Liberia: 'en', 'Sierra Leone': 'en' });
 let languageOverridden = localStorage.getItem('platformUiLanguageOverride') === 'true';
@@ -759,7 +760,7 @@ function renderComment(comment, postId, isPublic) {
         const mine = reactions.some(item => Number(item.account_id) === Number(account.id) && item.reaction === emoji);
         return `<button class="reaction-button comment-reaction${mine ? ' is-active' : ''}" type="button" data-comment="${comment.id}" data-emoji="${emoji}" aria-pressed="${mine}">${emoji}${count ? ` ${count}` : ''}</button>`;
     }).join('');
-    const price = isPublic ? 'Commentaire public : 0,25 USD-équivalent SANDBOX (0,125 plateforme / 0,125 auteur).' : 'Discussion privée/de contacts : gratuite.';
+    const price = isPublic ? 'Commentaire public : 0,25 USD.' : 'Discussion privée/de contacts : gratuite.';
     return `<article class="feed-comment"><strong>${esc(comment.prenom)} ${esc(comment.name)}</strong>${pending}<p>${esc(comment.body)}</p><div class="reaction-row">${reactionButtons}</div><button class="btn btn-secondary reply-comment" data-post="${postId}" data-comment="${comment.id}" type="button">Répondre</button><form class="comment-form" data-post="${postId}" data-parent="${comment.id}" hidden><label>Réponse <textarea maxlength="800" required></textarea></label><small>${price}</small><button class="btn btn-primary">Envoyer la réponse</button></form></article>`;
 }
 function renderComments(post) {
@@ -768,7 +769,7 @@ function renderComments(post) {
     comments.forEach(comment => { const key = comment.parent_comment_id || 0; if (!children.has(key)) children.set(key, []); children.get(key).push(comment); });
     const isPublic = post.visibility === 'public';
     const branch = comment => `${renderComment(comment, post.id, isPublic)}<div class="comment-replies">${(children.get(comment.id) || []).map(branch).join('')}</div>`;
-    const price = isPublic ? 'Commentaire public : 0,25 USD-équivalent SANDBOX (0,125 plateforme / 0,125 auteur).' : 'Discussion privée/de contacts : gratuite.';
+    const price = isPublic ? 'Commentaire public : 0,25 USD.' : 'Discussion privée/de contacts : gratuite.';
     return `<section class="post-comments"><h4>Commentaires (${comments.length})</h4>${(children.get(0) || []).map(branch).join('') || '<p>Aucun commentaire pour le moment.</p>'}<form class="comment-form" data-post="${post.id}"><label for="comment-${post.id}">Ajouter un commentaire</label><textarea id="comment-${post.id}" maxlength="800" required></textarea><small>${price}</small><button class="btn btn-primary">Commenter</button></form></section>`;
 }
 async function loadFeed() {
@@ -796,7 +797,7 @@ function updatePostPrice() {
     const file = $p('postImage').files[0];
     $p('postPrice').textContent = `Prix avant publication : ${money(postPriceMinor(file))} (${file ? (file.type.startsWith('video/') ? 'vidéo' : 'image') : 'texte'}). Aucun transfert ni conversion réelle.`;
 }
-function paidMoney(minor) { return `${(minor / 100).toFixed(2).replace('.', ',')} USD-équivalent SANDBOX`; }
+function paidMoney(minor) { return `${(minor / 100).toFixed(2).replace('.', ',')} USD`; }
 function durationDays(id) { return Math.max(1, Number($p(id).value) || 1); }
 function paidContentPrice(file, days) {
     if (!file || !file.type.startsWith('video/')) return 25;
@@ -805,7 +806,7 @@ function paidContentPrice(file, days) {
 function renderPaidContentPrices() {
     if (!paidContentPrices) return;
     const prices = paidContentPrices.prices;
-    $p('contentPriceTable').textContent = `Publicité texte/photo et annonce : ${paidMoney(prices.text_or_photo_advertisement_minor)}. Vidéo : ${paidMoney(prices.video_per_started_mebibyte_per_day_minor)} par Mo entamé et par jour (minimum ${prices.minimum_duration_days} jour). Commentaire public : 0,25 USD-équivalent, partagé 0,125 / 0,125.`;
+    $p('contentPriceTable').textContent = `Publicité texte/photo et annonce : ${paidMoney(prices.text_or_photo_advertisement_minor)}. Vidéo : ${paidMoney(prices.video_per_started_mebibyte_per_day_minor)} par Mo entamé et par jour (minimum ${prices.minimum_duration_days} jour). Commentaire public : 0,25 USD.`;
     $p('paidPostPrice').textContent = `Prix avant paiement : ${paidMoney(paidContentPrice($p('paidPostMedia').files[0], durationDays('paidPostDuration')))}.`;
     $p('announcementPrice').textContent = `Prix avant paiement : ${paidMoney(paidContentPrice($p('announcementMedia').files[0], durationDays('announcementDuration')))}.`;
     const count = $p('advertisementPhotos').files.length;
