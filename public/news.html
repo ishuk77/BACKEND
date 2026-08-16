@@ -19,16 +19,16 @@
     <!-- THESIS: rendre les nouvelles AVEC consultables sans compte, sans transformer le fil social en vitrine. OWN-WORLD: bleu AVEC, surfaces blanches et informations lisibles héritées de l’application. STORY: lire une annonce, distinguer l’information plateforme des publications membres, puis choisir d’ouvrir son compte. FIRST VIEWPORT: titre, explication de confidentialité et filtres avant le fil chronologique. FORM: page de lecture opérationnelle, avec des articles au fil de leur publication et non une grille promotionnelle. -->
     <header class="app-header">
         <div>
-            <h1>Actualités &amp; publicités</h1>
-            <p>Les annonces, publicités et produits proposés par les membres AVEC.</p>
+            <h1 data-i18n="news_page_header">Actualités &amp; publicités</h1>
+            <p data-i18n="news_page_subheader">Les annonces, publicités et produits proposés par les membres AVEC.</p>
         </div>
-        <div class="header-actions"><label class="language-picker" for="newsLanguage"><span class="sr-only">Langue de l’interface</span><select id="newsLanguage" data-language-selector aria-label="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option><option value="ln">Lingala</option></select></label><a class="btn btn-secondary" href="/">Accueil public</a><a class="btn btn-primary" href="/application">Accéder à mon compte membre</a></div>
+        <div class="header-actions"><label class="language-picker" for="newsLanguage"><span class="sr-only" data-i18n="language">Langue de l’interface</span><select id="newsLanguage" data-language-selector aria-label="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option><option value="ln">Lingala</option></select></label><a class="btn btn-secondary" href="/" data-i18n="news_public_home">Accueil public</a><a class="btn btn-primary" href="/application" data-i18n="news_member_account">Accéder à mon compte membre</a></div>
     </header>
     <main class="container">
         <section class="card news-intro" aria-labelledby="newsTitle">
-            <h2 id="newsTitle">Suivre la vie publique d’AVEC</h2>
-            <p>Les annonces et publicités sont publiées par les membres depuis leur espace personnel, lorsque leur portefeuille SANDBOX couvre le montant demandé.</p>
-            <p class="field-hint">Les publications réservées aux contacts, privées ou retirées restent hors de cette page. Le nom d’un membre n’est affiché que lorsque son profil est public.</p>
+            <h2 id="newsTitle" data-i18n="news_intro_title">Suivre la vie publique d’AVEC</h2>
+            <p data-i18n="news_intro_text">Les annonces et publicités sont publiées par les membres depuis leur espace personnel, lorsque leur portefeuille SANDBOX couvre le montant demandé.</p>
+            <p class="field-hint" data-i18n="news_privacy_text">Les publications réservées aux contacts, privées ou retirées restent hors de cette page. Le nom d’un membre n’est affiché que lorsque son profil est public.</p>
         </section>
         <section class="card" aria-labelledby="filterTitle">
             <h2 id="filterTitle">Filtrer les actualités</h2>

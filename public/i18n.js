@@ -105,14 +105,24 @@
             create: 'Créer mon compte membre', community: 'Découvrir AVEC Communauté', sandbox: 'Les paiements et la vérification Mobile Money sont actuellement en mode SANDBOX.',
             journey: 'Votre parcours', step_one: 'Créer et vérifier votre identité', step_two: 'Découvrir ou rejoindre un groupe', step_three: 'Organiser l’épargne avec votre communauté',
             spaces_title: 'Un compte, des espaces bien séparés.', spaces_text: 'Votre portefeuille personnel, votre groupe AVEC et les échanges de communauté ne mélangent jamais leurs règles ni leurs fonds.',
+            spaces_wallet_title: 'Portefeuille personnel', spaces_wallet_text: 'Rechargez avant de contribuer, publier ou créer une AVEC.',
+            spaces_group_title: 'Compte AVEC', spaces_group_text: 'Contributions, crédit, remboursements et registre restent dans votre groupe.',
+            spaces_contacts_title: 'Contacts et échanges', spaces_contacts_text: 'Ajoutez un membre AVEC et discutez après acceptation de la connexion.',
             orient_title: 'Choisissez votre prochain pas.', orient_text: 'Chaque parcours commence publiquement et devient sécurisé après votre connexion.',
             orient_member: 'Je suis membre', orient_member_text: 'Créer mon compte, compléter mon profil et accéder à mon portefeuille personnel.',
             orient_group: 'Je représente un groupe', orient_group_text: 'Préparer une AVEC ou un groupe d’épargne avec ses règles et ses membres.',
             orient_community: 'Je veux échanger', orient_community_text: 'Découvrir les initiatives, publications et conversations de la communauté AVEC.',
+            platform_title: 'Une plateforme numérique pour l’épargne communautaire.', platform_text: 'AVEC Microcredit aide les groupes d’épargne, les associations villageoises et les communautés à organiser leurs contributions, leurs règles de gestion, leurs registres et leurs échanges. Les groupes peuvent fonctionner comme AVEC ou comme groupes d’épargne sans intérêt, selon leurs propres règles.',
+            platform_savings_title: 'Épargne solidaire', platform_savings_text: 'Structurez les cotisations et le suivi des mouvements collectifs dans un cadre défini par le groupe.',
+            platform_credit_title: 'Microcrédit communautaire', platform_credit_text: 'Les demandes, remboursements et décisions de crédit restent suivis au sein de l’AVEC.',
+            platform_community_title: 'Communauté numérique', platform_community_text: 'Découvrez les actualités et les initiatives publiques, puis échangez depuis AVEC Communauté.',
             facebook_title: 'Retrouvez les nouvelles AVEC sur Facebook.', facebook_text: 'Suivez la page officielle pour les annonces publiques, puis rejoignez AVEC Communauté pour échanger dans la plateforme.',
             facebook_action: 'Ouvrir notre page Facebook', assistant_title: 'Assistant AVEC', assistant_text: 'Une aide rapide pour comprendre la plateforme. Il ne demande jamais votre PIN, code OTP, mot de passe ou informations Mobile Money.',
             assistant_safety: 'Pour une opération financière, suivez toujours les contrôles sécurisés de votre espace membre.', assistant_welcome: 'Bonjour ! Posez une question sur l’inscription, les groupes AVEC, l’épargne, la communauté ou la sécurité.',
-            assistant_label: 'Votre question', assistant_placeholder: 'Ex. Comment rejoindre un groupe ?', assistant_send: 'Demander'
+            assistant_label: 'Votre question', assistant_placeholder: 'Ex. Comment rejoindre un groupe ?', assistant_send: 'Demander',
+            home_news_title: 'Annonces et publicités des membres', home_news_text: 'Les contenus sont publiés par les membres après débit automatique de leur portefeuille SANDBOX.', home_news_action: 'Voir les annonces',
+            news_page_header: 'Actualités & publicités', news_page_subheader: 'Les annonces, publicités et produits proposés par les membres AVEC.', news_public_home: 'Accueil public', news_member_account: 'Accéder à mon compte membre',
+            news_intro_title: 'Suivre la vie publique d’AVEC', news_intro_text: 'Les annonces et publicités sont publiées par les membres depuis leur espace personnel, lorsque leur portefeuille SANDBOX couvre le montant demandé.', news_privacy_text: 'Les publications réservées aux contacts, privées ou retirées restent hors de cette page. Le nom d’un membre n’est affiché que lorsque son profil est public.'
         },
         en: {
             tagline: 'Savings, credit and mutual support organised for your group.', language: 'Language', account: 'Create or open my account',
@@ -120,14 +130,24 @@
             create: 'Create my member account', community: 'Discover AVEC Community', sandbox: 'Payments and Mobile Money verification currently run in SANDBOX mode.',
             journey: 'Your journey', step_one: 'Create and verify your identity', step_two: 'Discover or join a group', step_three: 'Organise savings with your community',
             spaces_title: 'One account, clearly separated spaces.', spaces_text: 'Your personal wallet, AVEC group and community conversations never mix their rules or funds.',
+            spaces_wallet_title: 'Personal wallet', spaces_wallet_text: 'Top up before contributing, publishing or creating an AVEC group.',
+            spaces_group_title: 'AVEC account', spaces_group_text: 'Contributions, credit, repayments and the ledger stay in your group.',
+            spaces_contacts_title: 'Contacts and conversations', spaces_contacts_text: 'Add an AVEC member and talk after the connection is accepted.',
             orient_title: 'Choose your next step.', orient_text: 'Every journey starts publicly and becomes secure after you sign in.',
             orient_member: 'I am a member', orient_member_text: 'Create my account, complete my profile and access my personal wallet.',
             orient_group: 'I represent a group', orient_group_text: 'Prepare an AVEC or savings group with its rules and members.',
             orient_community: 'I want to connect', orient_community_text: 'Discover initiatives, posts and conversations in the AVEC community.',
+            platform_title: 'A digital platform for community savings.', platform_text: 'AVEC Microcredit helps savings groups, village associations and communities organise their contributions, management rules, ledgers and conversations. Groups can operate as AVEC groups or interest-free savings groups under their own rules.',
+            platform_savings_title: 'Mutual savings', platform_savings_text: 'Organise contributions and track collective transactions within a framework set by the group.',
+            platform_credit_title: 'Community microcredit', platform_credit_text: 'Credit requests, repayments and credit decisions remain tracked within the AVEC group.',
+            platform_community_title: 'Digital community', platform_community_text: 'Discover public news and initiatives, then talk in AVEC Community.',
             facebook_title: 'Find AVEC news on Facebook.', facebook_text: 'Follow the official page for public announcements, then join AVEC Community to talk on the platform.',
             facebook_action: 'Open our Facebook page', assistant_title: 'AVEC Assistant', assistant_text: 'Quick help to understand the platform. It never asks for your PIN, OTP code, password or Mobile Money details.',
             assistant_safety: 'For a financial action, always follow the secure controls in your member area.', assistant_welcome: 'Hello! Ask about registration, AVEC groups, savings, the community or security.',
-            assistant_label: 'Your question', assistant_placeholder: 'For example: How do I join a group?', assistant_send: 'Ask'
+            assistant_label: 'Your question', assistant_placeholder: 'For example: How do I join a group?', assistant_send: 'Ask',
+            home_news_title: 'Member announcements and advertisements', home_news_text: 'Content is published by members after an automatic debit from their SANDBOX wallet.', home_news_action: 'View announcements',
+            news_page_header: 'News & advertisements', news_page_subheader: 'Announcements, advertisements and products offered by AVEC members.', news_public_home: 'Public home', news_member_account: 'Access my member account',
+            news_intro_title: 'Follow AVEC’s public life', news_intro_text: 'Members publish announcements and advertisements from their personal area when their SANDBOX wallet covers the requested amount.', news_privacy_text: 'Posts limited to contacts, private posts and removed posts are not shown on this page. A member’s name is displayed only when their profile is public.'
         },
         rw: {
             tagline: 'Kwamamaza, inguzanyo n’ubufatanye byateguriwe itsinda ryanyu.', language: 'Ururimi', account: 'Fungura cyangwa winjire muri konti',
@@ -135,7 +155,20 @@
             create: 'Fungura konti yanjye', community: 'Sura Umuryango AVEC', journey: 'Urugendo rwawe', step_one: 'Kora kandi wemeze umwirondoro wawe',
             step_two: 'Shaka cyangwa winjire mu itsinda', step_three: 'Tegura ubwizigame n’umuryango wawe', orient_title: 'Hitamo intambwe ikurikira.',
             orient_member: 'Ndi umunyamuryango', orient_group: 'Nserukira itsinda', orient_community: 'Ndashaka kuganira',
-            assistant_title: 'Umufasha AVEC', assistant_label: 'Ikibazo cyawe', assistant_placeholder: 'Urugero: Ninjira nte mu itsinda?', assistant_send: 'Baza'
+            spaces_title: 'Konti imwe, ahantu hatandukanye neza.', spaces_text: 'Agasakoshi kawe, itsinda AVEC n’ibiganiro by’umuryango ntibivanga amategeko cyangwa amafaranga yabyo.',
+            spaces_wallet_title: 'Agasakoshi kawe', spaces_wallet_text: 'Shyiramo amafaranga mbere yo gutanga umusanzu, gutangaza cyangwa gukora AVEC.',
+            spaces_group_title: 'Konti AVEC', spaces_group_text: 'Imisanzu, inguzanyo, kwishyura n’igitabo biguma mu itsinda ryawe.',
+            spaces_contacts_title: 'Abo muziranye n’ibiganiro', spaces_contacts_text: 'Ongeraho umunyamuryango wa AVEC muganire nyuma yo kwemera guhuza.',
+            orient_text: 'Buri rugendo rutangirira ku mugaragaro rukagira umutekano umaze kwinjira.', orient_member_text: 'Fungura konti, uzuze umwirondoro kandi ugere ku gasakoshi kawe.', orient_group_text: 'Tegura AVEC cyangwa itsinda ry’ubwizigame rifite amategeko n’abanyamuryango.', orient_community_text: 'Menya ibikorwa, inyandiko n’ibiganiro by’umuryango AVEC.',
+            platform_title: 'Urubuga rw’ikoranabuhanga rw’ubwizigame bw’umuryango.', platform_text: 'AVEC Microcredit ifasha amatsinda yo kwizigama, amashyirahamwe y’imidugudu n’imiryango gutunganya imisanzu, amategeko y’imicungire, ibitabo n’ibiganiro. Amatsinda ashobora gukora nka AVEC cyangwa nk’amatsinda yo kwizigama adafite inyungu akurikije amategeko yayo.',
+            platform_savings_title: 'Kwamamaza ubwizigame', platform_savings_text: 'Tunganya imisanzu kandi ukurikirane ibikorwa rusange mu murongo washyizweho n’itsinda.',
+            platform_credit_title: 'Inguzanyo y’umuryango', platform_credit_text: 'Ubusabe, kwishyura n’ibyemezo by’inguzanyo bikurikiranwa muri AVEC.',
+            platform_community_title: 'Umuryango w’ikoranabuhanga', platform_community_text: 'Menya amakuru n’ibikorwa rusange, ubundi muganire muri Umuryango AVEC.',
+            facebook_title: 'Sanga amakuru ya AVEC kuri Facebook.', facebook_text: 'Kurikira urupapuro rwemewe rw’amatangazo rusange, hanyuma winjire mu Muryango AVEC muganire ku rubuga.', facebook_action: 'Fungura urupapuro rwacu rwa Facebook',
+            assistant_title: 'Umufasha AVEC', assistant_text: 'Ubufasha bwihuse bwo gusobanukirwa urubuga. Ntiyigera agusaba PIN, kode OTP, ijambo banga cyangwa amakuru ya Mobile Money.', assistant_safety: 'Mu gikorwa cy’amafaranga, buri gihe kurikiza igenzura ririnzwe ryo mu mwanya wawe w’umunyamuryango.', assistant_welcome: 'Muraho! Baza ku kwiyandikisha, amatsinda AVEC, ubwizigame, umuryango cyangwa umutekano.', assistant_label: 'Ikibazo cyawe', assistant_placeholder: 'Urugero: Ninjira nte mu itsinda?', assistant_send: 'Baza',
+            home_news_title: 'Amatangazo n’iyamamaza by’abanyamuryango', home_news_text: 'Ibirimo bitangazwa n’abanyamuryango nyuma yo gukura amafaranga muri agasakoshi kabo ka SANDBOX.', home_news_action: 'Reba amatangazo',
+            news_page_header: 'Amakuru n’iyamamaza', news_page_subheader: 'Amatangazo, iyamamaza n’ibicuruzwa bitangwa n’abanyamuryango ba AVEC.', news_public_home: 'Ahabanza rusange', news_member_account: 'Injira muri konti yanjye',
+            news_intro_title: 'Kurikira ubuzima rusange bwa AVEC', news_intro_text: 'Abanyamuryango batangaza amatangazo n’iyamamaza mu mwanya wabo igihe agasakoshi ka SANDBOX gafite amafaranga asabwa.', news_privacy_text: 'Inyandiko z’abaziranye gusa, izigenga cyangwa zavanyweho ntizigaragara kuri uru rupapuro. Izina ry’umunyamuryango rigaragara gusa iyo umwirondoro we ari rusange.'
         },
         rn: {
             tagline: 'Kwamamaza, inguzanyo n’ugufashanya vyatunganijwe ku mugwi wanyu.', language: 'Ururimi', account: 'Fungura canke winjire muri konti',
@@ -143,7 +176,20 @@
             create: 'Fungura konti yanje', community: 'Raba Umuryango AVEC', journey: 'Urugendo rwawe', step_one: 'Rema kandi wemeze umwirondoro wawe',
             step_two: 'Rondera canke winjire mu mugwi', step_three: 'Tunganya kuziganya n’umuryango wawe', orient_title: 'Hitamwo intambwe ikurikira.',
             orient_member: 'Ndi umunywanyi', orient_group: 'Nserukira umugwi', orient_community: 'Ndashaka kuganira',
-            assistant_title: 'Umufasha AVEC', assistant_label: 'Ikibazo cawe', assistant_placeholder: 'Akarorero: Ninjira gute mu mugwi?', assistant_send: 'Baza'
+            spaces_title: 'Konti imwe, ibibanza bitandukanye neza.', spaces_text: 'Ikofi yawe, umugwi AVEC n’ibiganiro vy’umuryango ntibivanga amategeko canke amafaranga yabyo.',
+            spaces_wallet_title: 'Ikofi yawe', spaces_wallet_text: 'Shiramwo amafaranga imbere yo gutanga intererano, gutangaza canke gukora AVEC.',
+            spaces_group_title: 'Konti AVEC', spaces_group_text: 'Intererano, amadeni, kwishura n’igitabu biguma mu mugwi wawe.',
+            spaces_contacts_title: 'Abo muziranye n’ibiganiro', spaces_contacts_text: 'Shiramwo umunywanyi wa AVEC muganire inyuma yo kwemera kubonana.',
+            orient_text: 'Urugendo rwose rutangura ku mugaragaro rukagira umutekano umaze kwinjira.', orient_member_text: 'Fungura konti, wuzuze umwirondoro kandi ushike ku ikofi yawe.', orient_group_text: 'Tegura AVEC canke umugwi wo kuziganya ufise amategeko n’abanywanyi.', orient_community_text: 'Raba ibikorwa, ivyanditswe n’ibiganiro vy’Umuryango AVEC.',
+            platform_title: 'Urubuga rw’ikoranabuhanga rwo kuziganya kw’umuryango.', platform_text: 'AVEC Microcredit ifasha imigwi yo kuziganya, amashirahamwe y’ingo n’imiryango gutunganya intererano, amategeko y’ubuyobozi, ibitabu n’ibiganiro. Imigwi ishobora gukora nka AVEC canke nk’imigwi yo kuziganya itagira inyungu ikurikije amategeko yayo.',
+            platform_savings_title: 'Kwamamaza kuziganya', platform_savings_text: 'Tunganya intererano kandi ukurikirane ibikorwa rusangi mu murongo washinzwe n’umugwi.',
+            platform_credit_title: 'Ideni ry’umuryango', platform_credit_text: 'Ubusabe, kwishura n’ingingo z’amadeni bikurikiranwa muri AVEC.',
+            platform_community_title: 'Umuryango w’ikoranabuhanga', platform_community_text: 'Raba amakuru n’ibikorwa vya bose, hanyuma muganire muri Umuryango AVEC.',
+            facebook_title: 'Raba amakuru ya AVEC kuri Facebook.', facebook_text: 'Kurikira urupapuro rwemewe rw’amatangazo ya bose, hanyuma winjire mu Muryango AVEC muganire ku rubuga.', facebook_action: 'Fungura urupapuro rwacu rwa Facebook',
+            assistant_title: 'Umufasha AVEC', assistant_text: 'Ubufasha bwihuta bwo gutahura urubuga. Ntiyigera agusaba PIN, kode OTP, ijambo banga canke amakuru ya Mobile Money.', assistant_safety: 'Mu gikorwa c’amafaranga, wame ukurikiza ibigenzura bikingiwe mu kibuga cawe c’umunywanyi.', assistant_welcome: 'Muraho! Baza ku kwiyandikisha, imigwi AVEC, kuziganya, umuryango canke umutekano.', assistant_label: 'Ikibazo cawe', assistant_placeholder: 'Akarorero: Ninjira gute mu mugwi?', assistant_send: 'Baza',
+            home_news_title: 'Amatangazo n’ukwamamaza vy’abanywanyi', home_news_text: 'Ibirimwo bitangazwa n’abanywanyi inyuma yo gukura amafaranga mu ikofi yabo ya SANDBOX.', home_news_action: 'Raba amatangazo',
+            news_page_header: 'Amakuru n’ukwamamaza', news_page_subheader: 'Amatangazo, ukwamamaza n’ibicuruzwa bitangwa n’abanywanyi ba AVEC.', news_public_home: 'Intango ya bose', news_member_account: 'Injira muri konti yanje',
+            news_intro_title: 'Kurikira ubuzima bwa bose bwa AVEC', news_intro_text: 'Abanywanyi batangaza amatangazo n’ukwamamaza mu kibuga cabo igihe ikofi ya SANDBOX ifise amafaranga asabwa.', news_privacy_text: 'Kwamamaza kugenewe abo muziranye, ukwihariye canke kwakuweho ntikugaragara kuri uru rupapuro. Izina ry’umunywanyi riboneka gusa iyo umwirondoro wiwe ari rusangi.'
         },
         sw: {
             tagline: 'Akiba, mikopo na usaidizi vimepangwa kwa kikundi chako.', language: 'Lugha', account: 'Fungua au ingia kwenye akaunti yangu',
@@ -151,7 +197,20 @@
             create: 'Fungua akaunti yangu', community: 'Gundua Jumuiya ya AVEC', journey: 'Safari yako', step_one: 'Unda na uthibitishe utambulisho wako',
             step_two: 'Gundua au jiunge na kikundi', step_three: 'Panga akiba na jumuiya yako', orient_title: 'Chagua hatua yako inayofuata.',
             orient_member: 'Mimi ni mwanachama', orient_group: 'Ninawakilisha kikundi', orient_community: 'Nataka kuwasiliana',
-            assistant_title: 'Msaidizi wa AVEC', assistant_label: 'Swali lako', assistant_placeholder: 'Mfano: Ninawezaje kujiunga na kikundi?', assistant_send: 'Uliza'
+            spaces_title: 'Akaunti moja, nafasi zilizotenganishwa wazi.', spaces_text: 'Pochi yako, kikundi cha AVEC na mazungumzo ya jumuiya havichanganyi kanuni au fedha zao.',
+            spaces_wallet_title: 'Pochi binafsi', spaces_wallet_text: 'Weka fedha kabla ya kuchangia, kuchapisha au kuunda AVEC.',
+            spaces_group_title: 'Akaunti ya AVEC', spaces_group_text: 'Michango, mikopo, marejesho na daftari hubaki katika kikundi chako.',
+            spaces_contacts_title: 'Mawasiliano na mazungumzo', spaces_contacts_text: 'Ongeza mwanachama wa AVEC na zungumza baada ya muunganisho kukubaliwa.',
+            orient_text: 'Kila safari huanza hadharani na kuwa salama baada ya kuingia.', orient_member_text: 'Fungua akaunti, kamilisha wasifu wako na ufikie pochi yako.', orient_group_text: 'Andaa AVEC au kikundi cha akiba chenye kanuni na wanachama wake.', orient_community_text: 'Gundua mipango, machapisho na mazungumzo katika Jumuiya ya AVEC.',
+            platform_title: 'Jukwaa la kidijitali la akiba ya jumuiya.', platform_text: 'AVEC Microcredit husaidia vikundi vya akiba, vyama vya vijijini na jumuiya kupanga michango, kanuni za usimamizi, madaftari na mazungumzo. Vikundi vinaweza kufanya kazi kama AVEC au kama vikundi vya akiba visivyo na riba kwa kanuni zao.',
+            platform_savings_title: 'Akiba ya ushirikiano', platform_savings_text: 'Panga michango na ufuatilie miamala ya pamoja katika mfumo uliowekwa na kikundi.',
+            platform_credit_title: 'Mikopo midogo ya jumuiya', platform_credit_text: 'Maombi, marejesho na maamuzi ya mikopo hufuatiliwa ndani ya AVEC.',
+            platform_community_title: 'Jumuiya ya kidijitali', platform_community_text: 'Gundua habari na mipango ya umma, kisha zungumza katika Jumuiya ya AVEC.',
+            facebook_title: 'Pata habari za AVEC kwenye Facebook.', facebook_text: 'Fuata ukurasa rasmi kwa matangazo ya umma, kisha jiunge na Jumuiya ya AVEC kuzungumza kwenye jukwaa.', facebook_action: 'Fungua ukurasa wetu wa Facebook',
+            assistant_title: 'Msaidizi wa AVEC', assistant_text: 'Msaada wa haraka wa kuelewa jukwaa. Hakuombi kamwe PIN, msimbo wa OTP, nenosiri au maelezo ya Mobile Money.', assistant_safety: 'Kwa shughuli ya kifedha, daima fuata vidhibiti salama katika eneo lako la mwanachama.', assistant_welcome: 'Hujambo! Uliza kuhusu usajili, vikundi vya AVEC, akiba, jumuiya au usalama.', assistant_label: 'Swali lako', assistant_placeholder: 'Mfano: Ninawezaje kujiunga na kikundi?', assistant_send: 'Uliza',
+            home_news_title: 'Matangazo na matangazo ya biashara ya wanachama', home_news_text: 'Maudhui huchapishwa na wanachama baada ya kukatwa kiotomatiki kutoka pochi yao ya SANDBOX.', home_news_action: 'Tazama matangazo',
+            news_page_header: 'Habari na matangazo', news_page_subheader: 'Matangazo, matangazo ya biashara na bidhaa zinazotolewa na wanachama wa AVEC.', news_public_home: 'Mwanzo wa umma', news_member_account: 'Fikia akaunti yangu ya mwanachama',
+            news_intro_title: 'Fuata maisha ya umma ya AVEC', news_intro_text: 'Wanachama huchapisha matangazo na matangazo ya biashara kutoka eneo lao binafsi wakati pochi yao ya SANDBOX inatosha kiasi kinachohitajika.', news_privacy_text: 'Machapisho ya mawasiliano pekee, ya faragha au yaliyoondolewa hayaonekani kwenye ukurasa huu. Jina la mwanachama huonyeshwa tu wakati wasifu wake ni wa umma.'
         },
         ln: {
             tagline: 'Bobombi, kredi mpe lisungi esalemi mpo na lisanga na bino.', language: 'Lokóta', account: 'Fungola to kota na konti na ngai',
@@ -159,7 +218,20 @@
             create: 'Fungola konti na ngai', community: 'Tala Lisanga AVEC', journey: 'Nzela na yo', step_one: 'Salá mpe ndima bomoto na yo',
             step_two: 'Luka to kota na lisanga', step_three: 'Bongisa bobombi na lisanga na yo', orient_title: 'Pona litambe na yo elandi.',
             orient_member: 'Nazali mondimi', orient_group: 'Nazali koloba na nkombo ya lisanga', orient_community: 'Nalingi kosolola',
-            assistant_title: 'Mosungi AVEC', assistant_label: 'Motuna na yo', assistant_placeholder: 'Ndakisa: Nakota ndenge nini na lisanga?', assistant_send: 'Tuna'
+            spaces_title: 'Konti moko, bisika ekabwani polele.', spaces_text: 'Portefeuille na yo, lisanga AVEC mpe masolo ya bato ekosangisa mibeko to mbongo na yango te.',
+            spaces_wallet_title: 'Portefeuille ya moto', spaces_wallet_text: 'Tia mbongo liboso ya kopesa lisungi, kobimisa mokanda to kosala AVEC.',
+            spaces_group_title: 'Konti AVEC', spaces_group_text: 'Lisungi, kredi, kofuta mpe buku etikala na lisanga na yo.',
+            spaces_contacts_title: 'Bato bayebani mpe masolo', spaces_contacts_text: 'Bakisa mondimi ya AVEC mpe solola sima ya kondima boyokani.',
+            orient_text: 'Nzela nyonso ebandaka na polele mpe ekomaka na bokengi sima ya kokota.', orient_member_text: 'Fungola konti, silisa profil na yo mpe kota na portefeuille na yo.', orient_group_text: 'Bongisa AVEC to lisanga ya bobombi na mibeko mpe bandimi na yango.', orient_community_text: 'Tala misala, mikanda mpe masolo na Lisanga AVEC.',
+            platform_title: 'Etando ya nimero mpo na bobombi ya lisanga.', platform_text: 'AVEC Microcredit esalisaka masanga ya bobombi, masanga ya bamboka mpe bato kobongisa lisungi, mibeko ya boyangeli, babuku mpe masolo. Masanga ekoki kosala lokola AVEC to masanga ya bobombi ezangi intérêt kolanda mibeko na yango.',
+            platform_savings_title: 'Bobombi ya lisungi', platform_savings_text: 'Bongisa lisungi mpe landela botamboli ya bato nyonso na nzela oyo lisanga etie.',
+            platform_credit_title: 'Kredi ya lisanga', platform_credit_text: 'Masengi, bofuti mpe bikateli ya kredi elandelamaka na kati ya AVEC.',
+            platform_community_title: 'Lisanga ya nimero', platform_community_text: 'Tala bansango mpe misala ya bato nyonso, bongo solola na Lisanga AVEC.',
+            facebook_title: 'Luka bansango ya AVEC na Facebook.', facebook_text: 'Landa lokasa ya solo mpo na mayebisi ya bato nyonso, bongo kota na Lisanga AVEC mpo na kosolola na etando.', facebook_action: 'Fungola lokasa na biso ya Facebook',
+            assistant_title: 'Mosungi AVEC', assistant_text: 'Lisungi ya mbangu mpo na kososola etando. Asengaka yo PIN, kode OTP, mot de passe to makambo ya Mobile Money te.', assistant_safety: 'Na mosala ya mbongo, landa ntango nyonso bokengi ya esika na yo ya mondimi.', assistant_welcome: 'Mbote! Tuna na ntina ya bokomisi, masanga AVEC, bobombi, lisanga to bokengi.', assistant_label: 'Motuna na yo', assistant_placeholder: 'Ndakisa: Nakota ndenge nini na lisanga?', assistant_send: 'Tuna',
+            home_news_title: 'Mayebisi mpe bapiblisite ya bandimi', home_news_text: 'Mikanda ebimisamaka na bandimi sima ya kolongola mbongo na portefeuille na bango ya SANDBOX.', home_news_action: 'Tala mayebisi',
+            news_page_header: 'Bansango mpe bapiblisite', news_page_subheader: 'Mayebisi, bapiblisite mpe biloko bandimi AVEC bazali kopesa.', news_public_home: 'Ebandeli ya bato nyonso', news_member_account: 'Kota na konti na ngai ya mondimi',
+            news_intro_title: 'Landa bomoi ya polele ya AVEC', news_intro_text: 'Bandimi babimisaka mayebisi mpe bapiblisite na esika na bango ntango portefeuille ya SANDBOX ezali na motango oyo esengami.', news_privacy_text: 'Mikanda ya bato bayebani kaka, ya sekele to oyo elongolami emonanaka na lokasa oyo te. Nkombo ya mondimi emonanaka kaka soki profil na ye ezali ya bato nyonso.'
         }
     });
     const copy = {
@@ -221,6 +293,18 @@
         'Code à 6 chiffres': ['6-digit code', 'Kode y’imibare 6', 'Kode y’imibare 6', 'Msimbo wa tarakimu 6', 'Kode ya mitango 6'],
         'Sélectionner un pays': ['Select a country', 'Hitamo igihugu', 'Hitamwo igihugu', 'Chagua nchi', 'Pona mboka'],
         'Numéro sans l’indicatif': ['Number without country code', 'Nomero idafite kode y’igihugu', 'Inomero idafise kode y’igihugu', 'Nambari bila msimbo wa nchi', 'Motango kozanga kode ya mboka'],
+        'Les fonctionnalités de paiement sont en cours de configuration.': ['Payment features are being configured.', 'Serivisi zo kwishyura ziri gutegurwa.', 'Uburyo bwo kwishura buriko buratunganywa.', 'Vipengele vya malipo vinaandaliwa.', 'Misala ya kofuta ezali kobongisama.'],
+        'Photo réelle du visage': ['Real face photo', 'Ifoto nyayo y’isura', 'Ifoto nyayo y’isura', 'Picha halisi ya uso', 'Elili ya solo ya elongi'],
+        'Optionnelle à la création; image légère de 3 Mo maximum.': ['Optional when creating your account; lightweight image, 3 MB maximum.', 'Si ngombwa igihe ufungura konti; ifoto yoroheje ya 3 Mo ntarengwa.', 'Si ngombwa igihe ufungura konti; ifoto yoroshe ya 3 Mo ntarengwa.', 'Si lazima wakati wa kufungua akaunti; picha nyepesi ya upeo wa MB 3.', 'Ekoki kozala te ntango ya kofungola konti; elili ya pete, 3 Mo mingi te.'],
+        'Numéro d’identité ou de passeport': ['Identity or passport number', 'Nomero y’irangamuntu cyangwa pasiporo', 'Inomero y’indangamuntu canke pasiporo', 'Nambari ya kitambulisho au pasipoti', 'Motango ya carte d’identité to passeport'],
+        'Pays du téléphone': ['Phone country', 'Igihugu cya telefone', 'Igihugu ca telefone', 'Nchi ya simu', 'Mboka ya telefone'],
+        'PIN (exactement 4 chiffres)': ['PIN (exactly 4 digits)', 'PIN (imibare 4 gusa)', 'PIN (imibare 4 gusa)', 'PIN (tarakimu 4 hasa)', 'PIN (mitango 4 kaka)'],
+        'Aucun fichier choisi': ['No file chosen', 'Nta dosiye yatoranyijwe', 'Nta dosiye yatowe', 'Hakuna faili iliyochaguliwa', 'Fisyé moko eponami te'],
+        'Espace AVEC': ['AVEC area', 'Umwanya AVEC', 'Ikibuga AVEC', 'Eneo la AVEC', 'Esika AVEC'],
+        'Communauté sociale': ['Social community', 'Umuryango rusange', 'Umuryango rusangi', 'Jumuiya ya kijamii', 'Lisanga ya bato'],
+        'Créez votre compte membre avant de rejoindre ou créer un groupe.': ['Create your member account before joining or creating a group.', 'Fungura konti y’umunyamuryango mbere yo kwinjira cyangwa gukora itsinda.', 'Fungura konti y’umunywanyi imbere yo kwinjira canke gukora umugwi.', 'Fungua akaunti yako ya mwanachama kabla ya kujiunga au kuunda kikundi.', 'Fungola konti na yo ya mondimi liboso ya kokota to kosala lisanga.'],
+        'La création est gratuite. L’e-mail active le compte; le téléphone est vérifié ensuite pour les opérations sensibles.': ['Creating an account is free. Email activates the account; the phone is verified later for sensitive operations.', 'Gufungura konti ni ubuntu. Ime yemeza konti; telefone igenzurwa nyuma ku bikorwa by’ingenzi.', 'Gufungura konti ni ku buntu. Imeyili yemeza konti; telefone igenzurwa inyuma ku bikorwa bikomeye.', 'Kufungua akaunti ni bure. Barua pepe huamilisha akaunti; simu huthibitishwa baadaye kwa shughuli nyeti.', 'Kofungola konti ezali ofele. Imeyili ebandisaka konti; telefone endimamaka na sima mpo na misala ya bokengi.'],
+        'Contacts, fil, annonces et publicités avec votre compte AVEC.': ['Contacts, feed, announcements and advertisements with your AVEC account.', 'Abo muziranye, urutonde, amatangazo n’iyamamaza ukoresheje konti ya AVEC.', 'Abo muziranye, urutonde, amatangazo n’ukwamamaza ukoresheje konti ya AVEC.', 'Mawasiliano, mlisho, matangazo na matangazo ya biashara kwa akaunti yako ya AVEC.', 'Bato bayebani, nsango, mayebisi mpe bapiblisite na konti na yo ya AVEC.'],
         'Présence et visibilité': ['Presence and visibility', 'Kuboneka n’ukugaragara', 'Kuboneka n’ukubonwa', 'Hali na mwonekano', 'Kozala mpe komonana'],
         'Enregistrer les réglages': ['Save settings', 'Bika igenamiterere', 'Bika ugutunganya', 'Hifadhi mipangilio', 'Bomba bobongisi'],
         'Alimenter mon portefeuille': ['Add funds to my wallet', 'Shyira amafaranga mu gasakoshi', 'Shira amafaranga mu ikofi', 'Weka fedha kwenye pochi', 'Tia mbongo na portefeuille'],
@@ -311,6 +395,12 @@
         document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
             element.placeholder = t(element.dataset.i18nPlaceholder, element.placeholder);
         });
+        document.querySelectorAll('[data-file-label-for]').forEach(label => {
+            const input = document.getElementById(label.dataset.fileLabelFor);
+            label.textContent = input && input.files && input.files[0]
+                ? input.files[0].name
+                : t('no_file_chosen', 'Aucun fichier choisi');
+        });
         document.querySelectorAll('[data-language-selector]').forEach(selector => { selector.value = locale; });
         if (persist) localStorage.setItem(STORAGE_KEY, locale);
         if (typeof window.CustomEvent === 'function') window.dispatchEvent(new CustomEvent('avec:localechange', { detail: { locale } }));
@@ -320,6 +410,15 @@
         document.querySelectorAll('[data-language-selector]').forEach(selector => {
             selector.value = locale;
             selector.addEventListener('change', () => apply(selector.value));
+        });
+        document.querySelectorAll('input[type="file"]').forEach(input => {
+            input.addEventListener('change', () => {
+                document.querySelectorAll(`[data-file-label-for="${input.id}"]`).forEach(label => {
+                    label.textContent = input.files && input.files[0]
+                        ? input.files[0].name
+                        : t('no_file_chosen', 'Aucun fichier choisi');
+                });
+            });
         });
         apply(locale, false);
     }
