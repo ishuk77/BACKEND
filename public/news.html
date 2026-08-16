@@ -22,7 +22,7 @@
             <h1>Actualités &amp; publicités</h1>
             <p>Les annonces, publicités et produits proposés par les membres AVEC.</p>
         </div>
-        <div class="header-actions"><a class="btn btn-secondary" href="/">Accueil public</a><a class="btn btn-primary" href="/application">Accéder à mon compte membre</a></div>
+        <div class="header-actions"><label class="language-picker" for="newsLanguage"><span class="sr-only">Langue de l’interface</span><select id="newsLanguage" data-language-selector aria-label="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option><option value="ln">Lingala</option></select></label><a class="btn btn-secondary" href="/">Accueil public</a><a class="btn btn-primary" href="/application">Accéder à mon compte membre</a></div>
     </header>
     <main class="container">
         <section class="card news-intro" aria-labelledby="newsTitle">
@@ -47,6 +47,7 @@
         </section>
     </main>
     <footer class="public-footer"><div><strong>AVEC sur les réseaux</strong><p>Liens vérifiés par l’administration. La publication automatique nécessite une configuration future des API et identifiants officiels.</p></div><div id="socialLinks" class="social-links"></div></footer>
+    <script src="i18n.js"></script>
     <script src="news.js"></script>
     <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 </body>

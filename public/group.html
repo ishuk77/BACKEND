@@ -9,7 +9,7 @@
 <body>
     <header class="app-header">
         <div><h1 id="groupTitle">Mon AVEC</h1><p id="groupStatus" role="status">Chargement de votre espace membre AVEC…</p></div>
-        <div class="header-actions"><a class="btn btn-secondary" href="platform.html">Espace plateforme</a><button id="groupLogout" class="btn btn-secondary" type="button">Déconnexion</button></div>
+        <div class="header-actions"><label class="language-picker" for="groupLanguage"><span class="sr-only">Langue de l’interface</span><select id="groupLanguage" data-language-selector aria-label="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option><option value="ln">Lingala</option></select></label><a class="btn btn-secondary" href="platform.html">Espace plateforme</a><button id="groupLogout" class="btn btn-secondary" type="button">Déconnexion</button></div>
     </header>
     <main class="container">
         <nav class="group-dashboard-nav" aria-label="Espaces du groupe">
@@ -67,6 +67,7 @@
         <section id="movementSection" class="card" hidden><h2 id="movementTitle">Registre</h2><p class="field-hint">Les opérations sont classées par mois et année.</p><div id="movementList" class="member-list"></div></section>
         <section id="chatSection" class="card" hidden><h2>Discussion de l’AVEC</h2><div id="groupChat" class="chat-window" aria-live="polite"></div><form id="groupChatForm"><label for="groupMessage">Message</label><textarea id="groupMessage" maxlength="1000" required></textarea><button class="btn btn-primary">Envoyer</button></form></section>
     </main>
+    <script src="i18n.js"></script>
     <script src="group.js"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@
 </head>
 <body>
     <!-- THESIS: un espace membre donne d'abord une identité, puis des chemins distincts vers l'AVEC et le lien social. OWN-WORLD: le bleu AVEC existant, des surfaces blanches lisibles et des actions de navigation nettes. STORY: s'inscrire, protéger son profil, rejoindre un groupe et échanger sans confondre les portefeuilles. FIRST VIEWPORT: une connexion courte, avec inscription côte à côte et la promesse SANDBOX immédiatement visible. FORM: extension opérationnelle de la surface existante, sans nouveau langage visuel. -->
-    <header class="app-header"><div><h1>AVEC Communauté</h1><p id="portalStatus" role="status">Contacts, fil, annonces et publicités avec votre compte AVEC.</p></div><div class="header-actions"><label class="sr-only" for="uiLanguage">Langue de l’interface</label><select id="uiLanguage" title="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option><option value="ln">Lingala</option></select><a class="btn btn-secondary" href="platform.html">Espace AVEC</a><a class="btn btn-secondary" href="/">Accueil public</a></div></header>
+    <header class="app-header"><div><h1>AVEC Communauté</h1><p id="portalStatus" role="status">Contacts, fil, annonces et publicités avec votre compte AVEC.</p></div><div class="header-actions"><label class="sr-only" for="uiLanguage">Langue de l’interface</label><select id="uiLanguage" data-language-selector title="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option><option value="ln">Lingala</option></select><a class="btn btn-secondary" href="platform.html">Espace AVEC</a><a class="btn btn-secondary" href="/">Accueil public</a></div></header>
     <main class="container">
         <section id="authSection" class="card">
             <h2>Votre compte plateforme</h2>
@@ -122,6 +122,7 @@
             </section>
         </section>
     </main>
+    <script src="i18n.js"></script>
     <script src="momo-countries.js"></script>
     <script src="platform.js"></script>
     <script src="social-surface.js"></script>

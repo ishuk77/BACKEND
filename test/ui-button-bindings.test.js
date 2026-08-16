@@ -104,7 +104,19 @@ test('navigation groups actions without exposing platform administration publicl
     assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
     assert.match(memberPortal, /<section id="portalSection" class="card" hidden>/);
     assert.match(fs.readFileSync(path.join(root, 'public', 'style.css'), 'utf8'), /#portalSection\[hidden\][\s\S]*?display: none/);
-    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v50/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v51/);
+});
+
+test('all application surfaces load the bundled locale controller and expose a shared selector', () => {
+    const i18n = fs.readFileSync(path.join(root, 'public', 'i18n.js'), 'utf8');
+    assert.match(i18n, /const STORAGE_KEY = 'avecLocale'/);
+    ['fr', 'en', 'rw', 'rn', 'sw', 'ln'].forEach(locale => assert.match(i18n, new RegExp(`\\b${locale}: \\{`)));
+    ['index.html', 'platform.html', 'social.html', 'news.html', 'group.html', 'admin.html'].forEach(file => {
+        const page = fs.readFileSync(path.join(root, 'public', file), 'utf8');
+        assert.match(page, /<script src="i18n\.js"><\/script>/);
+        assert.match(page, /data-language-selector/);
+    });
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /'i18n\.js'/);
 });
 
 test('service worker refreshes the app shell from the network and falls back offline without caching API data', async () => {
