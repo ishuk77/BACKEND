@@ -44,30 +44,38 @@
     <meta name="theme-color" content="#007bff">
 </head>
 <body>
-    <!-- THESIS: l'accueil public explique AVEC et mène seulement à la création ou la connexion d'un compte. OWN-WORLD: la palette bleue AVEC, des surfaces lisibles et une seule action principale. STORY: découvrir le service puis ouvrir un espace membre sécurisé. FIRST VIEWPORT: une promesse, un parcours simple et l'accès au compte; aucune commande privée. FORM: accueil public sobre, séparé des tableaux de bord authentifiés. -->
+    <!-- THESIS: l'accueil traduit une organisation d'épargne complexe en un chemin public immédiatement praticable, sans imiter un tableau financier. OWN-WORLD: le bleu AVEC profond construit une place de confiance; surfaces blanches, lignes nettes et jaune solaire réservent l'énergie à l'action. STORY: comprendre la plateforme, choisir son espace, demander une réponse sûre puis créer un compte. FIRST VIEWPORT: marque et langue en haut; promesse, deux accès et parcours visible dans un seul champ bleu. FORM: place communautaire mobile, avec une conversation guidée comme moment signature. -->
     <header class="app-header">
-        <div><h1>AVEC Microcredit</h1><p>Épargne, crédit et entraide organisés pour votre groupe.</p></div>
-        <div class="header-actions"><a class="btn btn-secondary" href="news.html">Annonces &amp; publicités</a><a class="btn btn-primary" href="platform.html">Créer ou ouvrir mon compte</a></div>
+        <div><h1>AVEC Microcredit</h1><p data-i18n="tagline">Épargne, crédit et entraide organisés pour votre groupe.</p></div>
+        <div class="header-actions"><label class="language-picker" for="publicLanguage"><span data-i18n="language">Langue</span><select id="publicLanguage"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option></select></label><a class="btn btn-secondary" href="news.html" data-i18n="news">Actualités</a><a class="btn btn-primary" href="/application" data-i18n="account">Créer ou ouvrir mon compte</a></div>
     </header>
     <main class="container">
         <section class="landing-hero">
             <div class="landing-copy">
-                <h2>Votre compte AVEC commence ici.</h2>
-                <p class="landing-lede">Créez votre identité membre, rechargez votre portefeuille et rejoignez ou créez une AVEC. Les opérations du groupe ne deviennent accessibles qu’après votre adhésion.</p>
-                <div class="landing-actions"><a class="btn btn-primary" href="platform.html">Créer mon compte membre</a><a class="btn btn-secondary" href="platform.html#connexion">Se connecter</a></div>
-                <p class="landing-note">Les paiements et la vérification Momo sont actuellement en mode SANDBOX.</p>
+                <h2 data-i18n="hero_title">Faire grandir l’épargne du groupe, ensemble.</h2>
+                <p class="landing-lede" data-i18n="hero_text">AVEC Microcredit réunit votre compte membre, votre groupe d’épargne et votre communauté dans des espaces distincts et simples à utiliser.</p>
+                <div class="landing-actions"><a class="btn btn-primary" href="/application" data-i18n="create">Créer mon compte membre</a><a class="btn btn-secondary" href="/communaute" data-i18n="community">Découvrir AVEC Communauté</a></div>
+                <p class="landing-note" data-i18n="sandbox">Les paiements et la vérification Mobile Money sont actuellement en mode SANDBOX.</p>
             </div>
             <aside class="journey-panel" aria-label="Parcours membre">
-                <p>Votre parcours</p>
-                <ol><li><strong>1</strong><span>Créer et vérifier votre identité</span></li><li><strong>2</strong><span>Recharger votre portefeuille</span></li><li><strong>3</strong><span>Rejoindre ou créer votre AVEC</span></li></ol>
+                <p data-i18n="journey">Votre parcours</p>
+                <ol><li><strong>1</strong><span data-i18n="step_one">Créer et vérifier votre identité</span></li><li><strong>2</strong><span data-i18n="step_two">Découvrir ou rejoindre un groupe</span></li><li><strong>3</strong><span data-i18n="step_three">Organiser l’épargne avec votre communauté</span></li></ol>
             </aside>
         </section>
         <section class="landing-section" aria-labelledby="howItWorks">
-            <div><h2 id="howItWorks">Un compte, deux espaces distincts.</h2><p>Votre espace membre conserve vos contacts, vos annonces et votre portefeuille personnel. Le tableau AVEC apparaît uniquement lorsque vous êtes membre d’un groupe.</p></div>
+            <div><h2 id="howItWorks" data-i18n="spaces_title">Un compte, des espaces bien séparés.</h2><p data-i18n="spaces_text">Votre portefeuille personnel, votre groupe AVEC et les échanges de communauté ne mélangent jamais leurs règles ni leurs fonds.</p></div>
             <div class="landing-pillars">
                 <article><svg class="landing-icon" aria-hidden="true"><use href="icons.svg#wallet"></use></svg><h3>Portefeuille personnel</h3><p>Rechargez avant de contribuer, publier ou créer une AVEC.</p></article>
                 <article><svg class="landing-icon" aria-hidden="true"><use href="icons.svg#groups"></use></svg><h3>Compte AVEC</h3><p>Contributions, crédit, remboursements et registre restent dans votre groupe.</p></article>
                 <article><svg class="landing-icon" aria-hidden="true"><use href="icons.svg#chat"></use></svg><h3>Contacts et échanges</h3><p>Ajoutez un membre AVEC et discutez après acceptation de la connexion.</p></article>
+            </div>
+        </section>
+        <section class="landing-section landing-orientations" aria-labelledby="orientationsTitle">
+            <div><h2 id="orientationsTitle" data-i18n="orient_title">Choisissez votre prochain pas.</h2><p data-i18n="orient_text">Chaque parcours commence publiquement et devient sécurisé après votre connexion.</p></div>
+            <div class="orientation-grid">
+                <a href="/application" class="orientation-link"><span aria-hidden="true">↗</span><h3 data-i18n="orient_member">Je suis membre</h3><p data-i18n="orient_member_text">Créer mon compte, compléter mon profil et accéder à mon portefeuille personnel.</p></a>
+                <a href="/application" class="orientation-link"><span aria-hidden="true">+</span><h3 data-i18n="orient_group">Je représente un groupe</h3><p data-i18n="orient_group_text">Préparer une AVEC ou un groupe d’épargne avec ses règles et ses membres.</p></a>
+                <a href="/communaute" class="orientation-link"><span aria-hidden="true">◌</span><h3 data-i18n="orient_community">Je veux échanger</h3><p data-i18n="orient_community_text">Découvrir les initiatives, publications et conversations de la communauté AVEC.</p></a>
             </div>
         </section>
         <section class="landing-section" aria-labelledby="communityPlatformTitle">
@@ -78,12 +86,24 @@
                 <article><h3>Communauté numérique</h3><p>Découvrez les actualités et les initiatives publiques, puis échangez depuis AVEC Communauté.</p></article>
             </div>
         </section>
+        <section class="landing-social" aria-labelledby="facebookTitle">
+            <div><h2 id="facebookTitle" data-i18n="facebook_title">Retrouvez les nouvelles AVEC sur Facebook.</h2><p data-i18n="facebook_text">Suivez la page officielle pour les annonces publiques, puis rejoignez AVEC Communauté pour échanger dans la plateforme.</p></div>
+            <div class="landing-actions"><a class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="https://www.facebook.com/profile.php?id=61593574162859" data-i18n="facebook_action">Ouvrir notre page Facebook</a><a class="btn btn-secondary" href="/communaute" data-i18n="community">Découvrir AVEC Communauté</a></div>
+        </section>
+        <section class="avec-assistant" aria-labelledby="assistantTitle">
+            <div class="assistant-intro"><h2 id="assistantTitle" data-i18n="assistant_title">Assistant AVEC</h2><p data-i18n="assistant_text">Une aide rapide pour comprendre la plateforme. Il ne demande jamais votre PIN, code OTP, mot de passe ou informations Mobile Money.</p><p class="assistant-safety" data-i18n="assistant_safety">Pour une opération financière, suivez toujours les contrôles sécurisés de votre espace membre.</p></div>
+            <div class="assistant-panel">
+                <div id="assistantMessages" class="assistant-messages" aria-live="polite"><p class="assistant-message assistant-answer" data-i18n="assistant_welcome">Bonjour ! Posez une question sur l’inscription, les groupes AVEC, l’épargne, la communauté ou la sécurité.</p></div>
+                <form id="assistantForm" class="assistant-form"><label class="sr-only" for="assistantQuestion" data-i18n="assistant_label">Votre question</label><input id="assistantQuestion" type="text" maxlength="280" autocomplete="off" data-i18n-placeholder="assistant_placeholder" placeholder="Ex. Comment rejoindre un groupe ?" required><button class="btn btn-primary" data-i18n="assistant_send">Demander</button></form>
+            </div>
+        </section>
         <section class="card" aria-labelledby="homeNewsTitle">
             <div class="dashboard-heading"><div><h2 id="homeNewsTitle">Annonces et publicités des membres</h2><p>Les contenus sont publiés par les membres après débit automatique de leur portefeuille SANDBOX.</p></div><a class="btn btn-secondary" href="news.html">Voir les annonces</a></div>
             <div id="homeNewsFeed" class="feed-list" aria-live="polite"><p class="field-hint">Chargement des annonces…</p></div>
         </section>
     </main>
     <script src="home-news.js"></script>
+    <script src="home.js"></script>
     <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>
 </body>
 </html>

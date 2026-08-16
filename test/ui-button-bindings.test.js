@@ -70,7 +70,6 @@ test('public landing exposes no private dashboard controls', () => {
     assert.doesNotMatch(publicLanding, /Profil et paramètres|Collaboration|adminDashboard|memberDashboard/);
     assert.match(publicLanding, /Créer mon compte membre/);
 });
-
 test('navigation groups actions without exposing platform administration publicly', () => {
     const publicLanding = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
     const memberPortal = fs.readFileSync(path.join(root, 'public', 'platform.html'), 'utf8');
@@ -105,7 +104,7 @@ test('navigation groups actions without exposing platform administration publicl
     assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
     assert.match(memberPortal, /<section id="portalSection" class="card" hidden>/);
     assert.match(fs.readFileSync(path.join(root, 'public', 'style.css'), 'utf8'), /#portalSection\[hidden\][\s\S]*?display: none/);
-    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v48/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v49/);
 });
 
 test('service worker refreshes the app shell from the network and falls back offline without caching API data', async () => {

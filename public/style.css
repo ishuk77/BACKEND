@@ -378,6 +378,120 @@ h1 {
 .landing-cta { display: flex; align-items: center; justify-content: space-between; gap: 2rem; margin-bottom: 2rem; padding: 2rem; border-radius: 12px; background: #e7f1ff; }
 .landing-cta > div { max-width: 620px; }
 
+/* Public discovery surface: orient visitors before any authenticated workflow begins. */
+.language-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    color: #173f67;
+    font-weight: 700;
+}
+.language-picker select {
+    min-height: 42px;
+    border: 1px solid #9db5ca;
+    border-radius: 8px;
+    background: #fff;
+    color: #173f67;
+    font: inherit;
+    padding: 0 .5rem;
+}
+.orientation-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    margin-top: 2rem;
+    overflow: hidden;
+    border: 1px solid #cbdce9;
+    border-radius: 14px;
+    background: #cbdce9;
+}
+.orientation-link {
+    min-height: 220px;
+    padding: 1.5rem;
+    background: #fff;
+    color: inherit;
+    text-decoration: none;
+    transition: background .18s ease-out, color .18s ease-out;
+}
+.orientation-link:hover, .orientation-link:focus-visible {
+    outline: none;
+    background: #173f67;
+    color: #fff;
+}
+.orientation-link > span {
+    display: inline-grid;
+    width: 2.4rem;
+    height: 2.4rem;
+    place-items: center;
+    border-radius: 50%;
+    background: #e7f1ff;
+    color: #0056b3;
+    font-size: 1.35rem;
+    font-weight: 700;
+}
+.orientation-link h3 { margin: 1.2rem 0 .45rem; color: #173f67; }
+.orientation-link p { color: #495057; }
+.orientation-link:hover h3, .orientation-link:focus-visible h3,
+.orientation-link:hover p, .orientation-link:focus-visible p { color: inherit; }
+.landing-social {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    margin: 1rem 0;
+    padding: clamp(1.5rem, 4vw, 3rem);
+    border-radius: 14px;
+    background: #e7f1ff;
+}
+.landing-social h2, .avec-assistant h2 { color: #173f67; font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1.1; }
+.landing-social p { max-width: 62ch; margin-top: .65rem; color: #35536f; }
+.avec-assistant {
+    display: grid;
+    grid-template-columns: minmax(0, .85fr) minmax(340px, 1.15fr);
+    gap: clamp(1.5rem, 5vw, 4rem);
+    margin: 2rem 0;
+    padding: clamp(1.5rem, 5vw, 4rem);
+    border-radius: 18px;
+    background: #173f67;
+}
+.assistant-intro { color: #e8f3fc; }
+.assistant-intro h2 { color: #fff; }
+.assistant-intro > p { margin-top: 1rem; }
+.assistant-safety { color: #c7e0f7; font-size: .92rem; }
+.assistant-panel { display: grid; gap: .8rem; }
+.assistant-messages {
+    display: grid;
+    align-content: start;
+    gap: .7rem;
+    min-height: 180px;
+    max-height: 330px;
+    overflow-y: auto;
+    padding: 1rem;
+    border-radius: 12px;
+    background: #f7fbff;
+}
+.assistant-message {
+    max-width: 88%;
+    padding: .7rem .85rem;
+    border-radius: 10px;
+    line-height: 1.45;
+}
+.assistant-answer { justify-self: start; background: #e4f1ff; color: #173f67; }
+.assistant-question { justify-self: end; background: #0056b3; color: #fff; }
+.assistant-form { display: grid; grid-template-columns: 1fr auto; gap: .65rem; }
+.assistant-form input {
+    min-width: 0;
+    min-height: 46px;
+    border: 1px solid #9db5ca;
+    border-radius: 8px;
+    padding: .65rem .8rem;
+    font: inherit;
+}
+.assistant-form input:focus-visible, .language-picker select:focus-visible {
+    outline: 3px solid #ffb020;
+    outline-offset: 2px;
+}
+
 .card {
     background: white;
     border-radius: 8px;
@@ -935,8 +1049,10 @@ fieldset.form-group legend {
     }
 
     .landing-hero, .landing-steps { grid-template-columns: 1fr; }
-    .landing-pillars { grid-template-columns: 1fr; }
+    .landing-pillars, .orientation-grid { grid-template-columns: 1fr; }
     .landing-cta { align-items: flex-start; flex-direction: column; }
+    .landing-social, .avec-assistant { grid-template-columns: 1fr; align-items: flex-start; flex-direction: column; }
+    .assistant-form { grid-template-columns: 1fr; }
     
     .button-grid {
         grid-template-columns: 1fr;
