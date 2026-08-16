@@ -11,7 +11,8 @@ let pendingMomoPaymentId = null;
 let pendingWalletTopupId = null;
 const mediaUrls = new Map();
 const PHONE_VERIFICATION_SESSION_KEY = 'platformPhoneVerificationSession';
-const phoneVerificationTokens = { register: null, profile: null, reset: null };
+const phoneVerificationTokens = { profile: null };
+const emailVerificationTokens = { reset: null };
 const UI_TRANSLATIONS = Object.freeze({
     fr: { nav_profile: 'Profil et paramètres', nav_groups: 'Groupe', nav_messages: 'Collaboration', nav_social: 'Social', profile: 'Mon profil', wallet: 'Mon portefeuille', groups: 'Mes groupes', messages: 'Messages', discover: 'Découvrir des membres', feed: 'Fil social', publish: 'Publier', calendar: 'Agenda' },
     en: { nav_profile: 'Profile and settings', nav_groups: 'Groups', nav_messages: 'Messages', nav_social: 'Social', profile: 'My profile', wallet: 'My wallet', groups: 'My groups', messages: 'Messages', discover: 'Discover members', feed: 'Social feed', publish: 'Publish', calendar: 'Calendar' },
@@ -139,9 +140,9 @@ async function requestPhoneVerification(flow, phoneId, statusId) {
     phoneVerificationTokens[flow] = null;
     const codeFieldByFlow = { register: 'registerVerificationCode', profile: 'profileVerificationCode', reset: 'pinResetCode' };
     const codeField = $p(codeFieldByFlow[flow]);
-    if (data.sandbox && codeField) codeField.value = data.sandboxCode;
+    if (data.sandbox && data.sandboxCode && codeField) codeField.value = data.sandboxCode;
     showVerificationStatus(statusId, data.sandbox
-        ? `Code SANDBOX ajouté au champ ci-dessous : ${data.sandboxCode}. Il expire le ${new Date(data.expiresAt).toLocaleTimeString('fr-FR')}.`
+        ? `Vérification SANDBOX simulée. Le code n’est jamais affiché par l’application.`
         : `Code envoyé par SMS. Il expire le ${new Date(data.expiresAt).toLocaleTimeString('fr-FR')}.`);
 }
 async function verifyPhoneVerification(flow, phoneId, codeId, statusId) {
@@ -258,24 +259,19 @@ async function enter() {
 }
 async function register(event) {
     event.preventDefault();
-    if (!phoneVerificationTokens.register) throw new Error('Vérifiez le téléphone SANDBOX avant de créer le compte.');
     const avatar = $p('registerAvatar').files[0];
-    if (!avatar || !['image/jpeg', 'image/png', 'image/webp'].includes(avatar.type) || avatar.size > 3 * 1024 * 1024) {
+    if (avatar && (!['image/jpeg', 'image/png', 'image/webp'].includes(avatar.type) || avatar.size > 3 * 1024 * 1024)) {
         throw new Error('Prenez une photo JPEG, PNG ou WebP de votre visage, de 3 Mo maximum.');
     }
     const data = await request('/api/platform/auth/register', { method: 'POST', body: JSON.stringify({
         prenom: $p('registerFirstName').value.trim(), name: $p('registerName').value.trim(),
+        email: $p('registerEmail').value.trim(),
         identityNumber: $p('registerIdentityNumber').value.trim(),
         country: $p('registerCountry').value, phone: normalizeRegisterPhone(), pin: $p('registerPin').value.trim(),
-        pinConfirmation: $p('registerPinConfirmation').value.trim(),
-        phoneVerificationToken: phoneVerificationTokens.register,
-        browserSessionId: browserVerificationSessionId()
+        pinConfirmation: $p('registerPinConfirmation').value.trim()
     }) });
-    localStorage.setItem('platformAccessToken', data.accessToken);
-    localStorage.setItem('platformRefreshToken', data.refreshToken);
-    await request('/api/profile/avatar', { method: 'POST', headers: { 'Content-Type': avatar.type, 'X-File-Name': avatar.name || 'photo-identite' }, body: avatar });
-    await enter();
-    notice('Compte membre créé avec votre photo. Rechargez votre wallet puis créez ou rejoignez une AVEC.');
+    $p('portalStatus').textContent = data.message || 'Compte créé. Vérifiez votre e-mail pour l’activer.';
+    $p('registerForm').reset();
 }
 async function login(event) {
     event.preventDefault();
@@ -286,20 +282,51 @@ async function login(event) {
     localStorage.setItem('platformRefreshToken', data.refreshToken);
     await enter();
 }
-async function resetPin(event) {
-    event.preventDefault();
-    if (!phoneVerificationTokens.reset) throw new Error('Vérifiez le téléphone avant de réinitialiser le PIN.');
-    const data = await request('/api/auth/pin-reset', {
+async function requestEmailVerification(purpose, emailId, statusId) {
+    const data = await request('/api/platform/email-verifications/request', {
         method: 'POST',
         body: JSON.stringify({
-            phone: $p('pinResetPhone').value.trim(),
-            pin: $p('pinResetNewPin').value.trim(),
-            pinConfirmation: $p('pinResetPinConfirmation').value.trim(),
-            phoneVerificationToken: phoneVerificationTokens.reset,
+            email: $p(emailId).value.trim(),
+            purpose,
             browserSessionId: browserVerificationSessionId()
         })
     });
-    phoneVerificationTokens.reset = null;
+    if (purpose === 'pin_reset') emailVerificationTokens.reset = null;
+    showVerificationStatus(statusId, data.message);
+}
+async function verifyEmailVerification(purpose, emailId, codeId, statusId) {
+    const data = await request('/api/platform/email-verifications/verify', {
+        method: 'POST',
+        body: JSON.stringify({
+            email: $p(emailId).value.trim(),
+            code: $p(codeId).value.trim(),
+            purpose,
+            browserSessionId: browserVerificationSessionId()
+        })
+    });
+    if (purpose === 'activation') {
+        localStorage.setItem('platformAccessToken', data.accessToken);
+        localStorage.setItem('platformRefreshToken', data.refreshToken);
+        await enter();
+        return;
+    }
+    emailVerificationTokens.reset = data.verificationToken;
+    showVerificationStatus(statusId, 'E-mail vérifié dans cette session.');
+}
+async function resetPin(event) {
+    event.preventDefault();
+    if (!emailVerificationTokens.reset) throw new Error('Vérifiez l’e-mail avant de réinitialiser le PIN.');
+    const data = await request('/api/auth/pin-reset', {
+        method: 'POST',
+        body: JSON.stringify({
+            email: $p('pinResetEmail').value.trim(),
+            pin: $p('pinResetNewPin').value.trim(),
+            pinConfirmation: $p('pinResetPinConfirmation').value.trim(),
+            emailVerificationToken: emailVerificationTokens.reset,
+            browserSessionId: browserVerificationSessionId()
+        })
+    });
+    emailVerificationTokens.reset = null;
     $p('pinResetForm').reset();
     showVerificationStatus('pinResetStatus', data.message);
 }
@@ -382,7 +409,9 @@ async function createGroup(event) {
         city: $p('groupCity').value.trim(), group_type: $p('groupType').value,
         savings_periodicity: $p('savingsPeriodicity').value, savings_period: Number($p('savingsPeriod').value),
         momo_provider: $p('groupProvider').value,
-        phone: normalizeMomoPhone($p('groupCountry').value, $p('groupPhone').value)
+        phone: normalizeMomoPhone($p('groupCountry').value, $p('groupPhone').value),
+        intended_member_count: Number($p('intendedMemberCount').value),
+        starting_capital: Number($p('startingCapital').value)
     }) });
     if (!data.dashboard || !data.accessToken || !data.refreshToken) throw new Error('Réponse de création de groupe incomplète.');
     ['accessToken', 'refreshToken', 'groupId', 'userId'].forEach(key => localStorage.removeItem(key));
@@ -880,14 +909,14 @@ document.addEventListener('DOMContentLoaded', () => {
     $p('groupType').addEventListener('change', updateEpargneTerms);
     $p('groupDiscoveryFilters').addEventListener('submit', event => { event.preventDefault(); loadGroups().catch(error => notice(error.message)); });
     $p('registerCountry').addEventListener('change', updateRegisterDialCode);
-    $p('registerRequestCode').addEventListener('click', () => requestPhoneVerification('register', 'registerPhone', 'registerVerificationStatus').catch(error => showVerificationStatus('registerVerificationStatus', error.message)));
-    $p('registerVerifyCode').addEventListener('click', () => verifyPhoneVerification('register', 'registerPhone', 'registerVerificationCode', 'registerVerificationStatus').catch(error => showVerificationStatus('registerVerificationStatus', error.message)));
     $p('profileRequestCode').addEventListener('click', () => requestPhoneVerification('profile', 'profileSecurityPhone', 'profileVerificationStatus').catch(error => showVerificationStatus('profileVerificationStatus', error.message)));
     $p('profileVerifyCode').addEventListener('click', () => verifyPhoneVerification('profile', 'profileSecurityPhone', 'profileVerificationCode', 'profileVerificationStatus').catch(error => showVerificationStatus('profileVerificationStatus', error.message)));
+    $p('activationRequestCode').addEventListener('click', () => requestEmailVerification('activation', 'activationEmail', 'activationStatus').catch(error => showVerificationStatus('activationStatus', error.message)));
+    $p('activationVerifyCode').addEventListener('click', () => verifyEmailVerification('activation', 'activationEmail', 'activationCode', 'activationStatus').catch(error => showVerificationStatus('activationStatus', error.message)));
+    $p('pinResetRequestCode').addEventListener('click', () => requestEmailVerification('pin_reset', 'pinResetEmail', 'pinResetStatus').catch(error => showVerificationStatus('pinResetStatus', error.message)));
+    $p('pinResetVerifyCode').addEventListener('click', () => verifyEmailVerification('pin_reset', 'pinResetEmail', 'pinResetCode', 'pinResetStatus').catch(error => showVerificationStatus('pinResetStatus', error.message)));
     $p('registerForm').addEventListener('submit', event => register(event).catch(error => alert(error.message)));
     $p('platformLoginForm').addEventListener('submit', event => login(event).catch(error => alert(error.message)));
-    $p('pinResetRequestCode').addEventListener('click', () => requestPhoneVerification('reset', 'pinResetPhone', 'pinResetStatus').catch(error => showVerificationStatus('pinResetStatus', error.message)));
-    $p('pinResetVerifyCode').addEventListener('click', () => verifyPhoneVerification('reset', 'pinResetPhone', 'pinResetCode', 'pinResetStatus').catch(error => showVerificationStatus('pinResetStatus', error.message)));
     $p('pinResetForm').addEventListener('submit', event => resetPin(event).catch(error => showVerificationStatus('pinResetStatus', error.message)));
     $p('walletTopupForm').addEventListener('submit', event => createWalletTopup(event).catch(error => notice(error.message)));
     $p('simulateWalletTopup').addEventListener('click', () => confirmWalletTopup().catch(error => notice(error.message)));

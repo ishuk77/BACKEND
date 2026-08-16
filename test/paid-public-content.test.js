@@ -9,6 +9,7 @@ fs.rmSync(databasePath, { force: true });
 process.env.DATABASE_PATH = databasePath;
 process.env.JWT_SECRET = 'paid-public-content-test-secret';
 const { start, db } = require('../src/server');
+const { registerActiveAccount } = require('./helpers/account-security');
 
 let server;
 let port;
@@ -53,15 +54,8 @@ test('paid public content debits only the internal sandbox wallet and confirms M
         body: { prenom: 'Admin', name: 'Contenu', phone: '+22990000123', idNumber: 'ADMIN-PAID-CONTENT' }
     });
     assert.equal(admin.status, 201);
-    const delivery = await request('POST', '/api/platform/phone-verifications/request', { body: { phone, browserSessionId } });
-    const verification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone, browserSessionId, code: delivery.data.sandboxCode }
-    });
-    const registration = await request('POST', '/api/platform/auth/register', {
-        body: {
-            prenom: 'Awa', name: 'Contenu', phone, identityNumber: 'PAID-CONTENT-1', pin: '1234', pinConfirmation: '1234',
-            browserSessionId, phoneVerificationToken: verification.data.verificationToken
-        }
+    const registration = await registerActiveAccount(request, {
+        prenom: 'Awa', name: 'Contenu', phone, identityNumber: 'PAID-CONTENT-1', browserSessionId
     });
     assert.equal(registration.status, 201);
     await run('UPDATE platform_accounts SET internal_wallet = 2 WHERE id = ?', [registration.data.account.id]);

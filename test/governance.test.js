@@ -10,6 +10,7 @@ process.env.DATABASE_PATH = databasePath;
 process.env.JWT_SECRET = 'governance-test-jwt-secret';
 
 const { start, db } = require('../src/server');
+const { registerActiveAccount } = require('./helpers/account-security');
 let server;
 let port;
 
@@ -35,21 +36,10 @@ function run(sql, values = []) {
 }
 
 async function createAccount(firstName, phone, identity) {
-    const browserSessionId = `governance-${phone.replace(/\D/g, '')}`;
-    const delivery = await request('POST', '/api/platform/phone-verifications/request', { body: { phone, browserSessionId } });
-    assert.equal(delivery.status, 201);
-    const verification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone, browserSessionId, code: delivery.data.sandboxCode }
+    const account = await registerActiveAccount(request, {
+        prenom: firstName, name: 'Gouvernance', phone, identityNumber: identity,
+        browserSessionId: `governance-${phone.replace(/\D/g, '')}`
     });
-    assert.equal(verification.status, 200);
-    const account = await request('POST', '/api/platform/auth/register', {
-        body: {
-            prenom: firstName, name: 'Gouvernance', phone, identityNumber: identity,
-            pin: '1234', pinConfirmation: '1234', browserSessionId,
-            phoneVerificationToken: verification.data.verificationToken
-        }
-    });
-    assert.equal(account.status, 201);
     return account.data;
 }
 

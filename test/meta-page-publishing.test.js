@@ -18,6 +18,7 @@ delete process.env.META_PAGE_ACCESS_TOKEN;
 delete process.env.META_REDIRECT_URI;
 
 const { start, db } = require('../src/server');
+const { registerActiveAccount } = require('./helpers/account-security');
 
 let server;
 let port;
@@ -201,15 +202,8 @@ test('Meta page publishing automatically sends declared public promotions server
 
             const phone = '+22995556666';
             const browserSessionId = 'meta-auto-publication-session';
-            const delivery = await request('POST', '/api/platform/phone-verifications/request', { body: { phone, browserSessionId } });
-            const verification = await request('POST', '/api/platform/phone-verifications/verify', {
-                body: { phone, browserSessionId, code: delivery.data.sandboxCode }
-            });
-            const registration = await request('POST', '/api/platform/auth/register', {
-                body: {
-                    prenom: 'Awa', name: 'Meta', phone, identityNumber: 'META-AUTO-1', pin: '1234', pinConfirmation: '1234',
-                    browserSessionId, phoneVerificationToken: verification.data.verificationToken
-                }
+            const registration = await registerActiveAccount(request, {
+                prenom: 'Awa', name: 'Meta', phone, identityNumber: 'META-AUTO-1', browserSessionId
             });
             assert.equal(registration.status, 201);
             await run('UPDATE platform_accounts SET internal_wallet = 5 WHERE id = ?', [registration.data.account.id]);

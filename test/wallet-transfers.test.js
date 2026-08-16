@@ -9,6 +9,7 @@ fs.rmSync(databasePath, { force: true });
 process.env.DATABASE_PATH = databasePath;
 process.env.JWT_SECRET = 'wallet-transfers-test-secret';
 const { start, db } = require('../src/server');
+const { registerActiveAccount } = require('./helpers/account-security');
 
 let server;
 let port;
@@ -48,19 +49,10 @@ function get(sql, values = []) {
 }
 
 async function registerMember(phone, identityNumber, prenom) {
-    const browserSessionId = `wallet-${identityNumber}`;
-    const delivery = await request('POST', '/api/platform/phone-verifications/request', { body: { phone, browserSessionId } });
-    const verification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone, browserSessionId, code: delivery.data.sandboxCode }
-    });
-    const registration = await request('POST', '/api/platform/auth/register', {
-        body: {
-            prenom, name: 'Transfert', phone, identityNumber, pin: '1234', pinConfirmation: '1234',
-            browserSessionId, phoneVerificationToken: verification.data.verificationToken
-        }
-    });
-    assert.equal(registration.status, 201);
-    return registration.data;
+    return (await registerActiveAccount(request, {
+        prenom, name: 'Transfert', phone, identityNumber,
+        browserSessionId: `wallet-${identityNumber}`
+    })).data;
 }
 
 test.before(async () => {

@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnPlatformStats').addEventListener('click', showPlatformStats);
     document.getElementById('btnDeploymentSettings').addEventListener('click', () => showDeploymentSettings().catch(error => alert(error.message)));
     document.getElementById('deploymentSettingsForm').addEventListener('submit', saveDeploymentSettings);
+    document.getElementById('groupCreationRulesForm').addEventListener('submit', saveGroupCreationRules);
     document.getElementById('publicContentForm').addEventListener('submit', event => savePublicContent(event).catch(error => {
         document.getElementById('publicContentSaveStatus').textContent = error.message;
     }));
@@ -1212,13 +1213,42 @@ async function showDeploymentSettings() {
     hideAllSections();
     document.getElementById('deploymentSettingsSection').style.display = 'block';
     document.getElementById('deploymentSaveMessage').textContent = '';
-    const [data, history] = await Promise.all([
+    const [data, history, groupRules] = await Promise.all([
         apiRequest('/api/admin/deployment-settings'),
-        apiRequest('/api/admin/deployment-settings/history')
+        apiRequest('/api/admin/deployment-settings/history'),
+        apiRequest('/api/admin/group-creation-rules')
     ]);
     populateDeploymentForm(data);
     renderDeploymentReadiness(data);
     renderDeploymentHistory(history);
+    populateGroupCreationRules(groupRules);
+}
+
+function populateGroupCreationRules(rules) {
+    document.getElementById('groupRuleMinimumMembers').value = rules.minMemberCount;
+    document.getElementById('groupRuleMaximumMembers').value = rules.maxMemberCount;
+    document.getElementById('groupRuleFeePerMember').value = rules.feePerMemberMinor;
+    document.getElementById('groupRuleMinimumCapital').value = rules.minimumStartingCapitalMinor;
+}
+
+async function saveGroupCreationRules(event) {
+    event.preventDefault();
+    const message = document.getElementById('groupCreationRulesMessage');
+    try {
+        const rules = await apiRequest('/api/admin/group-creation-rules', {
+            method: 'PUT',
+            body: JSON.stringify({
+                minMemberCount: Number(document.getElementById('groupRuleMinimumMembers').value),
+                maxMemberCount: Number(document.getElementById('groupRuleMaximumMembers').value),
+                feePerMemberMinor: Number(document.getElementById('groupRuleFeePerMember').value),
+                minimumStartingCapitalMinor: Number(document.getElementById('groupRuleMinimumCapital').value)
+            })
+        });
+        populateGroupCreationRules(rules);
+        message.textContent = 'Règles AVEC enregistrées.';
+    } catch (error) {
+        message.textContent = error.message;
+    }
 }
 
 async function saveDeploymentSettings(event) {

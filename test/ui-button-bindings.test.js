@@ -179,12 +179,14 @@ test('platform dashboard initializes payment ledger and all administrator action
 
 test('member platform binds country-aware group creation and all chat controls', () => {
     const { elements, context } = loadPageScript('platform.html', 'platform.js');
+    loadPageScript('social.html', 'platform.js');
     ['groupCountry', 'dmAttachment', 'postImage'].forEach(id => hasListener(elements, id, 'change'));
-    ['registerRequestCode', 'registerVerifyCode', 'profileRequestCode', 'profileVerifyCode'].forEach(id => hasListener(elements, id, 'click'));
+    ['activationRequestCode', 'activationVerifyCode', 'pinResetRequestCode', 'pinResetVerifyCode', 'profileRequestCode', 'profileVerifyCode']
+        .forEach(id => hasListener(elements, id, 'click'));
     hasListener(elements, 'dmEmojiButton', 'click');
     hasListener(elements, 'dmMessages', 'click');
     [
-        'registerForm', 'platformLoginForm', 'profileForm', 'securityProfileForm', 'createGroupForm', 'contactPhoneForm',
+        'registerForm', 'platformLoginForm', 'pinResetForm', 'profileForm', 'securityProfileForm', 'createGroupForm', 'contactPhoneForm',
         'searchForm', 'dmForm', 'postForm', 'eventForm'
     ].forEach(id => hasListener(elements, id, 'submit'));
     assert.equal(typeof context.updateGroupMomoFields, 'function');

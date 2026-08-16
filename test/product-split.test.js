@@ -9,6 +9,7 @@ fs.rmSync(databasePath, { force: true });
 process.env.DATABASE_PATH = databasePath;
 process.env.JWT_SECRET = 'product-split-test-jwt-secret';
 const { start, db } = require('../src/server');
+const { registerActiveAccount } = require('./helpers/account-security');
 
 let server;
 let port;
@@ -38,18 +39,9 @@ function get(sql, values = []) {
 }
 
 async function register(phone, identity, session) {
-    const delivery = await request('POST', '/api/platform/phone-verifications/request', { body: { phone, browserSessionId: session } });
-    const verification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone, browserSessionId: session, code: delivery.data.sandboxCode }
-    });
-    const response = await request('POST', '/api/platform/auth/register', {
-        body: {
-            prenom: 'Test', name: identity, phone, identityNumber: identity, pin: '1234', pinConfirmation: '1234',
-            browserSessionId: session, phoneVerificationToken: verification.data.verificationToken
-        }
-    });
-    assert.equal(response.status, 201);
-    return response.data;
+    return (await registerActiveAccount(request, {
+        prenom: 'Test', name: identity, phone, identityNumber: identity, browserSessionId: session
+    })).data;
 }
 
 test.before(async () => { server = await start(0); port = server.address().port; });

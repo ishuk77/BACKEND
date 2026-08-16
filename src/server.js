@@ -33,6 +33,9 @@ const MAX_PUBLIC_CONTENT_IMAGE_BYTES = 3 * 1024 * 1024;
 const PHONE_VERIFICATION_TTL_MS = Number(process.env.PHONE_VERIFICATION_TTL_MS || 10 * 60 * 1000);
 const PHONE_VERIFICATION_MAX_ATTEMPTS = 5;
 const phoneVerificationSessions = new Map();
+const emailVerificationSessions = new Map();
+const EMAIL_VERIFICATION_TTL_MS = Number(process.env.EMAIL_VERIFICATION_TTL_MS || 10 * 60 * 1000);
+const EMAIL_VERIFICATION_MAX_ATTEMPTS = 5;
 const SOCIAL_SANDBOX_PRICING = Object.freeze({
     currency: 'USD',
     text_post_minor: 10,
@@ -42,7 +45,12 @@ const SOCIAL_SANDBOX_PRICING = Object.freeze({
     video_per_started_mebibyte_minor: 10,
     video_cap_minor: 10000
 });
-const GROUP_CREATION_MINIMUM_MINOR = 10000;
+const DEFAULT_GROUP_CREATION_RULES = Object.freeze({
+    min_member_count: 20,
+    max_member_count: 50,
+    fee_per_member_minor: 100,
+    minimum_starting_capital_minor: 10000
+});
 const PAID_PUBLIC_CONTENT_PRICING = Object.freeze({
     currency: 'USD',
     text_or_photo_advertisement_minor: 25,
@@ -260,12 +268,14 @@ function initDatabase(onReady) {
             prenom TEXT NOT NULL,
             name TEXT NOT NULL,
             phone TEXT UNIQUE,
+            email TEXT,
+            email_verified_at DATETIME,
             country TEXT,
             password TEXT NOT NULL,
             identity_number TEXT,
             phone_verified_at DATETIME,
             pin_configured INTEGER NOT NULL DEFAULT 0,
-            status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
+            status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'pending_email')),
             visibility TEXT NOT NULL DEFAULT 'friends' CHECK (visibility IN ('public', 'friends', 'private')),
             availability TEXT NOT NULL DEFAULT 'offline' CHECK (availability IN ('online', 'offline', 'busy')),
             internal_wallet REAL NOT NULL DEFAULT 0,
@@ -1001,6 +1011,30 @@ function initDatabase(onReady) {
         db.run(`CREATE TRIGGER IF NOT EXISTS deployment_settings_audit_immutable_delete
                 BEFORE DELETE ON deployment_settings_audit BEGIN SELECT RAISE(ABORT, 'deployment_settings_audit is append-only'); END`,
         logDatabaseError('protecting deployment settings audit deletes'));
+        db.run(`CREATE TABLE IF NOT EXISTS group_creation_rules (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            min_member_count INTEGER NOT NULL DEFAULT 20,
+            max_member_count INTEGER NOT NULL DEFAULT 50,
+            fee_per_member_minor INTEGER NOT NULL DEFAULT 100,
+            minimum_starting_capital_minor INTEGER NOT NULL DEFAULT 10000,
+            updated_by_member_id INTEGER,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CHECK (min_member_count >= 1 AND max_member_count >= min_member_count AND fee_per_member_minor >= 0 AND minimum_starting_capital_minor >= 0),
+            FOREIGN KEY (updated_by_member_id) REFERENCES members(id)
+        )`, logDatabaseError('creating group creation rules table'));
+        db.run('INSERT OR IGNORE INTO group_creation_rules (id) VALUES (1)', logDatabaseError('initializing group creation rules'));
+        db.run(`CREATE TABLE IF NOT EXISTS group_creation_fees (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fee_id TEXT NOT NULL UNIQUE,
+            group_id INTEGER NOT NULL UNIQUE,
+            account_id INTEGER NOT NULL,
+            intended_member_count INTEGER NOT NULL CHECK (intended_member_count >= 1),
+            amount_minor INTEGER NOT NULL CHECK (amount_minor >= 0),
+            currency TEXT NOT NULL DEFAULT 'USD',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (group_id) REFERENCES groups(id),
+            FOREIGN KEY (account_id) REFERENCES platform_accounts(id)
+        )`, logDatabaseError('creating group creation revenue table'));
         db.run('CREATE INDEX IF NOT EXISTS idx_financial_ledger_group_created ON financial_ledger (group_id, created_at DESC)', logDatabaseError('creating ledger index'));
         db.run('CREATE INDEX IF NOT EXISTS idx_payment_events_transaction ON payment_events (transaction_id, created_at DESC)', logDatabaseError('creating payment events index'));
         db.run('CREATE INDEX IF NOT EXISTS idx_payment_operations_group ON payment_operations (group_id, created_at DESC)', logDatabaseError('creating operations index'));
@@ -1068,6 +1102,10 @@ function initDatabase(onReady) {
             ['platform_accounts', 'wallet_currency', "TEXT NOT NULL DEFAULT 'USD'"],
             ['platform_accounts', 'country', 'TEXT'],
             ['platform_accounts', 'internal_wallet_minor', 'INTEGER NOT NULL DEFAULT 0'],
+            ['platform_accounts', 'email', 'TEXT'],
+            ['platform_accounts', 'email_verified_at', 'DATETIME'],
+            ['groups', 'intended_member_count', 'INTEGER NOT NULL DEFAULT 20'],
+            ['groups', 'starting_capital_minor', 'INTEGER NOT NULL DEFAULT 10000'],
             ['social_posts', 'moderation_status', "TEXT NOT NULL DEFAULT 'approved'"],
             ['social_posts', 'moderation_reason', 'TEXT'],
             ['social_posts', 'review_tag', 'TEXT'],
@@ -1078,7 +1116,9 @@ function initDatabase(onReady) {
             ['post_comments', 'review_tag', 'TEXT'],
             ['direct_messages', 'attachment_id', 'INTEGER']
         ].forEach(([table, column, definition]) => ensureColumn(table, column, definition));
-        migrateMemberCollaborationFields(() => migratePlatformAccountSecurityFields(() => migratePaidPublicContentFields(() => migratePlatformAccounts(() => migrateSafeWalletAccounting(onReady)))));
+        migrateMemberCollaborationFields(() => migratePlatformAccountSecurityFields(() => migratePaidPublicContentFields(() => migratePlatformAccounts(() => migrateSafeWalletAccounting(() => {
+            db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_platform_accounts_email_lower ON platform_accounts(LOWER(email)) WHERE email IS NOT NULL', () => onReady());
+        })))));
     });
 }
 
@@ -2344,6 +2384,7 @@ function accountPublicResponse(account, includeWallet = false) {
         id: account.id, identifier: account.identifier, prenom: account.prenom, name: account.name,
         availability: account.availability, visibility: account.visibility, avatar_media_id: account.avatar_media_id || null,
         identityVerified: Boolean(account.identity_number),
+        emailVerified: Boolean(account.email_verified_at),
         phoneVerified: Boolean(account.phone_verified_at),
         pinConfigured: Boolean(account.pin_configured),
         onboardingComplete: isAccountReadyForGroup(account)
@@ -2516,7 +2557,7 @@ function validPlatformPin(pin) {
 }
 
 function isAccountReadyForGroup(account) {
-    return Boolean(account && account.identity_number && account.phone_verified_at && Number(account.pin_configured) === 1);
+    return Boolean(account && account.email_verified_at && account.identity_number && account.phone_verified_at && Number(account.pin_configured) === 1);
 }
 
 function browserVerificationSessionId(value) {
@@ -2530,13 +2571,17 @@ function phoneVerificationKey(phone, sessionId) {
 
 const SANDBOX_PHONE_DELIVERY = Object.freeze({
     deliver({ code }) {
-        return { sandbox: true, sandboxCode: code };
+        return { sandbox: true, provider: 'sandbox', sandboxCode: code };
     }
 });
 
-async function deliverPhoneVerificationCode(phone, code) {
-    if (String(process.env.SMS_PROVIDER || '').toLowerCase() !== 'africastalking') {
+async function deliverPhoneVerificationCode(phone, code, channel = String(process.env.PHONE_OTP_CHANNEL || 'sms').toLowerCase()) {
+    const provider = String(channel === 'whatsapp' ? process.env.WHATSAPP_PROVIDER : process.env.SMS_PROVIDER || 'sandbox').toLowerCase();
+    if (provider === 'sandbox') {
         return SANDBOX_PHONE_DELIVERY.deliver({ code });
+    }
+    if (channel !== 'sms' || provider !== 'africastalking') {
+        throw new Error('Canal de vérification téléphonique non configuré.');
     }
     const apiKey = String(process.env.SMS_API_KEY || '');
     const username = String(process.env.SMS_USERNAME || '');
@@ -2558,7 +2603,7 @@ async function deliverPhoneVerificationCode(phone, code) {
         })
     });
     if (!response.ok) throw new Error('Africa’s Talking a refusé l’envoi du SMS.');
-    return { sandbox: false, provider: 'africastalking' };
+    return { sandbox: false, provider: 'africastalking', channel: 'sms' };
 }
 
 async function requestSandboxPhoneVerification(phone, sessionId) {
@@ -2581,6 +2626,95 @@ async function requestSandboxPhoneVerification(phone, sessionId) {
         expiresAt: new Date(verification.expiresAt).toISOString(),
         attemptsRemaining: verification.attemptsRemaining
     };
+}
+
+function validEmail(email) {
+    return Boolean(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254);
+}
+
+function normalizedEmail(value) {
+    const email = safeText(value, 254);
+    return validEmail(email) ? email.toLowerCase() : null;
+}
+
+function emailVerificationKey(email, sessionId, purpose) {
+    return `${purpose}:${sessionId}:${email}`;
+}
+
+const SANDBOX_EMAIL_DELIVERY = Object.freeze({
+    deliver() {
+        return { sandbox: true, provider: 'sandbox' };
+    }
+});
+
+async function deliverEmailVerificationCode(email, code, purpose) {
+    const provider = String(process.env.EMAIL_OTP_PROVIDER || 'sandbox').toLowerCase();
+    if (provider === 'sandbox') return SANDBOX_EMAIL_DELIVERY.deliver();
+    if (provider !== 'http') throw new Error('Fournisseur e-mail OTP non configuré.');
+    const endpoint = String(process.env.EMAIL_OTP_ENDPOINT || '');
+    const apiKey = String(process.env.EMAIL_OTP_API_KEY || '');
+    const from = String(process.env.EMAIL_OTP_FROM || '');
+    if (!/^https:\/\//.test(endpoint) || !apiKey || !from) throw new Error('Fournisseur e-mail OTP incomplet.');
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            from, to: email,
+            subject: 'Code de vérification AVEC',
+            text: `Votre code AVEC est ${code}. Il expire dans 10 minutes. Ne le partagez avec personne.`,
+            purpose
+        })
+    });
+    if (!response.ok) throw new Error('Le fournisseur e-mail a refusé l’envoi.');
+    return { sandbox: false, provider: 'http' };
+}
+
+async function requestEmailVerification(email, sessionId, purpose) {
+    const now = Date.now();
+    for (const [key, verification] of emailVerificationSessions) {
+        if (verification.expiresAt <= now) emailVerificationSessions.delete(key);
+    }
+    const code = String(crypto.randomInt(100000, 1000000));
+    const verification = {
+        expiresAt: now + EMAIL_VERIFICATION_TTL_MS,
+        attemptsRemaining: EMAIL_VERIFICATION_MAX_ATTEMPTS,
+        codeHash: bcrypt.hashSync(code, 10),
+        verified: false,
+        verificationToken: null
+    };
+    emailVerificationSessions.set(emailVerificationKey(email, sessionId, purpose), verification);
+    const delivery = await deliverEmailVerificationCode(email, code, purpose);
+    // Sandbox is deliberately simulated server-side; OTPs are never exposed in unauthenticated API responses.
+    if (delivery.sandbox) console.info(`SANDBOX email OTP issued for ${purpose}; delivery is simulated.`);
+    return { ...delivery, expiresAt: new Date(verification.expiresAt).toISOString() };
+}
+
+function verifyEmailCode(email, sessionId, purpose, code) {
+    const key = emailVerificationKey(email, sessionId, purpose);
+    const verification = emailVerificationSessions.get(key);
+    if (!verification || verification.expiresAt <= Date.now()) {
+        emailVerificationSessions.delete(key);
+        return { error: 'Code e-mail expiré ou introuvable.' };
+    }
+    if (verification.attemptsRemaining <= 0) return { error: 'Limite d’essais atteinte.', status: 429 };
+    if (!/^\d{6}$/.test(String(code || '')) || !bcrypt.compareSync(String(code), verification.codeHash)) {
+        verification.attemptsRemaining -= 1;
+        return { error: 'Code e-mail invalide.', status: verification.attemptsRemaining ? 400 : 429 };
+    }
+    verification.verified = true;
+    verification.verificationToken = crypto.randomBytes(32).toString('base64url');
+    return { verificationToken: verification.verificationToken };
+}
+
+function consumeVerifiedEmailClaim(email, sessionId, purpose, token) {
+    const key = emailVerificationKey(email, sessionId, purpose);
+    const verification = emailVerificationSessions.get(key);
+    const supplied = Buffer.from(String(token || ''));
+    const expected = Buffer.from(verification?.verificationToken || '');
+    const valid = Boolean(verification && verification.verified && verification.expiresAt > Date.now()
+        && supplied.length > 0 && supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected));
+    if (valid) emailVerificationSessions.delete(key);
+    return valid;
 }
 
 function verifySandboxPhoneCode(phone, sessionId, code) {
@@ -2970,16 +3104,7 @@ function addAccountToGroup(account, groupId, role, callback, options = {}) {
 
 function createGroupForAccount(account, group, res) {
     if (!isAccountReadyForGroup(account)) {
-        return res.status(403).json({ error: 'Complétez votre identité, la vérification du téléphone et votre PIN dans le profil avant de créer un groupe.' });
-    }
-    const balanceMinor = Math.round(Number(account.internal_wallet || 0) * 100);
-    if (!Number.isSafeInteger(balanceMinor) || balanceMinor < GROUP_CREATION_MINIMUM_MINOR) {
-        return res.status(409).json({
-            error: `La création d’un groupe exige un solde interne SANDBOX minimum de ${(GROUP_CREATION_MINIMUM_MINOR / 100).toFixed(2)} USD. Votre solde n’est pas débité.`,
-            required_balance_minor: GROUP_CREATION_MINIMUM_MINOR,
-            available_balance_minor: Number.isSafeInteger(balanceMinor) ? balanceMinor : 0,
-            sandbox: true
-        });
+        return res.status(403).json({ error: 'La création exige un e-mail vérifié, une identité, un téléphone vérifié et un PIN configuré.' });
     }
     const groupName = safeText(group.name || group.nom, 120);
     const country = safeText(group.country || group.pays, 80);
@@ -2989,6 +3114,8 @@ function createGroupForAccount(account, group, res) {
     const savingsPeriodicity = group.savings_periodicity || group.savingsPeriodicity || null;
     const savingsPeriod = Number(group.savings_period || group.savingsPeriod || 1);
     const provider = safeText(group.momo_provider || group.momoProvider, 40);
+    const intendedMemberCount = Number(group.intended_member_count || group.intendedMemberCount || group.member_count || 20);
+    const startingCapitalMinor = Math.round(Number(group.starting_capital || group.startingCapital || 100) * 100);
     const selection = country && provider ? validMomoSelection(country, provider, group.phone) : null;
     if (!['AVEC', 'Epargne'].includes(groupType)
         || (groupType === 'Epargne' && !['weekly', 'monthly'].includes(savingsPeriodicity))
@@ -2996,56 +3123,88 @@ function createGroupForAccount(account, group, res) {
         || !groupName || !country || !province || !city || !selection) {
         return res.status(400).json({ error: 'Informations du groupe ou portefeuille Momo invalides' });
     }
-    db.get(
-        `SELECT 1 FROM platform_account_memberships pam JOIN members m ON m.id = pam.member_id
-         WHERE pam.account_id = ? AND pam.status = 'active' AND m.role = 'president' LIMIT 1`,
-        [account.id],
-        (presidentErr, presidency) => {
+    db.get('SELECT * FROM group_creation_rules WHERE id = 1', [], (rulesErr, configuredRules) => {
+        if (rulesErr) return res.status(500).json({ error: 'Impossible de lire les règles de création.' });
+        const rules = configuredRules || DEFAULT_GROUP_CREATION_RULES;
+        if (!Number.isInteger(intendedMemberCount) || intendedMemberCount < Number(rules.min_member_count)
+            || intendedMemberCount > Number(rules.max_member_count) || !Number.isSafeInteger(startingCapitalMinor)
+            || startingCapitalMinor < Number(rules.minimum_starting_capital_minor)) {
+            return res.status(400).json({ error: `Un groupe requiert ${rules.min_member_count} à ${rules.max_member_count} membres prévus et un capital initial d’au moins ${(rules.minimum_starting_capital_minor / 100).toFixed(2)} USD.`, rules: groupCreationRulesResponse(rules) });
+        }
+        const feeMinor = intendedMemberCount * Number(rules.fee_per_member_minor);
+        db.get(`SELECT 1 FROM platform_account_memberships pam JOIN members m ON m.id = pam.member_id
+                WHERE pam.account_id = ? AND pam.status = 'active' AND m.role = 'president' LIMIT 1`, [account.id], (presidentErr, presidency) => {
             if (presidentErr) return res.status(500).json({ error: presidentErr.message });
             if (presidency) return res.status(409).json({ error: 'Vous êtes déjà président·e d’un groupe AVEC : la création d’un autre groupe n’est pas disponible.' });
-            createGroup();
-        }
-    );
+            createGroupWithFee(feeMinor);
+        });
+    });
 
-    function createGroup() {
-    db.run(
-        `INSERT INTO groups
-         (name, country, province, city, currency, phone, momo_provider, group_type, savings_periodicity, savings_period, cycle_status, cycle_started_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [groupName, country, province, city, selection.countryInfo.currency, selection.normalizedPhone, provider,
-            groupType, groupType === 'Epargne' ? savingsPeriodicity : null, savingsPeriod,
-            groupType === 'Epargne' ? 'planning' : 'open', groupType === 'Epargne' ? null : new Date().toISOString()],
-        function insertGroup(err) {
-            if (err) return res.status(500).json({ error: err.message });
-            const groupId = this.lastID;
-            addAccountToGroup(account, groupId, 'president', memberErr => {
-                if (memberErr) return res.status(500).json({ error: memberErr.message });
-                // Keep the pre-existing group API usable immediately while the
-                // platform account remains the mandatory creation authority.
-                getMemberIdForAccount(account.id, groupId, (lookupErr, member) => {
-                    if (lookupErr || !member) return res.status(500).json({ error: lookupErr ? lookupErr.message : 'Président introuvable' });
-                    createTokens(member, (tokenErr, tokens) => {
-                        if (tokenErr) return res.status(500).json({ error: tokenErr.message });
-                        recordCycleAudit(groupId, 1, member.id, 'created', {
-                            group_type: groupType,
-                            savings_periodicity: groupType === 'Epargne' ? savingsPeriodicity : null,
-                            savings_period: savingsPeriod
-                        });
-                        res.status(201).json({
-                            groupId, memberId: member.id, member: memberResponse(member), ...tokens,
-                            group: {
-                                id: groupId, name: groupName, country, province, city, currency: selection.countryInfo.currency,
-                                group_type: groupType, savings_periodicity: groupType === 'Epargne' ? savingsPeriodicity : null,
-                                savings_period: savingsPeriod, cycle_status: groupType === 'Epargne' ? 'planning' : 'open'
-                            },
-                            dashboard: { path: 'group.html', groupId, memberId: member.id },
-                            president: accountPublicResponse(account)
-                        });
+    function createGroupWithFee(feeMinor) {
+        db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
+            if (beginErr) return res.status(500).json({ error: beginErr.message });
+            db.run(`UPDATE platform_accounts SET internal_wallet = internal_wallet - ?,
+                    internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) - ?
+                    WHERE id = ? AND wallet_currency = 'USD' AND CAST(ROUND(internal_wallet * 100) AS INTEGER) >= ?`,
+            [feeMinor / 100, feeMinor, account.id, feeMinor], function debitFee(debitErr) {
+                if (debitErr || !this.changes) {
+                    db.run('ROLLBACK');
+                    return res.status(debitErr ? 500 : 409).json({ error: debitErr ? debitErr.message : `Solde personnel insuffisant pour les frais de création de ${(feeMinor / 100).toFixed(2)} USD.`, required_fee_minor: feeMinor });
+                }
+                db.run(`INSERT INTO groups (name, country, province, city, currency, phone, momo_provider, group_type, savings_periodicity, savings_period, cycle_status, cycle_started_at, intended_member_count, starting_capital_minor)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [groupName, country, province, city, selection.countryInfo.currency, selection.normalizedPhone, provider, groupType,
+                    groupType === 'Epargne' ? savingsPeriodicity : null, savingsPeriod, groupType === 'Epargne' ? 'planning' : 'open',
+                    groupType === 'Epargne' ? null : new Date().toISOString(), intendedMemberCount, startingCapitalMinor], function insertGroup(groupErr) {
+                    if (groupErr) {
+                        db.run('ROLLBACK');
+                        return res.status(500).json({ error: groupErr.message });
+                    }
+                    const groupId = this.lastID;
+                    db.run(`INSERT INTO group_creation_fees (fee_id, group_id, account_id, intended_member_count, amount_minor, currency)
+                            VALUES (?, ?, ?, ?, ?, 'USD')`, [`GCF-${newSecureId()}`, groupId, account.id, intendedMemberCount, feeMinor], feeErr => {
+                        if (feeErr) {
+                            db.run('ROLLBACK');
+                            return res.status(500).json({ error: feeErr.message });
+                        }
+                        addAccountToGroup(account, groupId, 'president', memberErr => {
+                            if (memberErr) {
+                                db.run('ROLLBACK');
+                                return res.status(500).json({ error: memberErr.message });
+                            }
+                            getMemberIdForAccount(account.id, groupId, (lookupErr, member) => {
+                                if (lookupErr || !member) {
+                                    db.run('ROLLBACK');
+                                    return res.status(500).json({ error: lookupErr ? lookupErr.message : 'Président introuvable' });
+                                }
+                                createTokens(member, (tokenErr, tokens) => {
+                                    if (tokenErr) {
+                                        db.run('ROLLBACK');
+                                        return res.status(500).json({ error: tokenErr.message });
+                                    }
+                                    recordCycleAudit(groupId, 1, member.id, 'created', { group_type: groupType, intended_member_count: intendedMemberCount }, auditErr => {
+                                        if (auditErr) {
+                                            db.run('ROLLBACK');
+                                            return res.status(500).json({ error: auditErr.message });
+                                        }
+                                        db.run('COMMIT', commitErr => {
+                                            if (commitErr) return res.status(500).json({ error: commitErr.message });
+                                            res.status(201).json({
+                                                groupId, memberId: member.id, member: memberResponse(member), ...tokens,
+                                                group: { id: groupId, name: groupName, country, province, city, currency: selection.countryInfo.currency, group_type: groupType, savings_periodicity: groupType === 'Epargne' ? savingsPeriodicity : null, savings_period: savingsPeriod, cycle_status: groupType === 'Epargne' ? 'planning' : 'open', intended_member_count: intendedMemberCount, starting_capital_minor: startingCapitalMinor },
+                                                dashboard: { path: 'group.html', groupId, memberId: member.id },
+                                                president: accountPublicResponse(account),
+                                                creation_fee: { amount_minor: feeMinor, currency: 'USD', platform_revenue: true }
+                                            });
+                                        });
+                                    });
+                                });
+                            });
+                        }, { bootstrap: true });
                     });
                 });
-            }, { bootstrap: true });
-        }
-    );
+            });
+        }));
     }
 }
 
@@ -3060,47 +3219,81 @@ function getMemberIdForAccount(accountId, groupId, callback) {
 app.post('/api/platform/auth/register', (req, res) => {
     const prenom = safeText(req.body.prenom, 80);
     const name = safeText(req.body.name || req.body.nom, 80);
+    const email = normalizedEmail(req.body.email);
     const phoneInput = safeText(req.body.phone, 30);
     const phoneDetails = normalizePlatformPhone(safeText(req.body.country, 80), phoneInput);
     const phone = phoneDetails && phoneDetails.phone;
-    const identityNumber = safeText(req.body.identityNumber, 80);
-    const pin = String(req.body.pin || '');
-    const pinConfirmation = String(req.body.pinConfirmation || '');
-    const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
-    const verificationToken = String(req.body.phoneVerificationToken || '');
-    if (!prenom || !name || !phone || !validIdentityNumber(identityNumber) || !validPlatformPin(pin) || pin !== pinConfirmation) {
-        return res.status(400).json({ error: 'Prénom, nom, pays, téléphone E.164, identité/passeport et PIN à 4 chiffres confirmé valides requis' });
-    }
-    if (!browserSessionId || !hasVerifiedPhoneClaim(phone, browserSessionId, verificationToken)) {
-        return res.status(400).json({ error: 'Vérifiez ce téléphone dans cette session SANDBOX avant de créer le compte.' });
+    const identityNumber = safeText(req.body.identityNumber, 80) || null;
+    const pin = String(req.body.pin || req.body.password || '');
+    const pinConfirmation = String(req.body.pinConfirmation || req.body.passwordConfirmation || '');
+    if (!prenom || !name || !email || !phone || !phoneDetails.country || !validPlatformPin(pin) || pin !== pinConfirmation
+        || (identityNumber && !validIdentityNumber(identityNumber))) {
+        return res.status(400).json({ error: 'Prénom, nom, e-mail, pays, téléphone et PIN à 4 chiffres confirmé valides requis.' });
     }
     const identifier = `AVEC-${crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`;
     db.run(
         `INSERT INTO platform_accounts
-         (identifier, prenom, name, phone, country, password, identity_number, phone_verified_at, pin_configured)
-         VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 1)`,
-        [identifier, prenom, name, phone, phoneDetails.country || null, bcrypt.hashSync(pin, 10), identityNumber],
+         (identifier, prenom, name, email, phone, country, password, identity_number, pin_configured, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'pending_email')`,
+        [identifier, prenom, name, email, phone, phoneDetails.country, bcrypt.hashSync(pin, 10), identityNumber],
         function registerAccount(err) {
-            if (isConstraintError(err)) return res.status(409).json({ error: 'Un compte existe déjà avec ce téléphone ou cette identité/passeport' });
+            if (isConstraintError(err)) return res.status(409).json({ error: 'Un compte existe déjà avec ce téléphone, cet e-mail ou cette identité/passeport.' });
             if (err) return res.status(500).json({ error: err.message });
-            consumeVerifiedPhoneClaim(phone, browserSessionId);
             db.get('SELECT * FROM platform_accounts WHERE id = ?', [this.lastID], (lookupErr, account) => {
                 if (lookupErr) return res.status(500).json({ error: lookupErr.message });
-                const refreshToken = accountRefreshToken(account.id);
-                db.run('UPDATE platform_accounts SET refresh_token = ? WHERE id = ?', [refreshToken, account.id], updateErr => {
-                    if (updateErr) return res.status(500).json({ error: updateErr.message });
-                    res.status(201).json({ accessToken: accountAccessToken(account), refreshToken, account: accountPublicResponse(account, true) });
+                res.status(201).json({
+                    account: accountPublicResponse(account),
+                    activationRequired: true,
+                    message: 'Compte créé gratuitement. Vérifiez votre e-mail pour activer le compte. En SANDBOX, la vérification est simulée; aucun e-mail réel n’est envoyé.'
                 });
             });
         }
     );
 });
 
-app.post('/api/platform/phone-verifications/request', async (req, res) => {
-    const phoneDetails = normalizePlatformPhone(safeText(req.body.country, 80), safeText(req.body.phone, 30));
+app.post('/api/platform/email-verifications/request', async (req, res) => {
+    const email = normalizedEmail(req.body.email);
+    const sessionId = browserVerificationSessionId(req.body.browserSessionId);
+    const purpose = ['activation', 'pin_reset'].includes(req.body.purpose) ? req.body.purpose : 'activation';
+    if (!email || !sessionId) return res.status(400).json({ error: 'E-mail et session navigateur valides requis.' });
+    db.get('SELECT id FROM platform_accounts WHERE LOWER(email) = LOWER(?)', [email], async (err, account) => {
+        if (err) return res.status(500).json({ error: 'Impossible de demander la vérification e-mail.' });
+        // Keep account existence private while allowing genuine activation and recovery requests.
+        if (account) {
+            try { await requestEmailVerification(email, sessionId, purpose); } catch (_) { return res.status(502).json({ error: 'Service e-mail temporairement indisponible.' }); }
+        }
+        res.status(202).json({ requested: true, message: 'Si ce compte existe, un code e-mail a été demandé. En SANDBOX, la livraison est simulée.' });
+    });
+});
+
+app.post('/api/platform/email-verifications/verify', (req, res) => {
+    const email = normalizedEmail(req.body.email);
+    const sessionId = browserVerificationSessionId(req.body.browserSessionId);
+    const purpose = ['activation', 'pin_reset'].includes(req.body.purpose) ? req.body.purpose : 'activation';
+    if (!email || !sessionId) return res.status(400).json({ error: 'E-mail et session navigateur valides requis.' });
+    const verification = verifyEmailCode(email, sessionId, purpose, req.body.code);
+    if (verification.error) return res.status(verification.status || 400).json({ error: verification.error });
+    if (purpose !== 'activation') return res.json({ verified: true, verificationToken: verification.verificationToken });
+    db.run(`UPDATE platform_accounts SET email_verified_at = CURRENT_TIMESTAMP, status = 'active'
+            WHERE LOWER(email) = LOWER(?) AND status = 'pending_email'`, [email], function activate(err) {
+        if (err) return res.status(500).json({ error: 'Impossible d’activer le compte.' });
+        db.get('SELECT * FROM platform_accounts WHERE LOWER(email) = LOWER(?) AND status = ?', [email, 'active'], (lookupErr, account) => {
+            if (lookupErr || !account) return res.status(400).json({ error: 'Activation impossible.' });
+            const refreshToken = accountRefreshToken(account.id);
+            db.run('UPDATE platform_accounts SET refresh_token = ? WHERE id = ?', [refreshToken, account.id], updateErr => {
+                if (updateErr) return res.status(500).json({ error: updateErr.message });
+                consumeVerifiedEmailClaim(email, sessionId, purpose, verification.verificationToken);
+                res.json({ verified: true, accessToken: accountAccessToken(account), refreshToken, account: accountPublicResponse(account, true) });
+            });
+        });
+    });
+});
+
+app.post('/api/platform/phone-verifications/request', authenticateAccount, async (req, res) => {
+    const phoneDetails = normalizePlatformPhone(safeText(req.body.country || req.account.country, 80), safeText(req.body.phone, 30));
     const phone = phoneDetails && phoneDetails.phone;
     const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
-    if (!validPlatformPhone(phone) || !browserSessionId) {
+    if (!validPlatformPhone(phone) || !browserSessionId || (phone !== req.account.phone && !req.body.changePhone)) {
         return res.status(400).json({ error: 'Téléphone et session navigateur valides requis.' });
     }
     try {
@@ -3108,16 +3301,19 @@ app.post('/api/platform/phone-verifications/request', async (req, res) => {
         res.status(201).json({
             delivery: delivery.provider || 'sandbox',
             message: delivery.sandbox
-                ? 'Code disponible uniquement dans cette réponse SANDBOX de la session active; aucun SMS ni message de chat n’a été envoyé.'
-                : 'Code envoyé par SMS. Il expire dans 10 minutes.',
-            ...delivery
+                ? 'Vérification SANDBOX simulée; aucun SMS ou WhatsApp réel n’a été envoyé.'
+                : 'Code envoyé au canal configuré. Il expire dans 10 minutes.',
+            sandbox: Boolean(delivery.sandbox),
+            ...(delivery.sandbox ? { sandboxCode: delivery.sandboxCode } : {}),
+            expiresAt: delivery.expiresAt,
+            attemptsRemaining: delivery.attemptsRemaining
         });
     } catch (error) {
         res.status(502).json({ error: error.message });
     }
 });
 
-app.post('/api/platform/phone-verifications/verify', (req, res) => {
+app.post('/api/platform/phone-verifications/verify', authenticateAccount, (req, res) => {
     const phoneDetails = normalizePlatformPhone(safeText(req.body.country, 80), safeText(req.body.phone, 30));
     const phone = phoneDetails && phoneDetails.phone;
     const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
@@ -3126,32 +3322,43 @@ app.post('/api/platform/phone-verifications/verify', (req, res) => {
     }
     const result = verifySandboxPhoneCode(phone, browserSessionId, req.body.code);
     if (result.error) return res.status(result.status || 400).json(result);
-    res.json({ verified: true, ...result });
+    if (phone === req.account.phone) return res.json({ verified: true, ...result });
+    if (!req.body.changePhone) return res.status(400).json({ error: 'Changement de téléphone non confirmé.' });
+    db.run('UPDATE platform_accounts SET phone = ?, phone_verified_at = CURRENT_TIMESTAMP WHERE id = ?', [phone, req.account.id], err => {
+        if (isConstraintError(err)) return res.status(409).json({ error: 'Ce téléphone est déjà utilisé.' });
+        if (err) return res.status(500).json({ error: 'Impossible de modifier le téléphone.' });
+        consumeVerifiedPhoneClaim(phone, browserSessionId);
+        res.json({ verified: true, changed: true });
+    });
 });
 
 app.post('/api/auth/pin-reset', (req, res) => {
-    const normalizedPhone = normalizePlatformPhone(null, safeText(req.body.phone, 30));
-    const phone = normalizedPhone && normalizedPhone.phone;
+    const email = normalizedEmail(req.body.email);
     const pin = String(req.body.pin || '');
     const pinConfirmation = String(req.body.pinConfirmation || '');
     const browserSessionId = browserVerificationSessionId(req.body.browserSessionId);
-    const verificationToken = String(req.body.phoneVerificationToken || '');
-    if (!validPlatformPhone(phone) || !validPlatformPin(pin) || pin !== pinConfirmation
-        || !browserSessionId || !hasVerifiedPhoneClaim(phone, browserSessionId, verificationToken)) {
-        return res.status(400).json({ error: 'Vérifiez le téléphone et choisissez un PIN à 4 chiffres confirmé.' });
+    const verificationToken = String(req.body.emailVerificationToken || '');
+    if (!email || !validPlatformPin(pin) || pin !== pinConfirmation || !browserSessionId
+        || !consumeVerifiedEmailClaim(email, browserSessionId, 'pin_reset', verificationToken)) {
+        return res.status(400).json({ error: 'Vérifiez l’e-mail et choisissez un PIN à 4 chiffres confirmé.' });
     }
 
     const passwordHash = bcrypt.hashSync(pin, 10);
     db.serialize(() => {
         db.run('BEGIN IMMEDIATE', beginErr => {
             if (beginErr) return res.status(500).json({ error: beginErr.message });
-            db.run('UPDATE platform_accounts SET password = ?, refresh_token = NULL WHERE phone = ?', [passwordHash, phone], function resetAccount(accountErr) {
+            db.get('SELECT id FROM platform_accounts WHERE LOWER(email) = LOWER(?)', [email], (lookupErr, account) => {
+                if (lookupErr || !account) {
+                    db.run('ROLLBACK');
+                    return res.status(400).json({ error: 'Impossible de réinitialiser ce PIN.' });
+                }
+            db.run('UPDATE platform_accounts SET password = ?, refresh_token = NULL WHERE id = ?', [passwordHash, account.id], function resetAccount(accountErr) {
                 if (accountErr) {
                     db.run('ROLLBACK');
                     return res.status(500).json({ error: accountErr.message });
                 }
                 const accountChanges = this.changes;
-                db.run('UPDATE members SET pin = ? WHERE phone = ?', [passwordHash, phone], function resetMember(memberErr) {
+                db.run('UPDATE members SET pin = ? WHERE id IN (SELECT member_id FROM platform_account_memberships WHERE account_id = ?)', [passwordHash, account.id], function resetMember(memberErr) {
                     if (memberErr) {
                         db.run('ROLLBACK');
                         return res.status(500).json({ error: memberErr.message });
@@ -3162,8 +3369,8 @@ app.post('/api/auth/pin-reset', (req, res) => {
                     }
                     db.run('COMMIT', commitErr => {
                         if (commitErr) return res.status(500).json({ error: commitErr.message });
-                        consumeVerifiedPhoneClaim(phone, browserSessionId);
                         res.json({ reset: true, message: 'PIN réinitialisé. Connectez-vous avec votre nouveau PIN.' });
+                    });
                     });
                 });
             });
@@ -4898,6 +5105,48 @@ app.get('/api/admin/deployment-settings', authenticateToken, authorizeRole(['pla
     db.get('SELECT * FROM deployment_settings WHERE id = 1', [], (err, row) => {
         if (err) return res.status(500).json({ error: 'Impossible de lire les paramètres de déploiement.' });
         res.json(deploymentSettingsResponse(row));
+    });
+
+    function groupCreationRulesResponse(row) {
+        const rules = row || DEFAULT_GROUP_CREATION_RULES;
+        return {
+            minMemberCount: Number(rules.min_member_count),
+            maxMemberCount: Number(rules.max_member_count),
+            feePerMemberMinor: Number(rules.fee_per_member_minor),
+            minimumStartingCapitalMinor: Number(rules.minimum_starting_capital_minor),
+            currency: 'USD'
+        };
+    }
+
+    app.get('/api/admin/group-creation-rules', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+        db.get('SELECT * FROM group_creation_rules WHERE id = 1', [], (err, rules) => {
+            if (err) return res.status(500).json({ error: 'Impossible de lire les règles de création.' });
+            res.json(groupCreationRulesResponse(rules));
+        });
+    });
+
+    app.put('/api/admin/group-creation-rules', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+        const minMemberCount = Number(req.body.minMemberCount);
+        const maxMemberCount = Number(req.body.maxMemberCount);
+        const feePerMemberMinor = Number(req.body.feePerMemberMinor);
+        const minimumStartingCapitalMinor = Number(req.body.minimumStartingCapitalMinor);
+        if (![minMemberCount, maxMemberCount, feePerMemberMinor, minimumStartingCapitalMinor].every(Number.isSafeInteger)
+            || minMemberCount < 1 || maxMemberCount < minMemberCount || feePerMemberMinor < 0 || minimumStartingCapitalMinor < 0) {
+            return res.status(400).json({ error: 'Règles de création invalides.' });
+        }
+        db.run(`INSERT INTO group_creation_rules
+                (id, min_member_count, max_member_count, fee_per_member_minor, minimum_starting_capital_minor, updated_by_member_id, updated_at)
+                VALUES (1, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(id) DO UPDATE SET min_member_count = excluded.min_member_count, max_member_count = excluded.max_member_count,
+                fee_per_member_minor = excluded.fee_per_member_minor, minimum_starting_capital_minor = excluded.minimum_starting_capital_minor,
+                updated_by_member_id = excluded.updated_by_member_id, updated_at = CURRENT_TIMESTAMP`,
+        [minMemberCount, maxMemberCount, feePerMemberMinor, minimumStartingCapitalMinor, req.user.id], err => {
+            if (err) return res.status(500).json({ error: 'Impossible d’enregistrer les règles de création.' });
+            res.json(groupCreationRulesResponse({
+                min_member_count: minMemberCount, max_member_count: maxMemberCount,
+                fee_per_member_minor: feePerMemberMinor, minimum_starting_capital_minor: minimumStartingCapitalMinor
+            }));
+        });
     });
 });
 

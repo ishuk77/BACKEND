@@ -12,6 +12,7 @@ process.env.JWT_SECRET = 'sandbox-payment-test-jwt-secret';
 process.env.PAYMENT_WEBHOOK_SECRET_MTN = 'sandbox-webhook-test-secret';
 
 const { start, db, SANDBOX_PAYMENT_ADAPTER } = require('../src/server');
+const { registerActiveAccount } = require('./helpers/account-security');
 
 let server;
 let port;
@@ -66,18 +67,9 @@ test('SANDBOX payments are idempotent, authorized, blocked when required, and we
 
     const creatorSession = 'sandbox-payments-browser-session-22991111111';
     const creatorPhone = '+22991111111';
-    const creatorDelivery = await request('POST', '/api/platform/phone-verifications/request', {
-        body: { phone: creatorPhone, browserSessionId: creatorSession }
-    });
-    const creatorVerification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone: creatorPhone, browserSessionId: creatorSession, code: creatorDelivery.data.sandboxCode }
-    });
-    const creator = await request('POST', '/api/platform/auth/register', {
-        body: {
-            prenom: 'Président', name: 'Test', phone: creatorPhone, identityNumber: 'ID-SANDBOX-PRESIDENT',
-            pin: '1234', pinConfirmation: '1234', browserSessionId: creatorSession,
-            phoneVerificationToken: creatorVerification.data.verificationToken
-        }
+    const creator = await registerActiveAccount(request, {
+        prenom: 'Pr?sident', name: 'Test', phone: creatorPhone, identityNumber: 'ID-SANDBOX-PRESIDENT',
+        browserSessionId: creatorSession
     });
     assert.equal(creator.status, 201);
     await run('UPDATE platform_accounts SET internal_wallet = 100 WHERE id = ?', [creator.data.account.id]);
@@ -99,18 +91,8 @@ test('SANDBOX payments are idempotent, authorized, blocked when required, and we
 
     const memberSession = 'sandbox-payments-browser-session-22992222222';
     const memberPhone = '+22992222222';
-    const memberDelivery = await request('POST', '/api/platform/phone-verifications/request', {
-        body: { phone: memberPhone, browserSessionId: memberSession }
-    });
-    const memberVerification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone: memberPhone, browserSessionId: memberSession, code: memberDelivery.data.sandboxCode }
-    });
-    const memberAccount = await request('POST', '/api/platform/auth/register', {
-        body: {
-            prenom: 'Membre', name: 'Test', phone: memberPhone, identityNumber: 'MEM-1',
-            pin: '1234', pinConfirmation: '1234', browserSessionId: memberSession,
-            phoneVerificationToken: memberVerification.data.verificationToken
-        }
+    const memberAccount = await registerActiveAccount(request, {
+        prenom: 'Membre', name: 'Test', phone: memberPhone, identityNumber: 'MEM-1', browserSessionId: memberSession
     });
     assert.equal(memberAccount.status, 201);
     const invitation = await request('POST', `/api/platform/groups/${group.data.groupId}/invitations`, {

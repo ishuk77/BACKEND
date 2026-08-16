@@ -10,6 +10,7 @@ fs.rmSync(databasePath, { force: true });
 process.env.DATABASE_PATH = databasePath;
 process.env.JWT_SECRET = 'platform-onboarding-test-jwt-secret';
 const { start, db } = require('../src/server');
+const { activateAccount, registerActiveAccount } = require('./helpers/account-security');
 let server;
 let port;
 
@@ -39,13 +40,13 @@ function get(sql, values = []) {
     return new Promise((resolve, reject) => db.get(sql, values, (err, row) => err ? reject(err) : resolve(row)));
 }
 
-async function verifyPhone(phone, browserSessionId) {
-    const delivery = await request('POST', '/api/platform/phone-verifications/request', { body: { phone, browserSessionId } });
+async function verifyPhone(phone, browserSessionId, token) {
+    const delivery = await request('POST', '/api/platform/phone-verifications/request', { token, body: { phone, browserSessionId } });
     assert.equal(delivery.status, 201);
     assert.equal(delivery.data.delivery, 'sandbox');
     assert.match(delivery.data.sandboxCode, /^\d{6}$/);
     const verification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone, browserSessionId, code: delivery.data.sandboxCode }
+        token, body: { phone, browserSessionId, code: delivery.data.sandboxCode }
     });
     assert.equal(verification.status, 200);
     return verification.data.verificationToken;
@@ -58,36 +59,46 @@ test.after(async () => {
     fs.rmSync(databasePath, { force: true });
 });
 
-test('registration requires identity, confirmed four-digit PIN, and same-session phone verification', async () => {
+test('registration requires email and activation before the verified-phone group onboarding', async () => {
     const phone = '+22995550001';
     const browserSessionId = 'onboarding-browser-session-22995550001';
     const incomplete = await request('POST', '/api/platform/auth/register', {
-        body: { prenom: 'Awa', name: 'Test', phone, pin: '1234', pinConfirmation: '1234', browserSessionId }
+        body: { prenom: 'Awa', name: 'Test', country: 'Bénin', phone, pin: '1234', pinConfirmation: '1234' }
     });
     assert.equal(incomplete.status, 400);
 
-    const verificationToken = await verifyPhone(phone, browserSessionId);
     const mismatchedPin = await request('POST', '/api/platform/auth/register', {
         body: {
-            prenom: 'Awa', name: 'Test', phone, identityNumber: 'BJ-PASSPORT-001',
-            pin: '1234', pinConfirmation: '4321', browserSessionId, phoneVerificationToken: verificationToken
+            prenom: 'Awa', name: 'Test', email: 'awa-onboarding@example.test', country: 'Bénin',
+            phone, identityNumber: 'BJ-PASSPORT-001', pin: '1234', pinConfirmation: '4321'
         }
     });
     assert.equal(mismatchedPin.status, 400);
 
     const registered = await request('POST', '/api/platform/auth/register', {
         body: {
-            prenom: 'Awa', name: 'Test', phone, identityNumber: 'BJ-PASSPORT-001',
-            pin: '1234', pinConfirmation: '1234', browserSessionId, phoneVerificationToken: verificationToken
+            prenom: 'Awa', name: 'Test', email: 'awa-onboarding@example.test', country: 'Bénin',
+            phone, identityNumber: 'BJ-PASSPORT-001', pin: '1234', pinConfirmation: '1234'
         }
     });
     assert.equal(registered.status, 201);
-    assert.equal(registered.data.account.onboardingComplete, true);
+    assert.equal(registered.data.activationRequired, true);
+    assert.equal(registered.data.account.emailVerified, false);
+    assert.equal(registered.data.account.onboardingComplete, false);
     assert.equal(Object.hasOwn(registered.data.account, 'password'), false);
-    const stored = await get('SELECT password, identity_number, phone_verified_at, pin_configured FROM platform_accounts WHERE phone = ?', [phone]);
+    const activated = await activateAccount(request, 'awa-onboarding@example.test', browserSessionId);
+    const phoneVerificationToken = await verifyPhone(phone, browserSessionId, activated.accessToken);
+    const secured = await request('PUT', '/api/platform/profile/security', {
+        token: activated.accessToken,
+        body: { browserSessionId, phoneVerificationToken }
+    });
+    assert.equal(secured.status, 200);
+    assert.equal(secured.data.account.onboardingComplete, true);
+    const stored = await get('SELECT password, identity_number, email_verified_at, phone_verified_at, pin_configured FROM platform_accounts WHERE phone = ?', [phone]);
     assert.notEqual(stored.password, '1234');
     assert.ok(stored.password.startsWith('$2'));
     assert.equal(stored.identity_number, 'BJ-PASSPORT-001');
+    assert.ok(stored.email_verified_at);
     assert.ok(stored.phone_verified_at);
     assert.equal(stored.pin_configured, 1);
 });
@@ -95,17 +106,14 @@ test('registration requires identity, confirmed four-digit PIN, and same-session
 test('a verified creator receives the member dashboard navigation contract', async () => {
     const phone = '+22995550002';
     const browserSessionId = 'onboarding-browser-session-22995550002';
-    const phoneVerificationToken = await verifyPhone(phone, browserSessionId);
-    const account = await request('POST', '/api/platform/auth/register', {
-        body: {
-            prenom: 'Kofi', name: 'Créateur', phone, identityNumber: 'TG-PASSPORT-002',
-            pin: '2468', pinConfirmation: '2468', browserSessionId, phoneVerificationToken
-        }
+    const account = await registerActiveAccount(request, {
+        prenom: 'Kofi', name: 'Créateur', phone, identityNumber: 'TG-PASSPORT-002',
+        pin: '2468', browserSessionId
     });
     const groupBody = { name: 'Groupe navigation', country: 'Bénin', province: 'Littoral', city: 'Cotonou', momo_provider: 'MTN', phone: '90123456' };
     const insufficientWallet = await request('POST', '/api/groups', { token: account.data.accessToken, body: groupBody });
     assert.equal(insufficientWallet.status, 409);
-    assert.match(insufficientWallet.data.error, /100\.00 USD/);
+    assert.match(insufficientWallet.data.error, /20\.00 USD/);
     await run('UPDATE platform_accounts SET internal_wallet = 100 WHERE id = ?', [account.data.account.id]);
     const group = await request('POST', '/api/groups', {
         token: account.data.accessToken,
@@ -120,8 +128,9 @@ test('a verified creator receives the member dashboard navigation contract', asy
 test('existing accounts complete missing identity, PIN, and phone verification only through the security profile', async () => {
     const phone = '+22995550003';
     await run(
-        'INSERT INTO platform_accounts (identifier, prenom, name, phone, password) VALUES (?, ?, ?, ?, ?)',
-        ['AVEC-LEGACY-SECURITY', 'Ancien', 'Membre', phone, bcrypt.hashSync('9876', 10)]
+        `INSERT INTO platform_accounts (identifier, prenom, name, email, phone, password, email_verified_at, status)
+         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'active')`,
+        ['AVEC-LEGACY-SECURITY', 'Ancien', 'Membre', 'legacy-security@example.test', phone, bcrypt.hashSync('9876', 10)]
     );
     const login = await request('POST', '/api/platform/auth/login', { body: { phone, pin: '9876' } });
     assert.equal(login.status, 200);
@@ -133,7 +142,7 @@ test('existing accounts complete missing identity, PIN, and phone verification o
     assert.equal(before.status, 403);
 
     const browserSessionId = 'onboarding-browser-session-22995550003';
-    const phoneVerificationToken = await verifyPhone(phone, browserSessionId);
+    const phoneVerificationToken = await verifyPhone(phone, browserSessionId, login.data.accessToken);
     const completed = await request('PUT', '/api/platform/profile/security', {
         token: login.data.accessToken,
         body: {

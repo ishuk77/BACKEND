@@ -10,6 +10,7 @@ fs.rmSync(databasePath, { force: true });
 process.env.DATABASE_PATH = databasePath;
 process.env.JWT_SECRET = 'public-news-test-jwt-secret';
 const { start, db } = require('../src/server');
+const { registerActiveAccount, verifyEmailPurpose } = require('./helpers/account-security');
 
 let server;
 let port;
@@ -41,16 +42,9 @@ function query(sql, values = []) {
 }
 
 async function createAccount(phone, name = 'Membre') {
-    const browserSessionId = `public-news-${phone.replace(/\D/g, '')}`;
-    const delivery = await request('POST', '/api/platform/phone-verifications/request', { body: { phone, browserSessionId } });
-    const verification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone, browserSessionId, code: delivery.data.sandboxCode }
-    });
-    return request('POST', '/api/platform/auth/register', {
-        body: {
-            prenom: name, name: 'AVEC', phone, identityNumber: `ID-${phone.replace(/\D/g, '')}`,
-            pin: '1234', pinConfirmation: '1234', browserSessionId, phoneVerificationToken: verification.data.verificationToken
-        }
+    return registerActiveAccount(request, {
+        prenom: name, name: 'AVEC', phone, identityNumber: `ID-${phone.replace(/\D/g, '')}`,
+        browserSessionId: `public-news-${phone.replace(/\D/g, '')}`
     });
 }
 
@@ -66,35 +60,19 @@ test('public news preserves social privacy and platform admins control scheduled
         body: { prenom: 'Admin', name: 'Actualités', phone: '+22990000077', idNumber: 'ADMIN-NEWS' }
     });
     assert.equal(admin.status, 201);
-    const adminResetSession = 'public-news-admin-pin-reset';
-    const adminResetCode = await request('POST', '/api/platform/phone-verifications/request', {
-        body: { phone: '+22990000077', browserSessionId: adminResetSession }
-    });
-    const adminResetVerification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone: '+22990000077', browserSessionId: adminResetSession, code: adminResetCode.data.sandboxCode }
-    });
-    assert.equal((await request('POST', '/api/auth/pin-reset', {
-        body: {
-            phone: '+22990000077', pin: '8765', pinConfirmation: '8765', browserSessionId: adminResetSession,
-            phoneVerificationToken: adminResetVerification.data.verificationToken
-        }
-    })).status, 200);
     assert.equal((await request('POST', '/api/auth/platform-login', {
-        body: { phone: '+22990000077', pin: '8765' }
+        body: { phone: '+22990000077', pin: admin.data.pin }
     })).status, 200);
     const member = await createAccount('+22991112222', 'Awa');
     assert.equal(member.status, 201);
     const resetSession = 'public-news-pin-reset';
-    const resetCode = await request('POST', '/api/platform/phone-verifications/request', {
-        body: { phone: '+22991112222', browserSessionId: resetSession }
-    });
-    const resetVerification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone: '+22991112222', browserSessionId: resetSession, code: resetCode.data.sandboxCode }
-    });
+    const resetVerification = await verifyEmailPurpose(
+        request, 'member-22991112222@example.test', resetSession, 'pin_reset'
+    );
     assert.equal((await request('POST', '/api/auth/pin-reset', {
         body: {
-            phone: '+22991112222', pin: '5678', pinConfirmation: '5678', browserSessionId: resetSession,
-            phoneVerificationToken: resetVerification.data.verificationToken
+            email: 'member-22991112222@example.test', pin: '5678', pinConfirmation: '5678', browserSessionId: resetSession,
+            emailVerificationToken: resetVerification.verificationToken
         }
     })).status, 200);
     assert.equal((await request('POST', '/api/platform/auth/login', {

@@ -10,6 +10,7 @@ process.env.DATABASE_PATH = databasePath;
 process.env.JWT_SECRET = 'core-workflows-test-jwt-secret';
 
 const { start, db } = require('../src/server');
+const { registerActiveAccount } = require('./helpers/account-security');
 
 let server;
 let port;
@@ -84,18 +85,8 @@ test('dashboard, staff, chat, fraud review, Momo, and platform contracts work on
 
     const creatorSession = 'core-workflows-browser-session-22991111112';
     const creatorPhone = '+22991111112';
-    const creatorDelivery = await request('POST', '/api/platform/phone-verifications/request', {
-        body: { phone: creatorPhone, browserSessionId: creatorSession }
-    });
-    const creatorVerification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone: creatorPhone, browserSessionId: creatorSession, code: creatorDelivery.data.sandboxCode }
-    });
-    const creator = await request('POST', '/api/platform/auth/register', {
-        body: {
-            prenom: 'Président', name: 'Audit', phone: creatorPhone, identityNumber: 'ID-AUDIT-PRESIDENT',
-            pin: '1234', pinConfirmation: '1234', browserSessionId: creatorSession,
-            phoneVerificationToken: creatorVerification.data.verificationToken
-        }
+    const creator = await registerActiveAccount(request, {
+        prenom: 'Pr?sident', name: 'Audit', phone: creatorPhone, identityNumber: 'ID-AUDIT-PRESIDENT', browserSessionId: creatorSession
     });
     assert.equal(creator.status, 201);
     await run('UPDATE platform_accounts SET internal_wallet = 100 WHERE id = ?', [creator.data.account.id]);
@@ -119,18 +110,8 @@ test('dashboard, staff, chat, fraud review, Momo, and platform contracts work on
 
     const memberSession = 'core-workflows-browser-session-22992222223';
     const memberPhone = '+22992222223';
-    const memberDelivery = await request('POST', '/api/platform/phone-verifications/request', {
-        body: { phone: memberPhone, browserSessionId: memberSession }
-    });
-    const memberVerification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone: memberPhone, browserSessionId: memberSession, code: memberDelivery.data.sandboxCode }
-    });
-    const memberAccount = await request('POST', '/api/platform/auth/register', {
-        body: {
-            prenom: 'Membre', name: 'Audit', phone: memberPhone, identityNumber: 'MEM-AUDIT',
-            pin: '1234', pinConfirmation: '1234', browserSessionId: memberSession,
-            phoneVerificationToken: memberVerification.data.verificationToken
-        }
+    const memberAccount = await registerActiveAccount(request, {
+        prenom: 'Membre', name: 'Audit', phone: memberPhone, identityNumber: 'MEM-AUDIT', browserSessionId: memberSession
     });
     assert.equal(memberAccount.status, 201);
     const invitation = await request('POST', `/api/platform/groups/${group.data.groupId}/invitations`, {

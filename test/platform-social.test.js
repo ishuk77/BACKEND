@@ -9,6 +9,7 @@ fs.rmSync(databasePath, { force: true });
 process.env.DATABASE_PATH = databasePath;
 process.env.JWT_SECRET = 'platform-social-test-jwt-secret';
 const { start, db } = require('../src/server');
+const { registerActiveAccount } = require('./helpers/account-security');
 let server; let port;
 
 function request(method, route, { body, token } = {}) {
@@ -47,20 +48,10 @@ test.after(async () => { await new Promise(resolve => server.close(resolve)); aw
 
 test('platform account, group admission, social privacy, and moderation contracts', async () => {
     const admin = await request('POST', '/api/platform-admin', { body: { prenom: 'Admin', name: 'Social', phone: '+22990000009', idNumber: 'ADMIN-SOCIAL' } });
-    const createAccount = async (prenom, phone) => {
-        const browserSessionId = `platform-social-session-${phone.replace(/\D/g, '')}`;
-        const delivery = await request('POST', '/api/platform/phone-verifications/request', { body: { phone, browserSessionId } });
-        const verification = await request('POST', '/api/platform/phone-verifications/verify', {
-            body: { phone, browserSessionId, code: delivery.data.sandboxCode }
-        });
-        return request('POST', '/api/platform/auth/register', {
-            body: {
-                prenom, name: 'Membre', phone, identityNumber: `ID-${phone.replace(/\D/g, '')}`,
-                pin: '1234', pinConfirmation: '1234', browserSessionId,
-                phoneVerificationToken: verification.data.verificationToken
-            }
-        });
-    };
+    const createAccount = (prenom, phone) => registerActiveAccount(request, {
+        prenom, name: 'Membre', phone, identityNumber: `ID-${phone.replace(/\D/g, '')}`,
+        browserSessionId: `platform-social-session-${phone.replace(/\D/g, '')}`
+    });
     const alice = await createAccount('Alice', '+22991110001');
     const bob = await createAccount('Bob', '+22991110002');
     const charlie = await createAccount('Charlie', '+22991110003');

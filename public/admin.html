@@ -282,6 +282,18 @@
                 <p id="deploymentSaveMessage" class="field-hint" role="status"></p>
                 <button class="btn btn-primary" type="submit">Enregistrer les paramètres non secrets</button>
             </form>
+            <form id="groupCreationRulesForm">
+                <h3>Règles de création des groupes AVEC</h3>
+                <p class="field-hint">Ces règles sont appliquées côté serveur. Les frais sont prélevés du portefeuille personnel du créateur et enregistrés comme revenu de plateforme; ils ne financent jamais le wallet du groupe.</p>
+                <div class="form-grid">
+                    <div class="form-group"><label for="groupRuleMinimumMembers">Membres minimum</label><input id="groupRuleMinimumMembers" type="number" min="1" required></div>
+                    <div class="form-group"><label for="groupRuleMaximumMembers">Membres maximum</label><input id="groupRuleMaximumMembers" type="number" min="1" required></div>
+                    <div class="form-group"><label for="groupRuleFeePerMember">Frais par membre (centimes USD)</label><input id="groupRuleFeePerMember" type="number" min="0" required></div>
+                    <div class="form-group"><label for="groupRuleMinimumCapital">Capital initial minimum (centimes USD)</label><input id="groupRuleMinimumCapital" type="number" min="0" required></div>
+                </div>
+                <p id="groupCreationRulesMessage" class="field-hint" role="status"></p>
+                <button class="btn btn-primary" type="submit">Enregistrer les règles AVEC</button>
+            </form>
             <section class="deployment-checklist" aria-labelledby="deploymentChecklistTitle">
                 <h3 id="deploymentChecklistTitle">Checklist avant mise en production</h3>
                 <ol>

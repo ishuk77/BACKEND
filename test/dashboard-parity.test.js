@@ -9,6 +9,7 @@ fs.rmSync(databasePath, { force: true });
 process.env.DATABASE_PATH = databasePath;
 process.env.JWT_SECRET = 'dashboard-parity-test-jwt-secret';
 const { start, db } = require('../src/server');
+const { registerActiveAccount } = require('./helpers/account-security');
 
 let server;
 let port;
@@ -35,16 +36,9 @@ function run(sql, values = []) {
 }
 
 async function registerAccount(phone, identity, pin = '1234') {
-    const browserSessionId = `dashboard-parity-session-${phone.replace(/\D/g, '')}`;
-    const delivery = await request('POST', '/api/platform/phone-verifications/request', { body: { phone, browserSessionId } });
-    const verification = await request('POST', '/api/platform/phone-verifications/verify', {
-        body: { phone, browserSessionId, code: delivery.data.sandboxCode }
-    });
-    return request('POST', '/api/platform/auth/register', {
-        body: {
-            prenom: 'Nouveau', name: 'Compte', phone, identityNumber: identity, pin, pinConfirmation: pin,
-            browserSessionId, phoneVerificationToken: verification.data.verificationToken
-        }
+    return registerActiveAccount(request, {
+        prenom: 'Nouveau', name: 'Compte', phone, identityNumber: identity, pin,
+        browserSessionId: `dashboard-parity-session-${phone.replace(/\D/g, '')}`
     });
 }
 

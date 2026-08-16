@@ -9,6 +9,7 @@ fs.rmSync(databasePath, { force: true });
 process.env.DATABASE_PATH = databasePath;
 process.env.JWT_SECRET = 'public-enhancements-test-secret';
 const { start, db } = require('../src/server');
+const { registerActiveAccount } = require('./helpers/account-security');
 
 let server;
 let port;
@@ -36,11 +37,9 @@ function request(method, route, { body, token, headers = {} } = {}) {
 }
 
 async function account(phone) {
-    const browserSessionId = `enhancement-${phone.replace(/\D/g, '')}`;
-    const delivery = await request('POST', '/api/platform/phone-verifications/request', { body: { phone, browserSessionId } });
-    const verification = await request('POST', '/api/platform/phone-verifications/verify', { body: { phone, browserSessionId, code: delivery.data.sandboxCode } });
-    return request('POST', '/api/platform/auth/register', {
-        body: { prenom: 'Awa', name: 'Test', phone, identityNumber: `ID-${phone.replace(/\D/g, '')}`, pin: '1234', pinConfirmation: '1234', browserSessionId, phoneVerificationToken: verification.data.verificationToken }
+    return registerActiveAccount(request, {
+        prenom: 'Awa', name: 'Test', phone, identityNumber: `ID-${phone.replace(/\D/g, '')}`,
+        browserSessionId: `enhancement-${phone.replace(/\D/g, '')}`
     });
 }
 
