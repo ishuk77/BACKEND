@@ -34,8 +34,20 @@ const PHONE_VERIFICATION_TTL_MS = Number(process.env.PHONE_VERIFICATION_TTL_MS |
 const PHONE_VERIFICATION_MAX_ATTEMPTS = 5;
 const phoneVerificationSessions = new Map();
 const emailVerificationSessions = new Map();
-const EMAIL_VERIFICATION_TTL_MS = Number(process.env.EMAIL_VERIFICATION_TTL_MS || 10 * 60 * 1000);
-const EMAIL_VERIFICATION_MAX_ATTEMPTS = 5;
+const configuredEmailOtpLength = Number(process.env.OTP_LENGTH || 6);
+const EMAIL_VERIFICATION_CODE_LENGTH = configuredEmailOtpLength === 6 ? configuredEmailOtpLength : 6;
+const configuredEmailOtpExpirationMinutes = Number(process.env.OTP_EXPIRATION_MINUTES || 10);
+const EMAIL_VERIFICATION_TTL_MS = Number.isFinite(configuredEmailOtpExpirationMinutes) && configuredEmailOtpExpirationMinutes >= 1 && configuredEmailOtpExpirationMinutes <= 30
+    ? configuredEmailOtpExpirationMinutes * 60 * 1000
+    : 10 * 60 * 1000;
+const configuredEmailOtpAttempts = Number(process.env.OTP_MAX_ATTEMPTS || 5);
+const EMAIL_VERIFICATION_MAX_ATTEMPTS = Number.isInteger(configuredEmailOtpAttempts) && configuredEmailOtpAttempts >= 1 && configuredEmailOtpAttempts <= 10
+    ? configuredEmailOtpAttempts
+    : 5;
+const configuredEmailOtpResendDelaySeconds = Number(process.env.OTP_RESEND_DELAY_SECONDS || 60);
+const EMAIL_VERIFICATION_RESEND_DELAY_MS = Number.isFinite(configuredEmailOtpResendDelaySeconds) && configuredEmailOtpResendDelaySeconds >= 30 && configuredEmailOtpResendDelaySeconds <= 3600
+    ? configuredEmailOtpResendDelaySeconds * 1000
+    : 60 * 1000;
 const SOCIAL_SANDBOX_PRICING = Object.freeze({
     currency: 'USD',
     text_post_minor: 10,
@@ -2653,7 +2665,7 @@ function emailVerificationKey(email, sessionId, purpose, accountId = null) {
 
 function emailOtpProviderConfiguration() {
     const provider = String(process.env.EMAIL_OTP_PROVIDER || 'sandbox').trim().toLowerCase();
-    if (provider !== 'http') {
+    if (!['http', 'brevo'].includes(provider)) {
         return {
             configured: false,
             message: provider === 'sandbox'
@@ -2661,16 +2673,18 @@ function emailOtpProviderConfiguration() {
                 : 'Le fournisseur e-mail OTP configuré n’est pas pris en charge.'
         };
     }
-    const endpoint = String(process.env.EMAIL_OTP_ENDPOINT || '').trim();
-    const apiKey = String(process.env.EMAIL_OTP_API_KEY || '').trim();
+    const endpoint = String(provider === 'brevo' ? process.env.BREVO_API_URL : process.env.EMAIL_OTP_ENDPOINT || '').trim();
+    const apiKey = String(provider === 'brevo' ? process.env.BREVO_API_KEY : process.env.EMAIL_OTP_API_KEY || '').trim();
     const from = normalizedEmail(process.env.EMAIL_OTP_FROM);
     if (!/^https:\/\//.test(endpoint) || !/^\S{8,4096}$/.test(apiKey) || !from) {
         return {
             configured: false,
-            message: 'La livraison par e-mail est incomplète. Configurez EMAIL_OTP_ENDPOINT, EMAIL_OTP_API_KEY et EMAIL_OTP_FROM sur le serveur.'
+            message: provider === 'brevo'
+                ? 'La livraison Brevo est incomplète. Configurez BREVO_API_URL, BREVO_API_KEY et EMAIL_OTP_FROM sur le serveur.'
+                : 'La livraison par e-mail est incomplète. Configurez EMAIL_OTP_ENDPOINT, EMAIL_OTP_API_KEY et EMAIL_OTP_FROM sur le serveur.'
         };
     }
-    return { configured: true, endpoint, apiKey, from };
+    return { configured: true, provider, endpoint, apiKey, from, fromName: safeText(process.env.EMAIL_OTP_FROM_NAME, 80) || 'AVEC' };
 }
 
 function emailOtpConfigurationError(message) {
@@ -2682,18 +2696,28 @@ function emailOtpConfigurationError(message) {
 async function deliverEmailVerificationCode(email, code, purpose) {
     const configuration = emailOtpProviderConfiguration();
     if (!configuration.configured) throw emailOtpConfigurationError(configuration.message);
+    const isBrevo = configuration.provider === 'brevo';
     const response = await fetch(configuration.endpoint, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${configuration.apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            from: configuration.from, to: email,
-            subject: 'Code de vérification AVEC',
-            text: `Votre code AVEC est ${code}. Il expire dans 10 minutes. Ne le partagez avec personne.`,
-            purpose
-        })
+        headers: isBrevo
+            ? { 'api-key': configuration.apiKey, 'Content-Type': 'application/json', Accept: 'application/json' }
+            : { Authorization: `Bearer ${configuration.apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(isBrevo
+            ? {
+                sender: { email: configuration.from, name: configuration.fromName },
+                to: [{ email }],
+                subject: 'Code de vérification AVEC',
+                textContent: `Votre code AVEC est ${code}. Il expire dans ${Math.round(EMAIL_VERIFICATION_TTL_MS / 60000)} minutes. Ne le partagez avec personne.`
+            }
+            : {
+                from: configuration.from, to: email,
+                subject: 'Code de vérification AVEC',
+                text: `Votre code AVEC est ${code}. Il expire dans ${Math.round(EMAIL_VERIFICATION_TTL_MS / 60000)} minutes. Ne le partagez avec personne.`,
+                purpose
+            })
     });
     if (!response.ok) throw new Error('Le fournisseur e-mail a refusé l’envoi.');
-    return { provider: 'http' };
+    return { provider: configuration.provider };
 }
 
 async function requestEmailVerification(email, sessionId, purpose, accountId = null) {
@@ -2701,8 +2725,16 @@ async function requestEmailVerification(email, sessionId, purpose, accountId = n
     for (const [key, verification] of emailVerificationSessions) {
         if (verification.expiresAt <= now) emailVerificationSessions.delete(key);
     }
-    const code = String(crypto.randomInt(100000, 1000000));
+    const key = emailVerificationKey(email, sessionId, purpose, accountId);
+    const previous = emailVerificationSessions.get(key);
+    if (previous && previous.expiresAt > now && now - previous.requestedAt < EMAIL_VERIFICATION_RESEND_DELAY_MS) {
+        const error = new Error(`Attendez ${Math.ceil((EMAIL_VERIFICATION_RESEND_DELAY_MS - (now - previous.requestedAt)) / 1000)} secondes avant de demander un autre code.`);
+        error.status = 429;
+        throw error;
+    }
+    const code = String(crypto.randomInt(10 ** (EMAIL_VERIFICATION_CODE_LENGTH - 1), 10 ** EMAIL_VERIFICATION_CODE_LENGTH));
     const verification = {
+        requestedAt: now,
         expiresAt: now + EMAIL_VERIFICATION_TTL_MS,
         attemptsRemaining: EMAIL_VERIFICATION_MAX_ATTEMPTS,
         codeHash: bcrypt.hashSync(code, 10),
@@ -2710,7 +2742,7 @@ async function requestEmailVerification(email, sessionId, purpose, accountId = n
         verificationToken: null
     };
     const delivery = await deliverEmailVerificationCode(email, code, purpose);
-    emailVerificationSessions.set(emailVerificationKey(email, sessionId, purpose, accountId), verification);
+    emailVerificationSessions.set(key, verification);
     return { ...delivery, expiresAt: new Date(verification.expiresAt).toISOString() };
 }
 
@@ -3726,6 +3758,7 @@ app.post('/api/platform/profile/email/request', authenticateAccount, async (req,
                 res.status(202).json({ requested: true, message: 'Code de vérification envoyé par e-mail.' });
             } catch (error) {
                 if (error.code === 'EMAIL_OTP_NOT_CONFIGURED') return res.status(503).json({ error: error.message });
+                if (error.status === 429) return res.status(429).json({ error: error.message });
                 console.error('Profile email OTP delivery failed:', error.message);
                 res.status(502).json({ error: 'Service e-mail temporairement indisponible.' });
             }
