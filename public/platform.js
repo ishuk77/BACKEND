@@ -9,6 +9,7 @@ let selectedDmAttachment = null;
 let paidContentPrices = null;
 let pendingMomoPaymentId = null;
 let pendingWalletTopupId = null;
+let pendingWalletWithdrawalId = null;
 const mediaUrls = new Map();
 const PHONE_VERIFICATION_SESSION_KEY = 'platformPhoneVerificationSession';
 const phoneVerificationTokens = { profile: null };
@@ -117,7 +118,7 @@ function show(screen, { history = true } = {}) {
     }
     if (screen === 'groupsScreen') loadGroups().catch(error => alert(error.message));
     if (screen === 'walletScreen') {
-        Promise.all([loadWalletTopups(), loadAccountHistory()]).catch(error => notice(error.message));
+        loadFinance().catch(error => notice(error.message));
     }
     if (screen === 'friendsScreen') loadFriends().catch(error => alert(error.message));
     if (screen === 'feedScreen') loadFeed().catch(error => alert(error.message));
@@ -181,6 +182,9 @@ function renderAccount() {
     $p('profileVisibility').value = account.visibility;
     $p('profileEmail').value = account.email || '';
     $p('internalWallet').textContent = Number(account.internal_wallet || 0);
+    let withdrawalPhone = null;
+    try { withdrawalPhone = $p('walletWithdrawalPhone'); } catch (_) {}
+    if (withdrawalPhone) withdrawalPhone.value = account.phone || '';
     const securityForm = $p('securityProfileForm');
     securityForm.hidden = Boolean(account.onboardingComplete);
     if (!securityForm.hidden) {
@@ -192,16 +196,58 @@ function renderAccount() {
     }
 }
 async function loadProfile() { account = (await request('/api/platform/profile')).account; renderAccount(); }
-async function loadWalletTopups() {
-    const data = await request('/api/wallet/topups');
-    const history = $p('walletTopupHistory');
-    history.replaceChildren();
-    data.topups.forEach(topup => {
-        const item = document.createElement('p');
-        item.className = 'field-hint';
-        item.textContent = `${topup.provider === 'momo_sandbox' ? 'Momo' : 'Visa / Mastercard'} · ${(topup.amount_minor / 100).toFixed(2)} USD · ${topup.status}`;
-        history.appendChild(item);
-    });
+function money(minor, currency = 'USD') {
+    return `${(Number(minor || 0) / 100).toFixed(2)} ${currency}`;
+}
+async function loadWalletBalance() {
+    const data = await request('/api/platform/wallet');
+    const wallet = data.wallet;
+    $p('walletAvailable').textContent = money(wallet.available_minor, wallet.currency);
+    $p('walletReserved').textContent = money(wallet.reserved_minor, wallet.currency);
+    $p('internalWallet').textContent = money(wallet.total_minor, wallet.currency);
+}
+async function loadWalletTransactions() {
+    const data = await request('/api/platform/wallet/transactions?limit=100');
+    const history = $p('walletTransactionHistory');
+    history.replaceChildren(...data.transactions.map(transaction => {
+        const row = document.createElement('p');
+        row.className = 'field-hint';
+        row.textContent = `${transaction.kind} · ${money(transaction.amount_minor, transaction.currency)} · ${transaction.status} · ${new Date(transaction.created_at).toLocaleString()}`;
+        return row;
+    }));
+}
+async function loadFinanceNotifications() {
+    const data = await request('/api/platform/notifications?limit=50');
+    const list = $p('financeNotificationList');
+    list.replaceChildren(...data.notifications.map(notification => {
+        const row = document.createElement('p');
+        row.className = 'field-hint';
+        row.textContent = notification.message;
+        return row;
+    }));
+}
+async function loadLoans() {
+    const data = await request('/api/platform/loans?mine=true');
+    const select = $p('loanGroup');
+    const selected = select.value;
+    select.replaceChildren(...data.loans.map(loan => {
+        const option = document.createElement('option');
+        option.value = loan.group_id;
+        option.textContent = loan.group_name;
+        return option;
+    }));
+    if ([...select.options].some(option => option.value === selected)) select.value = selected;
+    const list = $p('loanList');
+    list.replaceChildren(...data.loans.map(loan => {
+        const row = document.createElement('p');
+        row.className = 'field-hint';
+        const requestStatus = loan.request ? ` · ${loan.request.status}` : '';
+        row.textContent = `${loan.group_name} · ${t('finance_outstanding', 'Crédit restant')} ${money(loan.outstanding_minor)}${requestStatus}`;
+        return row;
+    }));
+}
+async function loadFinance() {
+    await Promise.all([loadWalletBalance(), loadWalletTransactions(), loadLoans(), loadFinanceNotifications(), loadAccountHistory()]);
 }
 function historyBlock(container, title, entries) {
     if (!entries.length) return;
@@ -235,27 +281,63 @@ async function loadAccountHistory() {
 }
 async function createWalletTopup(event) {
     event.preventDefault();
-    const data = await request('/api/wallet/topups', {
+    const data = await request('/api/platform/wallet/deposits', {
         method: 'POST',
         headers: { 'Idempotency-Key': idempotencyKey('wallet-topup') },
-        body: JSON.stringify({ amount: $p('walletTopupAmount').value, provider: $p('walletTopupProvider').value })
+        body: JSON.stringify({ amount: $p('walletTopupAmount').value, currency: account.wallet_currency || 'USD', provider: $p('walletTopupProvider').value })
     });
     pendingWalletTopupId = data.topup.payment_id;
     $p('walletTopupStatus').textContent = 'Rechargement créé. Confirmez-le en SANDBOX pour créditer votre portefeuille.';
     $p('simulateWalletTopup').hidden = false;
-    await loadWalletTopups();
-    await loadAccountHistory();
+    await loadFinance();
 }
 async function confirmWalletTopup() {
     if (!pendingWalletTopupId) throw new Error('Créez d’abord un rechargement.');
-    const data = await request(`/api/wallet/topups/${encodeURIComponent(pendingWalletTopupId)}/simulate-confirmation`, { method: 'POST', body: '{}' });
+    const data = await request(`/api/platform/wallet/deposits/${encodeURIComponent(pendingWalletTopupId)}/confirm`, { method: 'POST', body: '{}' });
     account = data.account;
     renderAccount();
     pendingWalletTopupId = null;
     $p('simulateWalletTopup').hidden = true;
     $p('walletTopupStatus').textContent = 'Portefeuille crédité en SANDBOX.';
-    await loadWalletTopups();
-    await loadAccountHistory();
+    await loadFinance();
+}
+async function createWalletWithdrawal(event) {
+    event.preventDefault();
+    const data = await request('/api/platform/wallet/withdrawals', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey('wallet-withdrawal') },
+        body: JSON.stringify({
+            amount: $p('walletWithdrawalAmount').value, currency: account.wallet_currency || 'USD',
+            provider: 'sandbox', phone: $p('walletWithdrawalPhone').value, pin: $p('walletWithdrawalPin').value
+        })
+    });
+    pendingWalletWithdrawalId = data.withdrawal.withdrawal_id;
+    $p('walletWithdrawalPin').value = '';
+    $p('walletWithdrawalStatus').textContent = t('finance_withdrawal_reserved', 'Retrait réservé en SANDBOX. Confirmez ou annulez la simulation.');
+    $p('confirmWalletWithdrawal').hidden = false;
+    $p('cancelWalletWithdrawal').hidden = false;
+    await loadFinance();
+}
+async function settleWalletWithdrawal(action) {
+    if (!pendingWalletWithdrawalId) throw new Error(t('finance_no_withdrawal', 'Créez d’abord un retrait.'));
+    const data = await request(`/api/platform/wallet/withdrawals/${encodeURIComponent(pendingWalletWithdrawalId)}/${action}`, { method: 'POST', body: '{}' });
+    pendingWalletWithdrawalId = null;
+    $p('confirmWalletWithdrawal').hidden = true;
+    $p('cancelWalletWithdrawal').hidden = true;
+    $p('walletWithdrawalStatus').textContent = data.withdrawal.status === 'succeeded'
+        ? t('finance_withdrawal_confirmed', 'Retrait simulé confirmé. Aucun opérateur n’a été contacté.')
+        : t('finance_withdrawal_cancelled', 'Retrait simulé annulé; la réservation est libérée.');
+    await loadFinance();
+}
+async function requestLoan(event) {
+    event.preventDefault();
+    const data = await request('/api/platform/loans', {
+        method: 'POST',
+        body: JSON.stringify({ group_id: Number($p('loanGroup').value), amount: $p('loanAmount').value, reason: $p('loanReason').value.trim() })
+    });
+    $p('loanStatus').textContent = `${t('finance_loan_requested', 'Demande de crédit enregistrée')} · ${money(data.amount_minor)}`;
+    $p('loanRequestForm').reset();
+    await loadLoans();
 }
 async function enter() {
     await loadProfile();
@@ -950,12 +1032,14 @@ function logout() {
     $p('authSection').hidden = false;
 }
 document.addEventListener('DOMContentLoaded', () => {
-    window.addEventListener('avec:localechange', event => {
-        if (event.detail && event.detail.userInitiated) {
-            languageOverridden = true;
-            localStorage.setItem('platformUiLanguageOverride', 'true');
-        }
-    });
+    if (typeof window.addEventListener === 'function') {
+        window.addEventListener('avec:localechange', event => {
+            if (event.detail && event.detail.userInitiated) {
+                languageOverridden = true;
+                localStorage.setItem('platformUiLanguageOverride', 'true');
+            }
+        });
+    }
     applyUiLanguage((window.AVEC_I18N && window.AVEC_I18N.locale) || localStorage.getItem('platformUiLanguage') || 'fr');
     populateGroupCountries();
     populateRegisterCountries();
@@ -975,6 +1059,14 @@ document.addEventListener('DOMContentLoaded', () => {
     $p('pinResetForm').addEventListener('submit', event => resetPin(event).catch(error => showVerificationStatus('pinResetStatus', error.message)));
     $p('walletTopupForm').addEventListener('submit', event => createWalletTopup(event).catch(error => notice(error.message)));
     $p('simulateWalletTopup').addEventListener('click', () => confirmWalletTopup().catch(error => notice(error.message)));
+    let withdrawalForm = null;
+    try { withdrawalForm = $p('walletWithdrawalForm'); } catch (_) {}
+    if (withdrawalForm) {
+        withdrawalForm.addEventListener('submit', event => createWalletWithdrawal(event).catch(error => notice(error.message)));
+        $p('confirmWalletWithdrawal').addEventListener('click', () => settleWalletWithdrawal('confirm').catch(error => notice(error.message)));
+        $p('cancelWalletWithdrawal').addEventListener('click', () => settleWalletWithdrawal('cancel').catch(error => notice(error.message)));
+        $p('loanRequestForm').addEventListener('submit', event => requestLoan(event).catch(error => { $p('loanStatus').textContent = error.message; }));
+    }
     $p('profileForm').addEventListener('submit', event => saveProfile(event).catch(error => alert(error.message)));
     $p('profileEmailRequestCode').addEventListener('click', () => requestProfileEmailVerification().catch(error => showVerificationStatus('profileEmailStatus', error.message)));
     $p('profileEmailVerifyCode').addEventListener('click', () => verifyEmailVerification('profile_email', 'profileEmail', 'profileEmailCode', 'profileEmailStatus').then(saveProfileEmail).catch(error => showVerificationStatus('profileEmailStatus', error.message)));

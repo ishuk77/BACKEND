@@ -1,4 +1,5 @@
 (() => {
+    const t = (key, fallback) => window.AVEC_I18N ? window.AVEC_I18N.t(key, fallback) : fallback;
     const feed = document.getElementById('homeNewsFeed');
     if (!feed) return;
     const label = item => item.content_type === 'advertisement' ? 'Publicité'
@@ -72,7 +73,7 @@
             const comments = document.createElement('a');
             comments.className = 'public-comment-link';
             comments.href = 'news.html';
-            comments.textContent = 'Voir et commenter dans le fil public';
+            comments.textContent = t('view_and_comment', 'Voir et commenter dans le fil public');
             article.appendChild(comments);
             feed.appendChild(article);
         });

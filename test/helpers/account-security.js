@@ -46,6 +46,11 @@ async function verifyEmailPurpose(request, email, browserSessionId, purpose) {
     assert.equal(activated.status, 200);
     return activated.data;
 }
+
+function emailCodeFor(email) {
+    return emailCodes.get(email);
+}
+
 async function activateAccount(request, email, browserSessionId) {
     return verifyEmailPurpose(request, email, browserSessionId, 'activation');
 }
@@ -92,4 +97,6 @@ async function registerActiveAccount(request, {
     };
 }
 
-module.exports = { activateAccount, registerActiveAccount, verifyEmailPurpose };
+module.exports = {
+    activateAccount, emailCodeFor, installEmailDeliveryCapture, registerActiveAccount, verifyEmailPurpose
+};

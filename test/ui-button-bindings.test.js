@@ -135,13 +135,13 @@ test('navigation groups actions without exposing platform administration publicl
     assert.match(groupPortal, /Demandes d’adhésion/);
     assert.match(groupPortal, /id="joinRequestsList"/);
     assert.match(groupScript, /Président\(s\) à contacter/);
-    assert.match(memberPortal, /<section id="profileScreen"[\s\S]*?<h3>Accueil membre<\/h3>[\s\S]*?<\/section>/);
+    assert.match(memberPortal, /<section id="profileScreen"[\s\S]*?<h3[^>]*>Accueil membre<\/h3>[\s\S]*?<\/section>/);
     assert.doesNotMatch(memberPortal.match(/<section id="profileScreen"[\s\S]*?<\/section>/)[0], /Mon wallet|Mon compte AVEC|Alimenter mon portefeuille/);
     ['Finance', 'Groupe', 'Collaboration', 'Social', 'Profil et paramètres'].forEach(label => assert.match(admin, new RegExp(`<summary>${label}`)));
     assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
     assert.match(memberPortal, /<section id="portalSection" class="card" hidden>/);
     assert.match(fs.readFileSync(path.join(root, 'public', 'style.css'), 'utf8'), /#portalSection\[hidden\][\s\S]*?display: none/);
-    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v52/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v55/);
 });
 
 test('all application surfaces load the bundled locale controller and expose a shared selector', () => {

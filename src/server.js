@@ -292,6 +292,7 @@ function initDatabase(onReady) {
             availability TEXT NOT NULL DEFAULT 'offline' CHECK (availability IN ('online', 'offline', 'busy')),
             internal_wallet REAL NOT NULL DEFAULT 0,
             internal_wallet_minor INTEGER NOT NULL DEFAULT 0,
+            wallet_reserved_minor INTEGER NOT NULL DEFAULT 0,
             momo_wallet REAL NOT NULL DEFAULT 0,
             wallet_currency TEXT NOT NULL DEFAULT 'USD',
             avatar_media_id INTEGER,
@@ -992,6 +993,29 @@ function initDatabase(onReady) {
             FOREIGN KEY (transfer_id) REFERENCES wallet_transfers(transfer_id),
             FOREIGN KEY (account_id) REFERENCES platform_accounts(id)
         )`, logDatabaseError('creating wallet journal table'));
+        db.run(`CREATE TABLE IF NOT EXISTS wallet_withdrawal_intents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            withdrawal_id TEXT NOT NULL UNIQUE,
+            idempotency_key TEXT NOT NULL UNIQUE,
+            account_id INTEGER NOT NULL,
+            amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+            currency TEXT NOT NULL,
+            provider TEXT NOT NULL CHECK (provider = 'sandbox'),
+            destination_phone TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('reserved', 'succeeded', 'failed', 'cancelled')),
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            finalized_at DATETIME,
+            FOREIGN KEY (account_id) REFERENCES platform_accounts(id)
+        )`, logDatabaseError('creating wallet withdrawal intents table'));
+        db.run(`CREATE TABLE IF NOT EXISTS wallet_withdrawal_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT NOT NULL UNIQUE,
+            withdrawal_id TEXT NOT NULL,
+            event_type TEXT NOT NULL CHECK (event_type IN ('reserved', 'succeeded', 'released')),
+            amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (withdrawal_id) REFERENCES wallet_withdrawal_intents(withdrawal_id)
+        )`, logDatabaseError('creating wallet withdrawal events table'));
         db.run(`CREATE TABLE IF NOT EXISTS deployment_settings (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             public_base_url TEXT NOT NULL DEFAULT '',
@@ -1053,6 +1077,7 @@ function initDatabase(onReady) {
         db.run('CREATE INDEX IF NOT EXISTS idx_wallet_transfers_sender_created ON wallet_transfers(sender_account_id, created_at DESC)', logDatabaseError('creating wallet transfer sender index'));
         db.run('CREATE INDEX IF NOT EXISTS idx_wallet_transfers_recipient_created ON wallet_transfers(recipient_account_id, created_at DESC)', logDatabaseError('creating wallet transfer recipient index'));
         db.run('CREATE INDEX IF NOT EXISTS idx_wallet_journal_account_created ON wallet_journal_entries(account_id, created_at DESC)', logDatabaseError('creating wallet journal index'));
+        db.run('CREATE INDEX IF NOT EXISTS idx_wallet_withdrawals_account_created ON wallet_withdrawal_intents(account_id, created_at DESC)', logDatabaseError('creating wallet withdrawal index'));
         db.run(`CREATE TRIGGER IF NOT EXISTS financial_ledger_immutable_update
                 BEFORE UPDATE ON financial_ledger BEGIN SELECT RAISE(ABORT, 'financial_ledger is append-only'); END`, logDatabaseError('protecting financial ledger updates'));
         db.run(`CREATE TRIGGER IF NOT EXISTS financial_ledger_immutable_delete
@@ -1077,6 +1102,10 @@ function initDatabase(onReady) {
                 BEFORE UPDATE ON wallet_journal_entries BEGIN SELECT RAISE(ABORT, 'wallet_journal_entries are append-only'); END`, logDatabaseError('protecting wallet journal updates'));
         db.run(`CREATE TRIGGER IF NOT EXISTS wallet_journal_entries_immutable_delete
                 BEFORE DELETE ON wallet_journal_entries BEGIN SELECT RAISE(ABORT, 'wallet_journal_entries are append-only'); END`, logDatabaseError('protecting wallet journal deletes'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS wallet_withdrawal_events_immutable_update
+                BEFORE UPDATE ON wallet_withdrawal_events BEGIN SELECT RAISE(ABORT, 'wallet_withdrawal_events are append-only'); END`, logDatabaseError('protecting wallet withdrawal audit updates'));
+        db.run(`CREATE TRIGGER IF NOT EXISTS wallet_withdrawal_events_immutable_delete
+                BEFORE DELETE ON wallet_withdrawal_events BEGIN SELECT RAISE(ABORT, 'wallet_withdrawal_events are append-only'); END`, logDatabaseError('protecting wallet withdrawal audit deletes'));
 
         migratePlatformMomo();
         migrateChatMessages();
@@ -1114,6 +1143,7 @@ function initDatabase(onReady) {
             ['platform_accounts', 'wallet_currency', "TEXT NOT NULL DEFAULT 'USD'"],
             ['platform_accounts', 'country', 'TEXT'],
             ['platform_accounts', 'internal_wallet_minor', 'INTEGER NOT NULL DEFAULT 0'],
+            ['platform_accounts', 'wallet_reserved_minor', 'INTEGER NOT NULL DEFAULT 0'],
             ['platform_accounts', 'email', 'TEXT'],
             ['platform_accounts', 'email_verified_at', 'DATETIME'],
             ['groups', 'intended_member_count', 'INTEGER NOT NULL DEFAULT 20'],
@@ -3545,6 +3575,183 @@ app.get('/api/platform/wallet/summary', authenticateAccount, (req, res) => {
         }
     );
 });
+// The platform wallet is a local SANDBOX balance.  `reserved_minor` is excluded
+// from spending until a withdrawal is explicitly confirmed or released.
+app.get('/api/platform/wallet', authenticateAccount, (req, res) => {
+    const totalMinor = Math.round(Number(req.account.internal_wallet || 0) * 100);
+    const reservedMinor = Math.max(0, Number(req.account.wallet_reserved_minor || 0));
+    res.json({
+        sandbox: true,
+        wallet: {
+            available_minor: Math.max(0, totalMinor - reservedMinor),
+            reserved_minor: reservedMinor,
+            total_minor: totalMinor,
+            currency: req.account.wallet_currency || 'USD'
+        }
+    });
+});
+app.get('/api/platform/wallet/transactions', authenticateAccount, (req, res) => {
+    const requestedLimit = Number(req.query.limit || 50);
+    const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 50;
+    db.all(
+        `SELECT 'deposit' AS kind, payment_id AS reference, amount_minor, currency, status, created_at
+           FROM wallet_topups WHERE account_id = ?
+         UNION ALL
+         SELECT 'withdrawal' AS kind, withdrawal_id AS reference, amount_minor, currency, status, created_at
+           FROM wallet_withdrawal_intents WHERE account_id = ?
+         UNION ALL
+         SELECT CASE WHEN sender_account_id = ? THEN 'transfer_sent' ELSE 'transfer_received' END AS kind,
+                transfer_id AS reference, amount_minor, currency, 'succeeded' AS status, created_at
+           FROM wallet_transfers WHERE sender_account_id = ? OR recipient_account_id = ?
+         ORDER BY created_at DESC LIMIT ?`,
+        [req.account.id, req.account.id, req.account.id, req.account.id, req.account.id, limit],
+        (err, transactions) => err
+            ? res.status(500).json({ error: err.message })
+            : res.json({ sandbox: true, transactions })
+    );
+});
+app.post('/api/platform/wallet/withdrawals', authenticateAccount, (req, res) => {
+    const amountMinor = Math.round(Number(req.body.amount) * 100);
+    const currency = safeText(req.body.currency || req.account.wallet_currency || 'USD', 3);
+    const provider = String(req.body.provider || '');
+    const phone = safeText(req.body.phone || '', 32);
+    const pin = String(req.body.pin || '');
+    const idempotencyKey = paymentIdempotencyKey(req);
+    if (!Number.isSafeInteger(amountMinor) || amountMinor < 1 || !/^[A-Z]{3}$/.test(currency || '')
+        || provider !== 'sandbox' || !phone || !/^\+?[0-9]{7,20}$/.test(phone) || !/^\d{4}$/.test(pin)
+        || !idempotencyKey || idempotencyKey.length < 12 || idempotencyKey.length > 200) {
+        return res.status(400).json({ error: 'Montant, devise, téléphone, PIN, fournisseur SANDBOX et clé d’idempotence valides requis.' });
+    }
+    db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
+        if (beginErr) return res.status(500).json({ error: beginErr.message });
+        db.get('SELECT withdrawal_id, amount_minor, currency, status FROM wallet_withdrawal_intents WHERE idempotency_key = ? AND account_id = ?', [idempotencyKey, req.account.id], (replayErr, existing) => {
+            if (replayErr) {
+                db.run('ROLLBACK');
+                return res.status(500).json({ error: replayErr.message });
+            }
+            if (existing) {
+                db.run('COMMIT');
+                return res.json({ withdrawal: existing, idempotent_replay: true, sandbox: true });
+            }
+            db.get('SELECT * FROM platform_accounts WHERE id = ?', [req.account.id], (accountErr, account) => {
+                if (accountErr || !account || !account.phone_verified_at || account.phone !== phone || !bcrypt.compareSync(pin, account.password)) {
+                    db.run('ROLLBACK');
+                    return res.status(accountErr ? 500 : 403).json({ error: accountErr ? accountErr.message : 'La vérification du téléphone ou du PIN a échoué.' });
+                }
+                if ((account.wallet_currency || 'USD') !== currency) {
+                    db.run('ROLLBACK');
+                    return res.status(409).json({ error: 'La devise du portefeuille ne correspond pas.' });
+                }
+                db.run(
+                    `UPDATE platform_accounts SET wallet_reserved_minor = wallet_reserved_minor + ?
+                     WHERE id = ? AND CAST(ROUND(internal_wallet * 100) AS INTEGER) - wallet_reserved_minor >= ?`,
+                    [amountMinor, account.id, amountMinor],
+                    function reserve(reserveErr) {
+                        if (reserveErr || !this.changes) {
+                            db.run('ROLLBACK');
+                            return res.status(reserveErr ? 500 : 409).json({ error: reserveErr ? reserveErr.message : 'Solde disponible insuffisant.' });
+                        }
+                        const withdrawalId = `SANDBOX-WITHDRAWAL-${newSecureId().slice(0, 18).toUpperCase()}`;
+                        db.run(
+                            `INSERT INTO wallet_withdrawal_intents
+                             (withdrawal_id, idempotency_key, account_id, amount_minor, currency, provider, destination_phone, status)
+                             VALUES (?, ?, ?, ?, ?, 'sandbox', ?, 'reserved')`,
+                            [withdrawalId, idempotencyKey, account.id, amountMinor, currency, phone],
+                            insertErr => {
+                                if (insertErr) {
+                                    db.run('ROLLBACK');
+                                    return res.status(isConstraintError(insertErr) ? 409 : 500).json({ error: insertErr.message });
+                                }
+                                db.run(
+                                    `INSERT INTO wallet_withdrawal_events (event_id, withdrawal_id, event_type, amount_minor)
+                                     VALUES (?, ?, 'reserved', ?)`,
+                                    [newSecureId(), withdrawalId, amountMinor],
+                                    auditErr => {
+                                        if (auditErr) {
+                                            db.run('ROLLBACK');
+                                            return res.status(500).json({ error: auditErr.message });
+                                        }
+                                        db.run('COMMIT', commitErr => {
+                                            if (commitErr) return res.status(500).json({ error: commitErr.message });
+                                            res.status(201).json({ withdrawal: { withdrawal_id: withdrawalId, amount_minor: amountMinor, currency, status: 'reserved' }, sandbox: true, confirmation_required: true });
+                                        });
+                                    }
+                                );
+                            }
+                        );
+                    }
+                );
+            });
+        });
+    }));
+});
+function releaseOrFinalizeSandboxWithdrawal(finalStatus) {
+    return (req, res) => {
+        if (!['succeeded', 'failed', 'cancelled'].includes(finalStatus)) return res.status(500).json({ error: 'Transition de retrait invalide.' });
+        db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
+            if (beginErr) return res.status(500).json({ error: beginErr.message });
+            db.get('SELECT * FROM wallet_withdrawal_intents WHERE withdrawal_id = ? AND account_id = ?', [req.params.withdrawalId, req.account.id], (lookupErr, withdrawal) => {
+                if (lookupErr || !withdrawal) {
+                    db.run('ROLLBACK');
+                    return res.status(lookupErr ? 500 : 404).json({ error: lookupErr ? lookupErr.message : 'Retrait introuvable.' });
+                }
+                if (withdrawal.status === finalStatus || (finalStatus === 'cancelled' && withdrawal.status === 'failed')) {
+                    db.run('COMMIT');
+                    return res.json({ withdrawal: { withdrawal_id: withdrawal.withdrawal_id, amount_minor: withdrawal.amount_minor, currency: withdrawal.currency, status: withdrawal.status }, idempotent_replay: true, sandbox: true });
+                }
+                if (withdrawal.status !== 'reserved') {
+                    db.run('ROLLBACK');
+                    return res.status(409).json({ error: 'Ce retrait a déjà été traité.' });
+                }
+                const debit = finalStatus === 'succeeded';
+                const accountSql = debit
+                    ? `UPDATE platform_accounts SET internal_wallet = internal_wallet - ?, internal_wallet_minor = CAST(ROUND(internal_wallet * 100) AS INTEGER) - ?, wallet_reserved_minor = wallet_reserved_minor - ? WHERE id = ? AND wallet_reserved_minor >= ? AND CAST(ROUND(internal_wallet * 100) AS INTEGER) >= ?`
+                    : `UPDATE platform_accounts SET wallet_reserved_minor = wallet_reserved_minor - ? WHERE id = ? AND wallet_reserved_minor >= ?`;
+                const accountValues = debit
+                    ? [withdrawal.amount_minor / 100, withdrawal.amount_minor, withdrawal.amount_minor, req.account.id, withdrawal.amount_minor, withdrawal.amount_minor]
+                    : [withdrawal.amount_minor, req.account.id, withdrawal.amount_minor];
+                db.run(accountSql, accountValues, function settleAccount(settleErr) {
+                    if (settleErr || !this.changes) {
+                        db.run('ROLLBACK');
+                        return res.status(settleErr ? 500 : 409).json({ error: settleErr ? settleErr.message : 'Réservation de retrait introuvable.' });
+                    }
+                    db.run(
+                        `UPDATE wallet_withdrawal_intents SET status = ?, finalized_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'reserved'`,
+                        [finalStatus, withdrawal.id],
+                        function updateIntent(intentErr) {
+                            if (intentErr || !this.changes) {
+                                db.run('ROLLBACK');
+                                return res.status(intentErr ? 500 : 409).json({ error: intentErr ? intentErr.message : 'Retrait déjà traité.' });
+                            }
+                            db.run(
+                                `INSERT INTO wallet_withdrawal_events (event_id, withdrawal_id, event_type, amount_minor)
+                                 VALUES (?, ?, ?, ?)`,
+                                [newSecureId(), withdrawal.withdrawal_id, debit ? 'succeeded' : 'released', withdrawal.amount_minor],
+                                auditErr => {
+                                    if (auditErr) {
+                                        db.run('ROLLBACK');
+                                        return res.status(500).json({ error: auditErr.message });
+                                    }
+                                    db.run('COMMIT', commitErr => {
+                                        if (commitErr) return res.status(500).json({ error: commitErr.message });
+                                        notifyAccount(req.account.id, debit ? 'wallet_withdrawal_confirmed' : 'wallet_withdrawal_released', debit
+                                            ? `Retrait SANDBOX confirmé : ${(withdrawal.amount_minor / 100).toFixed(2)} ${withdrawal.currency}.`
+                                            : `Réservation de retrait SANDBOX libérée : ${(withdrawal.amount_minor / 100).toFixed(2)} ${withdrawal.currency}.`,
+                                        'wallet_withdrawal', withdrawal.withdrawal_id);
+                                        res.json({ withdrawal: { withdrawal_id: withdrawal.withdrawal_id, amount_minor: withdrawal.amount_minor, currency: withdrawal.currency, status: finalStatus }, sandbox: true });
+                                    });
+                                }
+                            );
+                        }
+                    );
+                });
+            });
+        }));
+    };
+}
+app.post('/api/platform/wallet/withdrawals/:withdrawalId/confirm', authenticateAccount, releaseOrFinalizeSandboxWithdrawal('succeeded'));
+app.post('/api/platform/wallet/withdrawals/:withdrawalId/cancel', authenticateAccount, releaseOrFinalizeSandboxWithdrawal('cancelled'));
+app.post('/api/platform/wallet/withdrawals/:withdrawalId/fail', authenticateAccount, releaseOrFinalizeSandboxWithdrawal('failed'));
 app.get('/api/platform/account-history', authenticateAccount, (req, res) => {
     db.all(
         `SELECT payment_id, provider, amount_minor, currency, status, confirmed_at, created_at
@@ -3681,10 +3888,10 @@ app.post('/api/platform/wallet/transfers', authenticateAccount, (req, res) => {
         });
     }));
 });
-app.post('/api/wallet/topups', authenticateAccount, (req, res) => {
+function createSandboxWalletTopup(req, res) {
     const provider = String(req.body.provider || '');
     const amountMinor = Math.round(Number(req.body.amount) * 100);
-    const idempotencyKey = String(req.get('Idempotency-Key') || '');
+    const idempotencyKey = paymentIdempotencyKey(req) || '';
     if (!['momo_sandbox', 'card_sandbox'].includes(provider) || !Number.isInteger(amountMinor)
         || amountMinor < 100 || amountMinor > 100000000 || idempotencyKey.length < 12 || idempotencyKey.length > 200) {
         return res.status(400).json({ error: 'Montant (minimum 1 USD), moyen de paiement et clé de demande valides requis.' });
@@ -3699,8 +3906,19 @@ app.post('/api/wallet/topups', authenticateAccount, (req, res) => {
             res.status(201).json({ topup: { payment_id: paymentId, provider, amount_minor: amountMinor, status: 'pending' }, sandbox: true });
         });
     });
+}
+app.post('/api/wallet/topups', authenticateAccount, createSandboxWalletTopup);
+app.post('/api/platform/wallet/deposits', authenticateAccount, (req, res) => {
+    if (String(req.body.provider || '') !== 'sandbox') {
+        return res.status(400).json({ error: 'Seul le fournisseur SANDBOX est disponible.' });
+    }
+    if (req.body.currency && req.body.currency !== (req.account.wallet_currency || 'USD')) {
+        return res.status(409).json({ error: 'La devise du portefeuille ne correspond pas.' });
+    }
+    req.body.provider = 'card_sandbox';
+    createSandboxWalletTopup(req, res);
 });
-app.post('/api/wallet/topups/:paymentId/simulate-confirmation', authenticateAccount, (req, res) => {
+function confirmSandboxWalletTopup(req, res) {
     db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
         if (beginErr) return res.status(500).json({ error: beginErr.message });
         db.get('SELECT * FROM wallet_topups WHERE payment_id = ? AND account_id = ?', [req.params.paymentId, req.account.id], (lookupErr, topup) => {
@@ -3733,7 +3951,9 @@ app.post('/api/wallet/topups/:paymentId/simulate-confirmation', authenticateAcco
             });
         });
     }));
-});
+}
+app.post('/api/wallet/topups/:paymentId/simulate-confirmation', authenticateAccount, confirmSandboxWalletTopup);
+app.post('/api/platform/wallet/deposits/:paymentId/confirm', authenticateAccount, confirmSandboxWalletTopup);
 app.put('/api/platform/profile', authenticateAccount, (req, res) => {
     const visibility = String(req.body.visibility || '');
     const availability = String(req.body.availability || '');
@@ -6150,7 +6370,88 @@ app.post('/api/groups/:groupId/elections/:electionId/close', authenticateToken, 
     });
 });
 
+app.get('/api/platform/loans', authenticateAccount, (req, res) => {
+    db.all(
+        `SELECT g.id AS group_id, g.name AS group_name, m.id AS member_id, m.credit, m.repayment, m.credit_request
+         FROM platform_account_memberships pam
+         JOIN groups g ON g.id = pam.group_id
+         JOIN members m ON m.id = pam.member_id
+         WHERE pam.account_id = ? AND pam.status = 'active' ORDER BY g.name`,
+        [req.account.id],
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            const loans = rows.map(row => {
+                let request = null;
+                try { request = row.credit_request ? JSON.parse(row.credit_request) : null; } catch (_) { request = null; }
+                return {
+                    group_id: row.group_id, group_name: row.group_name, member_id: row.member_id,
+                    outstanding_minor: Math.round(Number(row.credit || 0) * 100),
+                    repaid_minor: Math.round(Number(row.repayment || 0) * 100),
+                    request
+                };
+            });
+            res.json({ sandbox: true, loans });
+        }
+    );
+});
+app.post('/api/platform/loans', authenticateAccount, (req, res) => {
+    const groupId = Number(req.body.group_id);
+    const amountMinor = Math.round(Number(req.body.amount) * 100);
+    const reason = safeText(req.body.reason || '', 500);
+    if (!Number.isSafeInteger(groupId) || groupId < 1 || !Number.isSafeInteger(amountMinor) || amountMinor < 1 || !reason) {
+        return res.status(400).json({ error: 'Groupe, montant et motif valides requis.' });
+    }
+    db.serialize(() => db.run('BEGIN IMMEDIATE', beginErr => {
+        if (beginErr) return res.status(500).json({ error: beginErr.message });
+        db.get(
+            `SELECT m.id AS member_id, m.contribution, g.wallet, g.group_type, g.blocked
+             FROM platform_account_memberships pam
+             JOIN members m ON m.id = pam.member_id
+             JOIN groups g ON g.id = pam.group_id
+             WHERE pam.account_id = ? AND pam.group_id = ? AND pam.status = 'active'`,
+            [req.account.id, groupId],
+            (lookupErr, membership) => {
+                if (lookupErr || !membership || membership.blocked || membership.group_type === 'Epargne') {
+                    db.run('ROLLBACK');
+                    return res.status(lookupErr ? 500 : 409).json({ error: lookupErr ? lookupErr.message : 'Ce groupe ne peut pas accepter de demande de crédit.' });
+                }
+                const maximumMinor = Math.round(Number(membership.contribution || 0) * 100) * 3;
+                const groupWalletMinor = Math.round(Number(membership.wallet || 0) * 100);
+                if (amountMinor > maximumMinor || amountMinor > groupWalletMinor) {
+                    db.run('ROLLBACK');
+                    return res.status(409).json({ error: 'Le montant dépasse le plafond de contribution ou les liquidités du groupe.' });
+                }
+                const request = JSON.stringify({ amount_minor: amountMinor, reason, requestedAt: new Date().toISOString(), status: 'en_attente' });
+                db.run('UPDATE members SET credit_request = ? WHERE id = ?', [request, membership.member_id], updateErr => {
+                    if (updateErr) {
+                        db.run('ROLLBACK');
+                        return res.status(500).json({ error: updateErr.message });
+                    }
+                    recordHistory(groupId, membership.member_id, `Demande de crédit de ${amountMinor / 100}`, historyErr => {
+                        if (historyErr) {
+                            db.run('ROLLBACK');
+                            return res.status(500).json({ error: historyErr.message });
+                        }
+                        db.run('COMMIT', commitErr => {
+                            if (commitErr) return res.status(500).json({ error: commitErr.message });
+                            notifyGroupMembers(groupId, 'group_credit_requested', `${req.account.prenom} a soumis une demande de crédit SANDBOX.`, 'credit_request', membership.member_id);
+                            res.status(201).json({ sandbox: true, group_id: groupId, member_id: membership.member_id, amount_minor: amountMinor, status: 'en_attente' });
+                        });
+                    });
+                });
+            }
+        );
+    }));
+});
 app.get('/api/platform/groups', authenticateAccount, (req, res) => {
+    if (String(req.query.mine || '').toLowerCase() === 'true') {
+        return db.all(
+            `SELECT g.id, g.name, g.country, g.city, g.currency, m.role FROM platform_account_memberships pam
+             JOIN groups g ON g.id = pam.group_id JOIN members m ON m.id = pam.member_id
+             WHERE pam.account_id = ? AND pam.status = 'active' ORDER BY g.name`,
+            [req.account.id], (err, groups) => err ? res.status(500).json({ error: err.message }) : res.json({ groups })
+        );
+    }
     const country = safeText(req.query.country || '', 80);
     const province = safeText(req.query.province || req.query.region || '', 100);
     const city = safeText(req.query.city || '', 100);
@@ -6384,7 +6685,9 @@ app.put('/api/platform/invitations/:invitationId', authenticateAccount, (req, re
 });
 
 app.get('/api/platform/notifications', authenticateAccount, (req, res) => {
-    db.all('SELECT * FROM account_notifications WHERE account_id = ? ORDER BY created_at DESC LIMIT 50', [req.account.id], (err, notifications) => err ? res.status(500).json({ error: err.message }) : res.json({ notifications }));
+    const requestedLimit = Number(req.query.limit || 50);
+    const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 50;
+    db.all('SELECT * FROM account_notifications WHERE account_id = ? ORDER BY created_at DESC LIMIT ?', [req.account.id, limit], (err, notifications) => err ? res.status(500).json({ error: err.message }) : res.json({ notifications }));
 });
 app.get('/api/platform/notifications/stream', authenticateAccount, (req, res) => {
     res.status(200).set({

@@ -20,7 +20,15 @@
             assistant_group: 'Créez votre compte puis découvrez ou rejoignez un groupe. La création d’un groupe respecte ses règles AVEC : 20 à 50 membres déclarés et un capital initial minimum.',
             assistant_account: 'L’inscription demande un e-mail, un téléphone, votre identité et un PIN à 4 chiffres. Vérifiez l’e-mail pour activer le compte.',
             assistant_wallet: 'Le portefeuille personnel, le portefeuille AVEC de chaque membre et les fonds du groupe sont séparés. Les paiements restent en mode SANDBOX.',
-            assistant_community: 'Les échanges publics se font dans AVEC Communauté. Les annonces sont visibles ici et sur la page Actualités; Facebook dirige vers la communauté AVEC.'
+            assistant_community: 'Les échanges publics se font dans AVEC Communauté. Les annonces sont visibles ici et sur la page Actualités; Facebook dirige vers la communauté AVEC.',
+            finance_wallet: 'Portefeuille SANDBOX', finance_sandbox_notice: 'Simulation uniquement : aucun opérateur, Mobile Money ou carte n’est contacté. Les dépôts et retraits exigent une confirmation explicite.',
+            finance_available: 'Disponible', finance_reserved: 'Réservé', finance_total: 'Total', finance_deposit: 'Dépôt SANDBOX', finance_deposit_help: 'Créez le dépôt, puis confirmez volontairement la simulation. Aucun prestataire de paiement n’est appelé.',
+            finance_amount: 'Montant', finance_provider: 'Fournisseur', finance_provider_sandbox: 'Simulation locale', finance_create_deposit: 'Créer le dépôt', finance_confirm_deposit: 'Confirmer le dépôt simulé',
+            finance_withdrawal: 'Retrait SANDBOX', finance_withdrawal_help: 'Le montant est réservé après vérification du PIN et du téléphone. Confirmez ou annulez ensuite : aucune somme ne quitte l’application.',
+            finance_reserve_withdrawal: 'Réserver le retrait', finance_confirm_withdrawal: 'Confirmer le retrait simulé', finance_cancel_withdrawal: 'Annuler et libérer la réservation',
+            finance_transactions: 'Historique immuable', finance_credit: 'Crédit de groupe', finance_reason: 'Motif', finance_request_loan: 'Demander un crédit', finance_notifications: 'Notifications',
+            finance_outstanding: 'Crédit restant', finance_withdrawal_reserved: 'Retrait réservé en SANDBOX. Confirmez ou annulez la simulation.', finance_no_withdrawal: 'Créez d’abord un retrait.',
+            finance_withdrawal_confirmed: 'Retrait simulé confirmé. Aucun opérateur n’a été contacté.', finance_withdrawal_cancelled: 'Retrait simulé annulé; la réservation est libérée.', finance_loan_requested: 'Demande de crédit enregistrée'
         },
         en: {
             loading: 'Loading…', send: 'Send', save: 'Save', cancel: 'Cancel', back: 'Back', close: 'Close', apply: 'Apply',
@@ -35,7 +43,15 @@
             assistant_group: 'Create your account, then discover or join a group. Creating a group follows AVEC rules: 20 to 50 declared members and a minimum initial capital.',
             assistant_account: 'Registration requires an email address, phone number, identity and a four-digit PIN. Verify your email to activate the account.',
             assistant_wallet: 'Your personal wallet, each member’s AVEC wallet and group funds are separate. Payments remain in SANDBOX mode.',
-            assistant_community: 'Public exchanges take place in AVEC Community. Announcements are visible here and on the News page; Facebook directs people to the AVEC community.'
+            assistant_community: 'Public exchanges take place in AVEC Community. Announcements are visible here and on the News page; Facebook directs people to the AVEC community.',
+            finance_wallet: 'SANDBOX wallet', finance_sandbox_notice: 'Simulation only: no operator, Mobile Money service, or card network is contacted. Deposits and withdrawals require explicit confirmation.',
+            finance_available: 'Available', finance_reserved: 'Reserved', finance_total: 'Total', finance_deposit: 'SANDBOX deposit', finance_deposit_help: 'Create the deposit, then deliberately confirm the simulation. No payment provider is called.',
+            finance_amount: 'Amount', finance_provider: 'Provider', finance_provider_sandbox: 'Local simulation', finance_create_deposit: 'Create deposit', finance_confirm_deposit: 'Confirm simulated deposit',
+            finance_withdrawal: 'SANDBOX withdrawal', finance_withdrawal_help: 'The amount is reserved after PIN and phone verification. Then confirm or cancel: no money leaves the application.',
+            finance_reserve_withdrawal: 'Reserve withdrawal', finance_confirm_withdrawal: 'Confirm simulated withdrawal', finance_cancel_withdrawal: 'Cancel and release reservation',
+            finance_transactions: 'Immutable history', finance_credit: 'Group credit', finance_reason: 'Reason', finance_request_loan: 'Request credit', finance_notifications: 'Notifications',
+            finance_outstanding: 'Outstanding credit', finance_withdrawal_reserved: 'Withdrawal reserved in SANDBOX. Confirm or cancel the simulation.', finance_no_withdrawal: 'Create a withdrawal first.',
+            finance_withdrawal_confirmed: 'Simulated withdrawal confirmed. No operator was contacted.', finance_withdrawal_cancelled: 'Simulated withdrawal cancelled; the reservation is released.', finance_loan_requested: 'Credit request recorded.'
         },
         rw: {
             loading: 'Kwamamaza…', send: 'Ohereza', save: 'Bika', cancel: 'Kureka', back: 'Subira', close: 'Funga', apply: 'Koresha',
@@ -50,7 +66,15 @@
             assistant_group: 'Fungura konti yawe, ushake cyangwa winjire mu itsinda. Gukora itsinda bikurikiza amategeko ya AVEC.',
             assistant_account: 'Kwiyandikisha bisaba imeyili, telefone, umwirondoro na PIN y’imibare ine. Emeza imeyili kugira ngo konti ikore.',
             assistant_wallet: 'Agasakoshi kawe, ak’ikorwa rya AVEC n’amafaranga y’itsinda biratandukanye. Kwishyura kuguma muri SANDBOX.',
-            assistant_community: 'Ibiganiro rusange bibera muri AVEC Umuryango. Amatangazo aboneka hano no ku rupapuro rw’amakuru.'
+            assistant_community: 'Ibiganiro rusange bibera muri AVEC Umuryango. Amatangazo aboneka hano no ku rupapuro rw’amakuru.',
+            finance_wallet: 'Agasakoshi ka SANDBOX', finance_sandbox_notice: 'Kwamamaza gusa: nta mukoresha wa Mobile Money cyangwa ikarita uhamagarwa. Kubitsa no kubikuza bisaba kwemeza.',
+            finance_available: 'Ariho', finance_reserved: 'Yabitswe', finance_total: 'Yose', finance_deposit: 'Kubitsa SANDBOX', finance_deposit_help: 'Tangira kubitsa hanyuma wemeze simulation. Nta mutanga serivisi yishyura uhamagarwa.',
+            finance_amount: 'Umubare', finance_provider: 'Umutanga', finance_provider_sandbox: 'Kwamamaza ryo imbere', finance_create_deposit: 'Tangira kubitsa', finance_confirm_deposit: 'Emeza kubitsa kwigana',
+            finance_withdrawal: 'Kubikuza SANDBOX', finance_withdrawal_help: 'Amafaranga arabikwa nyuma yo kwemeza PIN na telefone. Emeza cyangwa uhagarike: nta faranga riva muri porogaramu.',
+            finance_reserve_withdrawal: 'Bika kubikuza', finance_confirm_withdrawal: 'Emeza kubikuza kwigana', finance_cancel_withdrawal: 'Hagarika kandi urekure ayabitswe',
+            finance_transactions: 'Amateka adahinduka', finance_credit: 'Inguzanyo y’itsinda', finance_reason: 'Impamvu', finance_request_loan: 'Saba inguzanyo', finance_notifications: 'Kwamamaza',
+            finance_outstanding: 'Inguzanyo isigaye', finance_withdrawal_reserved: 'Kubikuza kwabitswe muri SANDBOX. Emeza cyangwa uhagarike simulation.', finance_no_withdrawal: 'Banza utangire kubikuza.',
+            finance_withdrawal_confirmed: 'Kubikuza kwigana kwemejwe. Nta mukoresha wahamagajwe.', finance_withdrawal_cancelled: 'Kubikuza kwigana byahagaritswe; ayabitswe yarekuwe.', finance_loan_requested: 'Ubusabe bw’inguzanyo bwanditswe.'
         },
         rn: {
             loading: 'Kwamamaza…', send: 'Rungika', save: 'Bika', cancel: 'Reka', back: 'Subira', close: 'Funga', apply: 'Shira mu ngiro',
@@ -65,7 +89,15 @@
             assistant_group: 'Fungura konti yawe hanyuma urondere canke winjire mu mugwi. Gukora umugwi bikurikiza amategeko AVEC.',
             assistant_account: 'Kwiyandikisha bisaba imeyili, telefone, umwirondoro na PIN y’imibare ine. Emeza imeyili kugira konti ikore.',
             assistant_wallet: 'Ikofi yawe, iy’umunywanyi wa AVEC n’amafaranga y’umugwi biratandukanye. Kwishura kuguma muri SANDBOX.',
-            assistant_community: 'Ibiganiro vya bose bibera muri AVEC Umuryango. Amatangazo aboneka hano no ku rupapuro rw’amakuru.'
+            assistant_community: 'Ibiganiro vya bose bibera muri AVEC Umuryango. Amatangazo aboneka hano no ku rupapuro rw’amakuru.',
+            finance_wallet: 'Ikofi SANDBOX', finance_sandbox_notice: 'Kwamamaza gusa: nta mukoresha wa Mobile Money canke ikarita ahamagarwa. Kubitsa no kubikuza bisaba kwemeza.',
+            finance_available: 'Iriho', finance_reserved: 'Yabitswe', finance_total: 'Yose', finance_deposit: 'Kubitsa SANDBOX', finance_deposit_help: 'Tanguza kubitsa hanyuma wemeze simulation. Nta mutanga w’amahera ahamagarwa.',
+            finance_amount: 'Amafaranga', finance_provider: 'Umutanga', finance_provider_sandbox: 'Kwamamaza ryo imbere', finance_create_deposit: 'Tanguza kubitsa', finance_confirm_deposit: 'Emeza kubitsa kwigana',
+            finance_withdrawal: 'Kubikuza SANDBOX', finance_withdrawal_help: 'Amafaranga arabikwa inyuma yo kwemeza PIN na telefone. Emeza canke uhagarike: nta faranga riva muri porogaramu.',
+            finance_reserve_withdrawal: 'Bika kubikuza', finance_confirm_withdrawal: 'Emeza kubikuza kwigana', finance_cancel_withdrawal: 'Hagarika kandi urekure ayabitswe',
+            finance_transactions: 'Amateka adahinduka', finance_credit: 'Ideni ry’umugwi', finance_reason: 'Impamvu', finance_request_loan: 'Saba ideni', finance_notifications: 'Kwamamaza',
+            finance_outstanding: 'Ideni risigaye', finance_withdrawal_reserved: 'Kubikuza kwabitswe muri SANDBOX. Emeza canke uhagarike simulation.', finance_no_withdrawal: 'Banza utangure kubikuza.',
+            finance_withdrawal_confirmed: 'Kubikuza kwigana kwemejwe. Nta mukoresha yahamagajwe.', finance_withdrawal_cancelled: 'Kubikuza kwigana byahagaritswe; ayabitswe yarekuwe.', finance_loan_requested: 'Ubusabe bw’ideni bwanditswe.'
         },
         sw: {
             loading: 'Inapakia…', send: 'Tuma', save: 'Hifadhi', cancel: 'Ghairi', back: 'Rudi', close: 'Funga', apply: 'Tumia',
@@ -80,7 +112,15 @@
             assistant_group: 'Fungua akaunti yako, kisha tafuta au jiunge na kikundi. Kuunda kikundi hufuata kanuni za AVEC.',
             assistant_account: 'Usajili unahitaji barua pepe, simu, utambulisho na PIN ya tarakimu nne. Thibitisha barua pepe ili kuanzisha akaunti.',
             assistant_wallet: 'Pochi yako, pochi ya AVEC ya kila mwanachama na fedha za kikundi zimetenganishwa. Malipo yanabaki katika SANDBOX.',
-            assistant_community: 'Mazungumzo ya umma yanafanyika katika Jumuiya ya AVEC. Matangazo yanaonekana hapa na kwenye ukurasa wa Habari.'
+            assistant_community: 'Mazungumzo ya umma yanafanyika katika Jumuiya ya AVEC. Matangazo yanaonekana hapa na kwenye ukurasa wa Habari.',
+            finance_wallet: 'Pochi ya SANDBOX', finance_sandbox_notice: 'Uigaji pekee: hakuna mtoa huduma wa Mobile Money au kadi anayewasilishwa. Amana na utoaji zinahitaji uthibitisho wazi.',
+            finance_available: 'Inayopatikana', finance_reserved: 'Iliyowekwa', finance_total: 'Jumla', finance_deposit: 'Amana ya SANDBOX', finance_deposit_help: 'Unda amana, kisha thibitisha uigaji kwa hiari. Hakuna mtoa malipo anayeitwa.',
+            finance_amount: 'Kiasi', finance_provider: 'Mtoa huduma', finance_provider_sandbox: 'Uigaji wa ndani', finance_create_deposit: 'Unda amana', finance_confirm_deposit: 'Thibitisha amana ya kuigiza',
+            finance_withdrawal: 'Utoaji wa SANDBOX', finance_withdrawal_help: 'Kiasi kinawekwa baada ya PIN na simu kuthibitishwa. Kisha thibitisha au ghairi: hakuna fedha inayotoka kwenye programu.',
+            finance_reserve_withdrawal: 'Weka utoaji', finance_confirm_withdrawal: 'Thibitisha utoaji wa kuigiza', finance_cancel_withdrawal: 'Ghairi na uachie hifadhi',
+            finance_transactions: 'Historia isiyobadilika', finance_credit: 'Mkopo wa kikundi', finance_reason: 'Sababu', finance_request_loan: 'Omba mkopo', finance_notifications: 'Arifa',
+            finance_outstanding: 'Mkopo uliobaki', finance_withdrawal_reserved: 'Utoaji umewekwa kwenye SANDBOX. Thibitisha au ghairi uigaji.', finance_no_withdrawal: 'Unda utoaji kwanza.',
+            finance_withdrawal_confirmed: 'Utoaji wa kuigiza umethibitishwa. Hakuna mtoa huduma aliyeitwa.', finance_withdrawal_cancelled: 'Utoaji wa kuigiza umeghairiwa; hifadhi imeachiliwa.', finance_loan_requested: 'Ombi la mkopo limehifadhiwa.'
         },
         ln: {
             loading: 'Ezali kofungwama…', send: 'Tinda', save: 'Bomba', cancel: 'Tika', back: 'Zonga', close: 'Kanga', apply: 'Salela',
@@ -95,7 +135,15 @@
             assistant_group: 'Fungola konti na yo, na sima luka to kota na lisanga. Kosala lisanga elandaka mibeko ya AVEC.',
             assistant_account: 'Bokomisi esengaka imeyili, telefone, bomoto mpe PIN ya mitango minei. Ndima imeyili mpo konti esala.',
             assistant_wallet: 'Portefeuille na yo, ya mondimi nyonso ya AVEC mpe mbongo ya lisanga ekabwani. Kofuta etikala na SANDBOX.',
-            assistant_community: 'Masolo ya bato nyonso esalemaka na Lisanga AVEC. Mayebisi emonanaka awa mpe na lokasa ya Bansango.'
+            assistant_community: 'Masolo ya bato nyonso esalemaka na Lisanga AVEC. Mayebisi emonanaka awa mpe na lokasa ya Bansango.',
+            finance_wallet: 'Portefeuille SANDBOX', finance_sandbox_notice: 'Ezali kaka simulation: opérateur Mobile Money to carte ebengami te. Dépôt mpe retrait esengaka bondimi polele.',
+            finance_available: 'Ezali', finance_reserved: 'Ebombami', finance_total: 'Nyonso', finance_deposit: 'Dépôt SANDBOX', finance_deposit_help: 'Salá dépôt, na nsima ndimisa simulation. Mopesi ya kofuta abengami te.',
+            finance_amount: 'Motango', finance_provider: 'Mopesi', finance_provider_sandbox: 'Simulation ya kati', finance_create_deposit: 'Salá dépôt', finance_confirm_deposit: 'Ndimisa dépôt ya simulation',
+            finance_withdrawal: 'Retrait SANDBOX', finance_withdrawal_help: 'Motango ebombami nsima ya bondimi ya PIN mpe telefone. Ndimisa to tika: mbongo ebimaka na application te.',
+            finance_reserve_withdrawal: 'Bomba retrait', finance_confirm_withdrawal: 'Ndimisa retrait ya simulation', finance_cancel_withdrawal: 'Tika mpe fungola bobombi',
+            finance_transactions: 'Historique ekoki kobongwana te', finance_credit: 'Crédit ya lisanga', finance_reason: 'Ntina', finance_request_loan: 'Senga crédit', finance_notifications: 'Mayebisi',
+            finance_outstanding: 'Crédit etikali', finance_withdrawal_reserved: 'Retrait ebombami na SANDBOX. Ndimisa to tika simulation.', finance_no_withdrawal: 'Salá retrait liboso.',
+            finance_withdrawal_confirmed: 'Retrait ya simulation endimami. Opérateur moko abengami te.', finance_withdrawal_cancelled: 'Retrait ya simulation etikami; bobombi efungwami.', finance_loan_requested: 'Bosengi crédit ekomami.'
         }
     });
     const landing = Object.freeze({
