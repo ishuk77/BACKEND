@@ -27,6 +27,27 @@ test('public landing and news copy use explicit keys with every supported locale
     });
 });
 
+test('portal and group authored copy uses explicit keys in every locale dictionary', () => {
+    const platform = read('platform.html');
+    const social = read('social.html');
+    const group = read('group.html');
+    const i18n = read('i18n.js');
+    const keys = [
+        'portal_activation_help', 'portal_phone_sandbox_help', 'portal_group_creation_help',
+        'social_contacts_title', 'social_publish_content_title',
+        'group_member_dashboard', 'group_wallet_funding', 'group_settings_title',
+        'group_join_requests_title', 'group_chat_title'
+    ];
+
+    keys.forEach(key => assert.match(`${platform}\n${social}\n${group}`, new RegExp(`data-i18n="${key}"`)));
+    assert.match(i18n, /const completeSources = Object\.freeze/);
+    assert.match(i18n, /LOCALES\.map\(language => \[language, Object\.freeze/);
+    keys.forEach(key => assert.match(i18n, new RegExp(`"${key}"`), `missing locale key ${key}`));
+    ['fr', 'en', 'rw', 'rn', 'sw', 'ln'].forEach(locale => {
+        assert.match(i18n, new RegExp(`\\b${locale}\\b`), `missing locale ${locale}`);
+    });
+});
+
 test('assistant boot is safe without i18n and optional browser APIs', () => {
     const home = read('home.js');
     assert.match(home, /window\.AVEC_I18N \|\| \{ t:/);

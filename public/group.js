@@ -1,6 +1,7 @@
 const groupApi = window.location.origin;
 const group$ = id => document.getElementById(id);
 const groupT = (key, fallback) => window.AVEC_I18N ? window.AVEC_I18N.t(key, fallback) : fallback;
+const groupF = (key, fallback, values) => groupT(key, fallback).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? '');
 let groupMember;
 let groupId;
 let groupData;
@@ -8,19 +9,19 @@ let groupMembers = [];
 let activeAction;
 const GROUP_STAFF_ROLES = ['president', 'vice_president', 'comptable'];
 const groupActionConfig = {
-    contribution: { label: 'Contribuer depuis mon wallet personnel AVEC', endpoint: 'contributions' },
-    credit: { label: 'Demander un crédit', endpoint: 'credit-request', reason: 'Motif de la demande' },
-    repayment: { label: 'Rembourser depuis mon wallet personnel AVEC', endpoint: 'repayments' },
-    withdrawal: { label: 'Retirer vers Momo', endpoint: 'withdrawals' },
-    fraud: { label: 'Alerter directement la plateforme', endpoint: 'fraud-reports', reason: 'Décrivez le signalement', amount: false }
+    contribution: { label: groupT('group_dynamic_001', 'Contribuer depuis mon wallet personnel AVEC'), endpoint: 'contributions' },
+    credit: { label: groupT('group_dynamic_002', 'Demander un crédit'), endpoint: 'credit-request', reason: groupT('group_dynamic_003', 'Motif de la demande') },
+    repayment: { label: groupT('group_dynamic_004', 'Rembourser depuis mon wallet personnel AVEC'), endpoint: 'repayments' },
+    withdrawal: { label: groupT('group_withdrawal_action', 'Retirer vers Momo'), endpoint: 'withdrawals' },
+    fraud: { label: groupT('group_fraud_action', 'Alerter directement la plateforme'), endpoint: 'fraud-reports', reason: groupT('group_dynamic_005', 'Décrivez le signalement'), amount: false }
 };
 
 async function groupRequest(path, options = {}) {
     const token = localStorage.getItem('accessToken');
-    if (!token) throw new Error('Session du groupe requise.');
+    if (!token) throw new Error(groupT('group_dynamic_006', 'Session du groupe requise.'));
     const response = await fetch(`${groupApi}${path}`, { ...options, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(options.headers || {}) } });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Opération impossible.');
+    if (!response.ok) throw new Error(data.error || groupT('group_operation_failed', 'Opération impossible.'));
     return data;
 }
 
@@ -50,15 +51,15 @@ async function loadGroup() {
     groupMember = groupMembers.find(member => String(member.id) === String(memberId)) || groupMember;
     const groupName = groupData.name;
     group$('groupTitle').textContent = groupName;
-    group$('groupStatus').textContent = `${groupData.country} · Espace membre AVEC.`;
+    group$('groupStatus').textContent = groupF('group_member_space_status', '{country} · Espace membre AVEC.', { country: groupData.country });
     ['memberGroupName', 'memberGroupWalletName', 'adminGroupName', 'adminGroupWalletName'].forEach(id => { group$(id).textContent = groupName; });
     group$('memberWallet').textContent = formatMoney(groupMember.wallet);
     group$('memberGroupWallet').textContent = formatMoney(groupData.wallet);
     group$('groupWallet').textContent = formatMoney(groupData.wallet);
     group$('memberRole').textContent = groupMember.role;
-    group$('groupRole').textContent = `Rôle : ${groupMember.role}`;
+    group$('groupRole').textContent = groupF('group_role_status', 'Rôle : {role}', { role: groupMember.role });
     group$('cycleLength').value = groupData.cycle_length || 6;
-    group$('cycleState').textContent = `Cycle ${groupData.cycle_number || 1} : ${groupData.cycle_status || 'open'}.`;
+    group$('cycleState').textContent = groupF('group_cycle_status', 'Cycle {number} : {status}.', { number: groupData.cycle_number || 1, status: groupData.cycle_status || 'open' });
     const isEpargne = groupData.group_type === 'Epargne';
     group$('epargneSettings').hidden = !isEpargne;
     group$('creditAction').hidden = isEpargne;
@@ -108,7 +109,7 @@ async function fundMemberWallet(event) {
     const amount = Number(group$('memberWalletFundingAmount').value);
     await groupRequest(`/api/members/${groupMember.id}/fund-from-platform-wallet`, { method: 'POST', body: JSON.stringify({ amount }) });
     group$('memberWalletFundingForm').reset();
-    group$('groupStatus').textContent = 'Votre wallet personnel AVEC a été alimenté depuis votre wallet plateforme.';
+    group$('groupStatus').textContent = groupT('group_dynamic_007', 'Votre wallet personnel AVEC a été alimenté depuis votre wallet plateforme.');
     await loadGroup();
 }
 
@@ -123,7 +124,7 @@ function renderMovements(items, title, includeMemberNames = false) {
     group$('movementTitle').textContent = title;
     group$('movementList').replaceChildren();
     if (!groups.size) {
-        group$('movementList').textContent = groupT('no_transactions', 'Aucun mouvement.');
+        group$('movementList').textContent = groupT('no_transactions', groupT('group_dynamic_008', 'Aucun mouvement.'));
     } else {
         for (const [month, entries] of groups) {
             const section = document.createElement('section');
@@ -148,7 +149,7 @@ function renderMovements(items, title, includeMemberNames = false) {
 async function loadMovements(groupRegister = false) {
     const data = await groupRequest('/api/history');
     const entries = groupRegister ? data : data.filter(item => String(item.member_id) === String(groupMember.id));
-    renderMovements(entries, groupRegister ? groupT('group_ledger', 'Registre du groupe AVEC') : groupT('my_ledger', 'Mon registre de mouvements'), groupRegister);
+    renderMovements(entries, groupRegister ? groupT('group_ledger', groupT('group_dynamic_009', 'Registre du groupe AVEC')) : groupT('my_ledger', groupT('group_dynamic_010', 'Mon registre de mouvements')), groupRegister);
 }
 
 async function loadCreditRequests() {
@@ -159,7 +160,7 @@ async function loadCreditRequests() {
         row.textContent = `${member.prenom} ${member.name} : ${member.credit_request}`;
         group$('creditRequestsList').appendChild(row);
     });
-    if (!requests.length) group$('creditRequestsList').textContent = groupT('no_credit_requests', 'Aucune demande de crédit en attente.');
+    if (!requests.length) group$('creditRequestsList').textContent = groupT('no_credit_requests', groupT('group_dynamic_011', 'Aucune demande de crédit en attente.'));
     group$('creditRequestsSection').hidden = false;
 }
 
@@ -179,7 +180,17 @@ async function loadJoinRequests() {
         if (existingGroups) {
             const warning = document.createElement('p');
             warning.className = 'field-hint';
-            warning.textContent = `Déjà membre de : ${existingGroups}. Président(s) à contacter : ${request.existing_group_presidents || 'coordonnées indisponibles'}.${outstandingCredit > 0 ? ` Crédit restant : ${outstandingCredit.toFixed(2)} USD.` : ''}`;
+            warning.textContent = groupF(
+                'group_existing_membership_warning',
+                'Déjà membre de : {groups}. Président(s) à contacter : {presidents}.{credit}',
+                {
+                    groups: existingGroups,
+                    presidents: request.existing_group_presidents || groupT('group_contact_details_unavailable', 'coordonnées indisponibles'),
+                    credit: outstandingCredit > 0
+                        ? groupF('group_outstanding_credit', ' Crédit restant : {amount} USD.', { amount: outstandingCredit.toFixed(2) })
+                        : ''
+                }
+            );
             row.appendChild(warning);
         }
         [groupT('accept', 'Accepter'), groupT('decline', 'Refuser')].forEach((label, index) => {
@@ -189,7 +200,7 @@ async function loadJoinRequests() {
             button.textContent = label;
             if (!index && outstandingCredit > 0) {
                 button.disabled = true;
-                button.title = 'L’acceptation est bloquée tant que le crédit de l’autre groupe n’est pas remboursé.';
+                button.title = groupT('group_dynamic_012', 'L’acceptation est bloquée tant que le crédit de l’autre groupe n’est pas remboursé.');
             }
             button.addEventListener('click', async () => {
                 button.disabled = true;
@@ -199,8 +210,8 @@ async function loadJoinRequests() {
                         body: JSON.stringify({ status: index ? 'rejected' : 'approved' })
                     });
                     group$('groupStatus').textContent = index
-                        ? `Demande de ${request.prenom} refusée.`
-                        : `${request.prenom} est maintenant membre du groupe.`;
+                        ? groupF('group_request_declined', 'Demande de {name} refusée.', { name: request.prenom })
+                        : groupF('group_member_added', '{name} est maintenant membre du groupe.', { name: request.prenom });
                     await loadJoinRequests();
                     await loadGroup();
                 } catch (error) {
@@ -212,7 +223,7 @@ async function loadJoinRequests() {
         });
         list.appendChild(row);
     });
-    if (!pending.length) list.textContent = groupT('no_join_requests', 'Aucune demande d’adhésion en attente.');
+    if (!pending.length) list.textContent = groupT('no_join_requests', groupT('group_dynamic_013', 'Aucune demande d’adhésion en attente.'));
     group$('joinRequestsSection').hidden = false;
 }
 
@@ -222,11 +233,11 @@ async function loadChat() {
     data.messages.forEach(message => {
         const row = document.createElement('p');
         const author = document.createElement('strong');
-        author.textContent = message.prenom || 'Membre';
+        author.textContent = message.prenom || groupT('group_member', 'Membre');
         row.append(author, ` : ${message.message}`);
         group$('groupChat').appendChild(row);
     });
-    if (!data.messages.length) group$('groupChat').textContent = groupT('no_messages', 'Aucun message.');
+    if (!data.messages.length) group$('groupChat').textContent = groupT('no_messages', groupT('group_dynamic_014', 'Aucun message.'));
     group$('chatSection').hidden = false;
 }
 
@@ -251,36 +262,36 @@ document.addEventListener('DOMContentLoaded', () => {
             settings.savings_period = Number(group$('groupSavingsPeriod').value);
         }
         await groupRequest(`/api/groups/${groupId}`, { method: 'PUT', body: JSON.stringify(settings) });
-        group$('groupStatus').textContent = 'Règles du cycle enregistrées.';
+        group$('groupStatus').textContent = groupT('group_dynamic_015', 'Règles du cycle enregistrées.');
         await loadGroup();
     });
     group$('closeCycle').addEventListener('click', async () => {
-        if (!window.confirm('Confirmez-vous la clôture du cycle ? Les opérations financières seront bloquées jusqu’au nouveau cycle ou à une restauration par le personnel.')) return;
+        if (!window.confirm(groupT('group_dynamic_016', 'Confirmez-vous la clôture du cycle ? Les opérations financières seront bloquées jusqu’au nouveau cycle ou à une restauration par le personnel.'))) return;
         await groupRequest(`/api/groups/${groupId}/cycle/close`, { method: 'POST', body: JSON.stringify({ confirmed: true }) });
-        group$('groupStatus').textContent = 'Cycle clôturé après confirmation.';
+        group$('groupStatus').textContent = groupT('group_dynamic_017', 'Cycle clôturé après confirmation.');
         await loadGroup();
     });
     group$('distributeCycle').addEventListener('click', async () => {
         await groupRequest(`/api/groups/${groupId}/cycle/distribute`, { method: 'POST', body: '{}' });
-        group$('groupStatus').textContent = 'Partage du cycle effectué.';
+        group$('groupStatus').textContent = groupT('group_dynamic_018', 'Partage du cycle effectué.');
         await loadGroup();
     });
     group$('restoreCycle').addEventListener('click', async () => {
-        if (!window.confirm('Restaurer ce cycle clôturé par erreur ?')) return;
+        if (!window.confirm(groupT('group_dynamic_019', 'Restaurer ce cycle clôturé par erreur ?'))) return;
         await groupRequest(`/api/groups/${groupId}/cycle/restore`, { method: 'POST', body: '{}' });
-        group$('groupStatus').textContent = 'Cycle restauré.';
+        group$('groupStatus').textContent = groupT('group_dynamic_020', 'Cycle restauré.');
         await loadGroup();
     });
     group$('newCycle').addEventListener('click', async () => {
         await groupRequest(`/api/groups/${groupId}/cycle/new`, { method: 'POST', body: '{}' });
-        group$('groupStatus').textContent = 'Nouveau cycle créé.';
+        group$('groupStatus').textContent = groupT('group_dynamic_021', 'Nouveau cycle créé.');
         await loadGroup();
     });
     group$('lockBeneficiaryOrder').addEventListener('click', async () => {
         const memberIds = groupMembers.map(member => Number(member.id));
-        if (!window.confirm(`Verrouiller l’ordre automatique des ${memberIds.length} bénéficiaires avant le début du cycle ?`)) return;
+        if (!window.confirm(groupF('group_lock_beneficiaries_confirmation', 'Verrouiller l’ordre automatique des {count} bénéficiaires avant le début du cycle ?', { count: memberIds.length }))) return;
         await groupRequest(`/api/groups/${groupId}/cycle/beneficiary-order`, { method: 'PUT', body: JSON.stringify({ member_ids: memberIds }) });
-        group$('groupStatus').textContent = 'Ordre automatique des bénéficiaires verrouillé.';
+        group$('groupStatus').textContent = groupT('group_dynamic_022', 'Ordre automatique des bénéficiaires verrouillé.');
         await loadGroup();
     });
     group$('groupChatForm').addEventListener('submit', async event => {

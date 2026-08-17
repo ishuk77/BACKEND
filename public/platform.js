@@ -13,6 +13,7 @@ const mediaUrls = new Map();
 const PHONE_VERIFICATION_SESSION_KEY = 'platformPhoneVerificationSession';
 const phoneVerificationTokens = { profile: null };
 const emailVerificationTokens = { reset: null, profile: null };
+const t = (key, fallback) => window.AVEC_I18N ? window.AVEC_I18N.t(key, fallback) : fallback;
 const UI_TRANSLATIONS = Object.freeze({
     fr: { nav_profile: 'Profil et paramètres', nav_groups: 'Groupe', nav_messages: 'Collaboration', nav_social: 'Social', profile: 'Mon profil', wallet: 'Mon portefeuille', groups: 'Mes groupes', messages: 'Messages', discover: 'Découvrir des membres', feed: 'Fil social', publish: 'Publier', calendar: 'Agenda' },
     en: { nav_profile: 'Profile and settings', nav_groups: 'Groups', nav_messages: 'Messages', nav_social: 'Social', profile: 'My profile', wallet: 'My wallet', groups: 'My groups', messages: 'Messages', discover: 'Discover members', feed: 'Social feed', publish: 'Publish', calendar: 'Calendar' },
@@ -52,7 +53,7 @@ async function request(path, options = {}, retry = true) {
         }
     }
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Une erreur est survenue');
+    if (!response.ok) throw new Error(data.error || t('platform_error_generic', 'Une erreur est survenue'));
     return data;
 }
 function notice(message) {
@@ -493,7 +494,7 @@ function renderCandidates(group, candidates) {
     $p('inviteCandidates').replaceChildren(...candidates.map(candidate => {
         const row = document.createElement('div');
         row.className = 'member-item';
-        row.innerHTML = `${avatarMarkup(candidate, 'chat-avatar')}<strong>${esc(candidate.prenom)} ${esc(candidate.name)}</strong><span class="field-hint">${candidate.availability === 'online' ? 'En ligne' : 'Membre éligible'}</span>`;
+        row.innerHTML = `${avatarMarkup(candidate, 'chat-avatar')}<strong>${esc(candidate.prenom)} ${esc(candidate.name)}</strong><span class="field-hint">${candidate.availability === 'online' ? t('platform_online', 'En ligne') : 'Membre éligible'}</span>`;
         const button = document.createElement('button');
         button.className = 'btn btn-primary';
         button.type = 'button';
@@ -539,7 +540,7 @@ async function loadGroups() {
         const row = document.createElement('div');
         row.className = 'member-item';
         row.textContent = `${invite.group_name} — invitation de ${invite.inviter_prenom}${invite.sponsor_prenom ? ` · parrain référent : ${invite.sponsor_prenom} (sans responsabilité financière)` : ''}`;
-        ['Accepter', 'Décliner'].forEach((label, index) => {
+        [t('platform_accept', 'Accepter'), 'Décliner'].forEach((label, index) => {
             const button = document.createElement('button');
             button.className = `btn ${index ? 'btn-secondary' : 'btn-primary'}`;
             button.textContent = label;
@@ -555,17 +556,17 @@ async function loadGroups() {
         const open = document.createElement('button');
         open.className = 'btn btn-primary';
         open.type = 'button';
-        open.textContent = 'Ouvrir le tableau de bord du groupe';
+        open.textContent = t('platform_open_group_dashboard', 'Ouvrir le tableau de bord du groupe');
         open.onclick = () => openGroupDashboard(group.id).catch(error => alert(error.message));
         row.appendChild(open);
         if (['president', 'vice_president', 'comptable', 'secretaire'].includes(group.role)) {
             const requests = document.createElement('button');
             requests.className = 'btn btn-secondary';
-            requests.textContent = 'Voir les demandes';
+            requests.textContent = t('platform_view_requests', 'Voir les demandes');
             requests.onclick = () => openGroupDashboard(group.id).catch(error => alert(error.message));
             const invite = document.createElement('button');
             invite.className = 'btn btn-primary';
-            invite.textContent = 'Rechercher et inviter';
+            invite.textContent = t('platform_find_and_invite', 'Rechercher et inviter');
             invite.onclick = () => openGroupDashboard(group.id).catch(error => alert(error.message));
             row.append(requests, invite);
         }
@@ -643,7 +644,7 @@ async function searchPlatformContacts(event) {
         const button = document.createElement('button');
         button.className = 'btn btn-primary';
         button.type = 'button';
-        button.textContent = 'Ajouter';
+        button.textContent = t('platform_add', 'Ajouter');
         button.addEventListener('click', () => addPlatformContact(member, button).catch(error => {
             button.disabled = false;
             $p('contactPhoneStatus').textContent = error.message;
@@ -693,7 +694,7 @@ async function loadFriends() {
         const member = { id: item.member_id, prenom: item.prenom, name: item.name, identifier: item.identifier, availability: item.availability, avatar_media_id: item.avatar_media_id };
         const row = memberRow(member, item.status !== 'accepted');
         if (item.status === 'pending' && item.requested_by_account_id !== account.id) {
-            row.lastChild.textContent = 'Accepter';
+            row.lastChild.textContent = t('platform_accept', 'Accepter');
             row.lastChild.onclick = async () => { await request(`/api/platform/friends/${item.id}`, { method: 'PUT', body: JSON.stringify({ status: 'accepted' }) }); loadFriends(); };
         } else if (item.status !== 'accepted') row.lastChild.textContent = 'En attente';
         return row;
@@ -735,7 +736,7 @@ async function sendDm(event) {
     event.preventDefault();
     if (!selectedDm) return;
     const message = $p('dmInput').value.trim();
-    if (!message && !selectedDmAttachment) throw new Error('Saisissez un message ou joignez un fichier.');
+    if (!message && !selectedDmAttachment) throw new Error(t('platform_message_or_attachment', 'Saisissez un message ou joignez un fichier.'));
     const attachment = selectedDmAttachment ? await uploadDmAttachment(selectedDmAttachment) : null;
     await request(`/api/platform/dms/${selectedDm}`, { method: 'POST', body: JSON.stringify({ message, ...(attachment ? { attachment_id: attachment.attachment.id } : {}) }) });
     $p('dmInput').value = '';
@@ -949,6 +950,12 @@ function logout() {
     $p('authSection').hidden = false;
 }
 document.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('avec:localechange', event => {
+        if (event.detail && event.detail.userInitiated) {
+            languageOverridden = true;
+            localStorage.setItem('platformUiLanguageOverride', 'true');
+        }
+    });
     applyUiLanguage((window.AVEC_I18N && window.AVEC_I18N.locale) || localStorage.getItem('platformUiLanguage') || 'fr');
     populateGroupCountries();
     populateRegisterCountries();
@@ -1034,11 +1041,6 @@ document.addEventListener('DOMContentLoaded', () => {
     $p('feedList').addEventListener('submit', event => submitComment(event).catch(error => alert(error.message)));
     $p('eventForm').addEventListener('submit', event => createEvent(event).catch(error => alert(error.message)));
     $p('portalLogout').addEventListener('click', logout);
-    $p('uiLanguage').addEventListener('change', event => {
-        languageOverridden = true;
-        localStorage.setItem('platformUiLanguageOverride', 'true');
-        applyUiLanguage(event.target.value);
-    });
     $p('registerCountry').addEventListener('change', () => {
         updateRegisterDialCode();
         chooseCountryLanguage($p('registerCountry').value);

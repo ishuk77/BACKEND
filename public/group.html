@@ -3,69 +3,69 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AVEC — Espace membre du groupe</title>
+    <title data-i18n="group_ui_001">AVEC — Espace membre du groupe</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header class="app-header">
         <div><h1 id="groupTitle">Mon AVEC</h1><p id="groupStatus" role="status">Chargement de votre espace membre AVEC…</p></div>
-        <div class="header-actions"><label class="language-picker" for="groupLanguage"><span class="sr-only">Langue de l’interface</span><select id="groupLanguage" data-language-selector aria-label="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option><option value="ln">Lingala</option></select></label><a class="btn btn-secondary" href="platform.html">Espace plateforme</a><button id="groupLogout" class="btn btn-secondary" type="button">Déconnexion</button></div>
+        <div class="header-actions"><label class="language-picker" for="groupLanguage"><span class="sr-only" data-i18n="group_interface_language">Langue de l’interface</span><select id="groupLanguage" data-language-selector aria-label="Langue de l’interface" data-i18n-aria-label="group_interface_language"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option><option value="ln">Lingala</option></select></label><a class="btn btn-secondary" href="platform.html" data-i18n="group_platform_space">Espace plateforme</a><button id="groupLogout" class="btn btn-secondary" type="button" data-i18n="group_logout">Déconnexion</button></div>
     </header>
     <main class="container">
-        <nav class="group-dashboard-nav" aria-label="Espaces du groupe">
-            <button id="showMemberDashboard" class="btn btn-primary" type="button">Mon espace membre AVEC</button>
-            <button id="showGroupAdminDashboard" class="btn btn-secondary" type="button" hidden>Gérer le compte AVEC</button>
+        <nav class="group-dashboard-nav" aria-label="Espaces du groupe" data-i18n-aria-label="group_spaces">
+            <button id="showMemberDashboard" class="btn btn-primary" type="button" data-i18n="group_member_dashboard">Mon espace membre AVEC</button>
+            <button id="showGroupAdminDashboard" class="btn btn-secondary" type="button" hidden data-i18n="group_admin_dashboard">Gérer le compte AVEC</button>
         </nav>
 
         <section id="memberDashboard" class="card">
-            <h2>Mon espace membre — <span id="memberGroupName">AVEC</span></h2>
-            <p class="field-hint">Votre rôle dans le groupe : <strong id="memberRole">Membre</strong>. Cet espace existe aussi pour le président, le vice-président et le comptable.</p>
+            <h2><span data-i18n="group_member_space_heading">Mon espace membre — </span><span id="memberGroupName">AVEC</span></h2>
+            <p class="field-hint"><span data-i18n="group_member_role_intro">Votre rôle dans le groupe : </span><strong id="memberRole">Membre</strong><span data-i18n="group_member_role_help">. Cet espace existe aussi pour le président, le vice-président et le comptable.</span></p>
             <div class="wallet-grid">
-                <div class="wallet-card"><strong>Mon wallet personnel AVEC</strong><span id="memberWallet">0</span><small>Pour cotiser, rembourser, payer les intérêts et retirer vers votre Momo.</small></div>
-                <div class="wallet-card"><strong>Wallet AVEC — <span id="memberGroupWalletName">Groupe</span></strong><span id="memberGroupWallet">0</span><small>Solde collectif, affiché en lecture seule.</small></div>
+                <div class="wallet-card"><strong data-i18n="group_ui_007">Mon wallet personnel AVEC</strong><span id="memberWallet">0</span><small data-i18n="group_ui_008">Pour cotiser, rembourser, payer les intérêts et retirer vers votre Momo.</small></div>
+                <div class="wallet-card"><strong><span data-i18n="group_collective_wallet">Wallet AVEC — </span><span id="memberGroupWalletName">Groupe</span></strong><span id="memberGroupWallet">0</span><small data-i18n="group_collective_wallet_help">Solde collectif, affiché en lecture seule.</small></div>
             </div>
             <section class="group-member-panel">
-                <h3>Alimenter mon wallet AVEC</h3>
-                <p class="field-hint">Transférez un montant de votre wallet plateforme vers votre wallet personnel de ce groupe. Rechargez d’abord le wallet plateforme si nécessaire.</p>
-                <form id="memberWalletFundingForm" class="form-grid"><div class="form-group"><label for="memberWalletFundingAmount">Montant (USD)</label><input id="memberWalletFundingAmount" type="number" min="0.01" step="0.01" required></div><div class="form-group"><label>&nbsp;</label><button class="btn btn-primary">Transférer vers mon wallet AVEC</button></div></form>
+                <h3 data-i18n="group_wallet_funding">Alimenter mon wallet AVEC</h3>
+                <p class="field-hint" data-i18n="group_ui_011">Transférez un montant de votre wallet plateforme vers votre wallet personnel de ce groupe. Rechargez d’abord le wallet plateforme si nécessaire.</p>
+                <form id="memberWalletFundingForm" class="form-grid"><div class="form-group"><label for="memberWalletFundingAmount" data-i18n="group_ui_012">Montant (USD)</label><input id="memberWalletFundingAmount" type="number" min="0.01" step="0.01" required></div><div class="form-group"><label>&nbsp;</label><button class="btn btn-primary" data-i18n="group_ui_013">Transférer vers mon wallet AVEC</button></div></form>
             </section>
-            <nav class="group-action-nav" aria-label="Actions membre">
-                <button class="btn btn-primary" data-action="contribution" type="button">Contribuer</button>
-                <button id="creditAction" class="btn btn-secondary" data-action="credit" type="button">Demander un crédit</button>
-                <button id="repaymentAction" class="btn btn-secondary" data-action="repayment" type="button">Rembourser</button>
-                <button class="btn btn-secondary" data-action="withdrawal" type="button">Retirer vers Momo</button>
-                <button id="showMemberMovements" class="btn btn-secondary" type="button">Mon registre</button>
-                <button id="showFraudReport" class="btn btn-danger" type="button">Alerter la plateforme</button>
-                <button id="showChat" class="btn btn-secondary" type="button">Discussion du groupe</button>
+            <nav class="group-action-nav" aria-label="Actions membre" data-i18n-aria-label="group_member_actions">
+                <button class="btn btn-primary" data-action="contribution" type="button" data-i18n="group_ui_014">Contribuer</button>
+                <button id="creditAction" class="btn btn-secondary" data-action="credit" type="button" data-i18n="group_ui_015">Demander un crédit</button>
+                <button id="repaymentAction" class="btn btn-secondary" data-action="repayment" type="button" data-i18n="group_ui_016">Rembourser</button>
+                <button class="btn btn-secondary" data-action="withdrawal" type="button" data-i18n="group_ui_017">Retirer vers Momo</button>
+                <button id="showMemberMovements" class="btn btn-secondary" type="button" data-i18n="group_ui_018">Mon registre</button>
+                <button id="showFraudReport" class="btn btn-danger" type="button" data-i18n="group_ui_019">Alerter la plateforme</button>
+                <button id="showChat" class="btn btn-secondary" type="button" data-i18n="group_ui_020">Discussion du groupe</button>
             </nav>
         </section>
 
         <section id="groupAdminDashboard" class="card" hidden>
-            <h2>Gestion du compte AVEC — <span id="adminGroupName">Groupe</span></h2>
-            <p class="field-hint">Réservé au président, vice-président et comptable. Cet espace gère les fonds communs ; il ne remplace pas votre espace membre.</p>
-            <div class="wallet-grid"><div class="wallet-card"><strong>Wallet AVEC — <span id="adminGroupWalletName">Groupe</span></strong><span id="groupWallet">0</span><small id="groupRole">Personnel autorisé</small></div></div>
-            <nav class="group-action-nav" aria-label="Gestion AVEC">
-                <button id="showGroupMovements" class="btn btn-secondary" type="button">Registre du groupe</button>
-                <button id="showJoinRequests" class="btn btn-primary" type="button">Demandes d’adhésion</button>
-                <button id="showCreditRequests" class="btn btn-secondary" type="button">Demandes de crédit</button>
-                <button id="closeCycle" class="btn btn-warning" type="button">Clôturer le cycle</button>
-                <button id="distributeCycle" class="btn btn-primary" type="button">Partager le cycle</button>
-                <button id="newCycle" class="btn btn-primary" type="button">Nouveau cycle</button>
-                <button id="showGroupSettings" class="btn btn-secondary" type="button">Paramètres et règles</button>
+            <h2><span data-i18n="group_admin_heading">Gestion du compte AVEC — </span><span id="adminGroupName">Groupe</span></h2>
+            <p class="field-hint" data-i18n="group_admin_help">Réservé au président, vice-président et comptable. Cet espace gère les fonds communs ; il ne remplace pas votre espace membre.</p>
+            <div class="wallet-grid"><div class="wallet-card"><strong><span data-i18n="group_collective_wallet">Wallet AVEC — </span><span id="adminGroupWalletName">Groupe</span></strong><span id="groupWallet">0</span><small id="groupRole">Personnel autorisé</small></div></div>
+            <nav class="group-action-nav" aria-label="Gestion AVEC" data-i18n-aria-label="group_management">
+                <button id="showGroupMovements" class="btn btn-secondary" type="button" data-i18n="group_ui_023">Registre du groupe</button>
+                <button id="showJoinRequests" class="btn btn-primary" type="button" data-i18n="group_membership_requests">Demandes d’adhésion</button>
+                <button id="showCreditRequests" class="btn btn-secondary" type="button" data-i18n="group_credit_requests">Demandes de crédit</button>
+                <button id="closeCycle" class="btn btn-warning" type="button" data-i18n="group_ui_024">Clôturer le cycle</button>
+                <button id="distributeCycle" class="btn btn-primary" type="button" data-i18n="group_ui_025">Partager le cycle</button>
+                <button id="newCycle" class="btn btn-primary" type="button" data-i18n="group_ui_026">Nouveau cycle</button>
+                <button id="showGroupSettings" class="btn btn-secondary" type="button" data-i18n="group_settings">Paramètres et règles</button>
             </nav>
             <section id="groupSettingsSection" class="group-member-panel" hidden>
-                <h3>Paramètres et règles de gestion</h3>
+                <h3 data-i18n="group_settings_title">Paramètres et règles de gestion</h3>
                 <p id="cycleState" class="field-hint"></p>
-                <form id="groupSettingsForm"><div class="form-group"><label for="cycleLength">Durée du cycle (mois)</label><input id="cycleLength" type="number" min="1" max="36" required></div><div id="epargneSettings" hidden><div class="form-group"><label for="groupSavingsPeriodicity">Périodicité</label><select id="groupSavingsPeriodicity"><option value="weekly">Hebdomadaire</option><option value="monthly">Mensuelle</option></select></div><div class="form-group"><label for="groupSavingsPeriod">Période</label><input id="groupSavingsPeriod" type="number" min="1" max="52"></div><p class="field-hint">Epargne ne facture aucun intérêt. L’ordre des bénéficiaires est irréversible dès le démarrage du cycle.</p><button id="lockBeneficiaryOrder" class="btn btn-secondary" type="button">Verrouiller l’ordre automatique des bénéficiaires</button></div><button class="btn btn-primary">Enregistrer les règles</button></form>
-                <button id="restoreCycle" class="btn btn-warning" type="button">Restaurer le cycle clôturé par erreur</button>
+                <form id="groupSettingsForm"><div class="form-group"><label for="cycleLength" data-i18n="group_ui_027">Durée du cycle (mois)</label><input id="cycleLength" type="number" min="1" max="36" required></div><div id="epargneSettings" hidden><div class="form-group"><label for="groupSavingsPeriodicity" data-i18n="group_savings_frequency">Périodicité</label><select id="groupSavingsPeriodicity"><option value="weekly" data-i18n="group_weekly">Hebdomadaire</option><option value="monthly" data-i18n="group_monthly">Mensuelle</option></select></div><div class="form-group"><label for="groupSavingsPeriod" data-i18n="group_savings_period">Période</label><input id="groupSavingsPeriod" type="number" min="1" max="52"></div><p class="field-hint" data-i18n="group_ui_028">Epargne ne facture aucun intérêt. L’ordre des bénéficiaires est irréversible dès le démarrage du cycle.</p><button id="lockBeneficiaryOrder" class="btn btn-secondary" type="button" data-i18n="group_lock_beneficiaries">Verrouiller l’ordre automatique des bénéficiaires</button></div><button class="btn btn-primary" data-i18n="group_ui_029">Enregistrer les règles</button></form>
+                <button id="restoreCycle" class="btn btn-warning" type="button" data-i18n="group_ui_030">Restaurer le cycle clôturé par erreur</button>
             </section>
-            <section id="joinRequestsSection" class="group-member-panel" hidden><h3>Demandes pour rejoindre le groupe</h3><p class="field-hint">Acceptez ou refusez chaque demande. Une acceptation crée automatiquement l’espace membre AVEC du demandeur.</p><div id="joinRequestsList" class="member-list"></div></section>
-            <section id="creditRequestsSection" class="group-member-panel" hidden><h3>Demandes de crédit des membres</h3><div id="creditRequestsList" class="member-list"></div></section>
+            <section id="joinRequestsSection" class="group-member-panel" hidden><h3 data-i18n="group_join_requests_title">Demandes pour rejoindre le groupe</h3><p class="field-hint" data-i18n="group_ui_032">Acceptez ou refusez chaque demande. Une acceptation crée automatiquement l’espace membre AVEC du demandeur.</p><div id="joinRequestsList" class="member-list"></div></section>
+            <section id="creditRequestsSection" class="group-member-panel" hidden><h3 data-i18n="group_credit_requests_title">Demandes de crédit des membres</h3><div id="creditRequestsList" class="member-list"></div></section>
         </section>
 
-        <section id="actionSection" class="card" hidden><h2 id="actionTitle">Opération</h2><form id="actionForm"><div id="amountField" class="form-group"><label for="actionAmount">Montant</label><input id="actionAmount" type="number" min="0.01" step="0.01" required></div><div id="reasonField" class="form-group" hidden><label for="actionReason">Motif</label><textarea id="actionReason" maxlength="500"></textarea></div><button class="btn btn-primary">Valider</button></form></section>
-        <section id="movementSection" class="card" hidden><h2 id="movementTitle">Registre</h2><p class="field-hint">Les opérations sont classées par mois et année.</p><div id="movementList" class="member-list"></div></section>
-        <section id="chatSection" class="card" hidden><h2>Discussion de l’AVEC</h2><div id="groupChat" class="chat-window" aria-live="polite"></div><form id="groupChatForm"><label for="groupMessage">Message</label><textarea id="groupMessage" maxlength="1000" required></textarea><button class="btn btn-primary">Envoyer</button></form></section>
+        <section id="actionSection" class="card" hidden><h2 id="actionTitle">Opération</h2><form id="actionForm"><div id="amountField" class="form-group"><label for="actionAmount" data-i18n="group_ui_033">Montant</label><input id="actionAmount" type="number" min="0.01" step="0.01" required></div><div id="reasonField" class="form-group" hidden><label for="actionReason" data-i18n="group_reason">Motif</label><textarea id="actionReason" maxlength="500"></textarea></div><button class="btn btn-primary" data-i18n="group_ui_034">Valider</button></form></section>
+        <section id="movementSection" class="card" hidden><h2 id="movementTitle">Registre</h2><p class="field-hint" data-i18n="group_movements_help">Les opérations sont classées par mois et année.</p><div id="movementList" class="member-list"></div></section>
+        <section id="chatSection" class="card" hidden><h2 data-i18n="group_chat_title">Discussion de l’AVEC</h2><div id="groupChat" class="chat-window" aria-live="polite"></div><form id="groupChatForm"><label for="groupMessage" data-i18n="group_ui_037">Message</label><textarea id="groupMessage" maxlength="1000" required></textarea><button class="btn btn-primary" data-i18n="group_send">Envoyer</button></form></section>
     </main>
     <script src="i18n.js"></script>
     <script src="group.js"></script>
