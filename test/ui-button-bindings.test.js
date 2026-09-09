@@ -142,7 +142,7 @@ test('navigation groups actions without exposing platform administration publicl
     assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
     assert.match(memberPortal, /<section id="portalSection" class="card" hidden>/);
     assert.match(fs.readFileSync(path.join(root, 'public', 'style.css'), 'utf8'), /#portalSection\[hidden\][\s\S]*?display: none/);
-    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v57/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v58/);
 });
 
 test('all application surfaces load the bundled locale controller and expose a shared selector', () => {
@@ -163,9 +163,22 @@ test('locale controller initializes in the node DOM harness and persists languag
     context.window.AVEC_I18N.apply('en');
     assert.equal(document.documentElement.lang, 'en');
     assert.equal(selector.value, 'en');
+    assert.equal(
+        context.window.AVEC_I18N.t('platform_ui_025', 'E-mail et photo de profil'),
+        'Email and profile photo'
+    );
     selector.value = 'sw';
     selector.listeners.change[0]({ target: selector });
     assert.equal(context.window.AVEC_I18N.locale, 'sw');
+    assert.equal(
+        context.window.AVEC_I18N.t('platform_ui_029', 'Vérifier et enregistrer l’e-mail'),
+        'Thibitisha na uhifadhi barua pepe'
+    );
+    context.window.AVEC_I18N.apply('rn');
+    assert.equal(
+        context.window.AVEC_I18N.t('platform_ui_017', 'Créer, rejoindre et gérer vos AVEC'),
+        'Kurema, kwinjira no gucunga imigwi ya AVEC yawe'
+    );
 });
 
 test('member portal initialization remains compatible with the locale controller', () => {
