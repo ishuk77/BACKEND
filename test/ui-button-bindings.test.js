@@ -117,7 +117,7 @@ test('navigation groups actions without exposing platform administration publicl
 
     assert.doesNotMatch(publicLanding, /href="admin\.html"/);
     assert.doesNotMatch(publicLanding, /<details class="action-menu"/);
-    ['Profil et paramètres', 'Groupe'].forEach(label => assert.match(memberPortal, new RegExp(`<summary>${label}`)));
+    ['Profil et paramètres', 'Groupe'].forEach(label => assert.match(memberPortal, new RegExp(`<summary[^>]*>${label}`)));
     assert.match(memberPortal, /href="social\.html"/);
     assert.match(fs.readFileSync(path.join(root, 'public', 'social.html'), 'utf8'), /AVEC Communauté/);
     assert.match(memberPortal, /data-screen="walletScreen"/);
@@ -126,7 +126,7 @@ test('navigation groups actions without exposing platform administration publicl
     assert.match(memberPortal, /id="showCreateGroupForm"/);
     assert.match(memberPortal, /id="pickPhoneContacts"/);
     assert.match(memberPortal, /id="showPlatformContactSearch"/);
-    assert.match(memberPortal, /<nav class="portal-mobile-subnav" aria-label="Sous-menu profil et portefeuille">/);
+    assert.match(memberPortal, /<nav class="portal-mobile-subnav" aria-label="Sous-menu profil et portefeuille"[^>]*>/);
     assert.match(groupPortal, /id="memberDashboard"/);
     assert.match(groupPortal, /id="groupAdminDashboard"/);
     assert.match(groupPortal, /Mon wallet personnel AVEC/);
@@ -137,11 +137,11 @@ test('navigation groups actions without exposing platform administration publicl
     assert.match(groupScript, /Président\(s\) à contacter/);
     assert.match(memberPortal, /<section id="profileScreen"[\s\S]*?<h3[^>]*>Accueil membre<\/h3>[\s\S]*?<\/section>/);
     assert.doesNotMatch(memberPortal.match(/<section id="profileScreen"[\s\S]*?<\/section>/)[0], /Mon wallet|Mon compte AVEC|Alimenter mon portefeuille/);
-    ['Finance', 'Groupe', 'Collaboration', 'Social', 'Profil et paramètres'].forEach(label => assert.match(admin, new RegExp(`<summary>${label}`)));
+    ['Finance', 'Groupe', 'Collaboration', 'Social', 'Profil et paramètres'].forEach(label => assert.match(admin, new RegExp(`<summary[^>]*>${label}`)));
     assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
     assert.match(memberPortal, /<section id="portalSection" class="card" hidden>/);
     assert.match(fs.readFileSync(path.join(root, 'public', 'style.css'), 'utf8'), /#portalSection\[hidden\][\s\S]*?display: none/);
-    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v55/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v56/);
 });
 
 test('all application surfaces load the bundled locale controller and expose a shared selector', () => {

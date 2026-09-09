@@ -16,12 +16,12 @@ const phoneVerificationTokens = { profile: null };
 const emailVerificationTokens = { reset: null, profile: null };
 const t = (key, fallback) => window.AVEC_I18N ? window.AVEC_I18N.t(key, fallback) : fallback;
 const UI_TRANSLATIONS = Object.freeze({
-    fr: { nav_profile: 'Profil et paramètres', nav_groups: 'Groupe', nav_messages: 'Collaboration', nav_social: 'Social', profile: 'Mon profil', wallet: 'Mon portefeuille', groups: 'Mes groupes', messages: 'Messages', discover: 'Découvrir des membres', feed: 'Fil social', publish: 'Publier', calendar: 'Agenda' },
-    en: { nav_profile: 'Profile and settings', nav_groups: 'Groups', nav_messages: 'Messages', nav_social: 'Social', profile: 'My profile', wallet: 'My wallet', groups: 'My groups', messages: 'Messages', discover: 'Discover members', feed: 'Social feed', publish: 'Publish', calendar: 'Calendar' },
+    fr: { nav_profile: 'Profil et paramètres', nav_groups: 'Groupe', nav_messages: 'Collaboration', nav_social: 'Social', profile: 'Mon profil', wallet: 'Mon portefeuille', groups: 'Mes groupes', messages: 'Messages', discover: t("platform_dynamic_005", 'Découvrir des membres'), feed: 'Fil social', publish: 'Publier', calendar: 'Agenda' },
+    en: { nav_profile: 'Profile and settings', nav_groups: 'Groups', nav_messages: 'Messages', nav_social: 'Social', profile: 'My profile', wallet: t("platform_dynamic_006", 'My wallet'), groups: 'My groups', messages: 'Messages', discover: 'Discover members', feed: 'Social feed', publish: 'Publish', calendar: 'Calendar' },
     rw: { nav_profile: 'Umwirondoro n’igenamiterere', nav_groups: 'Amatsinda', nav_messages: 'Ubutumwa', nav_social: 'Imbuga nkoranyambaga', profile: 'Umwirondoro wanjye', wallet: 'Agasakoshi kanjye', groups: 'Amatsinda yanjye', messages: 'Ubutumwa', discover: 'Shakisha abanyamuryango', feed: 'Kwamamaza', publish: 'Kwamamaza', calendar: 'Kalendari' },
     rn: { nav_profile: 'Umwirondoro n’ugutunganya', nav_groups: 'Imigwi', nav_messages: 'Ubutumwa', nav_social: 'Kwamamaza', profile: 'Umwirondoro wanje', wallet: 'Ikofi yanje', groups: 'Imigwi yanje', messages: 'Ubutumwa', discover: 'Rondera abanywanyi', feed: 'Kwamamaza', publish: 'Kwamamaza', calendar: 'Kalendari' },
     sw: { nav_profile: 'Wasifu na mipangilio', nav_groups: 'Vikundi', nav_messages: 'Ujumbe', nav_social: 'Jamii', profile: 'Wasifu wangu', wallet: 'Pochi yangu', groups: 'Vikundi vyangu', messages: 'Ujumbe', discover: 'Tafuta wanachama', feed: 'Mlisho wa jamii', publish: 'Chapisha', calendar: 'Kalenda' },
-    ln: { nav_profile: 'Profil mpe bobongisi', nav_groups: 'Masanga', nav_messages: 'Bansango', nav_social: 'Lisanga', profile: 'Profil na ngai', wallet: 'Portefeuille na ngai', groups: 'Masanga na ngai', messages: 'Bansango', discover: 'Luka bandimi', feed: 'Nsango ya lisanga', publish: 'Kobimisa', calendar: 'Kalendali' }
+    ln: { nav_profile: t("platform_dynamic_007", 'Profil mpe bobongisi'), nav_groups: 'Masanga', nav_messages: 'Bansango', nav_social: 'Lisanga', profile: 'Profil na ngai', wallet: 'Portefeuille na ngai', groups: 'Masanga na ngai', messages: 'Bansango', discover: 'Luka bandimi', feed: 'Nsango ya lisanga', publish: 'Kobimisa', calendar: 'Kalendali' }
 });
 const COUNTRY_LOCALES = Object.freeze({ Rwanda: 'rw', Burundi: 'rn', Tanzanie: 'sw', Kenya: 'sw', 'Afrique du Sud': 'en', Ghana: 'en', Nigeria: 'en', Liberia: 'en', 'Sierra Leone': 'en' });
 let languageOverridden = localStorage.getItem('platformUiLanguageOverride') === 'true';
@@ -271,13 +271,13 @@ async function loadAccountHistory() {
     historyBlock(history, 'Publications et publicités', data.contentPayments.map(payment =>
         `${payment.content_type} : ${payment.title || 'sans titre'} · -${(payment.amount_minor / 100).toFixed(2)} USD · ${payment.status}`
     ));
-    historyBlock(history, 'Transferts vers mes wallets AVEC', data.groupFundings.map(funding =>
+    historyBlock(history, t("platform_dynamic_012", 'Transferts vers mes wallets AVEC'), data.groupFundings.map(funding =>
         `${funding.group_name} · ${funding.action} · ${new Date(funding.date).toLocaleDateString('fr-FR')}`
     ));
-    historyBlock(history, 'Commentaires reçus sur mes publicités', data.receivedComments.map(comment =>
+    historyBlock(history, t("platform_dynamic_013", 'Commentaires reçus sur mes publicités'), data.receivedComments.map(comment =>
         `${comment.commenter_prenom} ${comment.commenter_name} · ${comment.content_title || 'Publication'} : ${comment.body}`
     ));
-    if (!history.childElementCount) history.textContent = 'Aucune activité pour le moment.';
+    if (!history.childElementCount) history.textContent = t("platform_dynamic_014", 'Aucune activité pour le moment.');
 }
 async function createWalletTopup(event) {
     event.preventDefault();
@@ -287,18 +287,18 @@ async function createWalletTopup(event) {
         body: JSON.stringify({ amount: $p('walletTopupAmount').value, currency: account.wallet_currency || 'USD', provider: $p('walletTopupProvider').value })
     });
     pendingWalletTopupId = data.topup.payment_id;
-    $p('walletTopupStatus').textContent = 'Rechargement créé. Confirmez-le en SANDBOX pour créditer votre portefeuille.';
+    $p('walletTopupStatus').textContent = t("platform_dynamic_015", 'Rechargement créé. Confirmez-le en SANDBOX pour créditer votre portefeuille.');
     $p('simulateWalletTopup').hidden = false;
     await loadFinance();
 }
 async function confirmWalletTopup() {
-    if (!pendingWalletTopupId) throw new Error('Créez d’abord un rechargement.');
+    if (!pendingWalletTopupId) throw new Error(t("platform_dynamic_016", 'Créez d’abord un rechargement.'));
     const data = await request(`/api/platform/wallet/deposits/${encodeURIComponent(pendingWalletTopupId)}/confirm`, { method: 'POST', body: '{}' });
     account = data.account;
     renderAccount();
     pendingWalletTopupId = null;
     $p('simulateWalletTopup').hidden = true;
-    $p('walletTopupStatus').textContent = 'Portefeuille crédité en SANDBOX.';
+    $p('walletTopupStatus').textContent = t("platform_dynamic_017", 'Portefeuille crédité en SANDBOX.');
     await loadFinance();
 }
 async function createWalletWithdrawal(event) {
@@ -350,7 +350,7 @@ async function register(event) {
     event.preventDefault();
     const avatar = $p('registerAvatar').files[0];
     if (avatar && (!['image/jpeg', 'image/png', 'image/webp'].includes(avatar.type) || avatar.size > 3 * 1024 * 1024)) {
-        throw new Error('Prenez une photo JPEG, PNG ou WebP de votre visage, de 3 Mo maximum.');
+        throw new Error(t("platform_dynamic_018", 'Prenez une photo JPEG, PNG ou WebP de votre visage, de 3 Mo maximum.'));
     }
     const data = await request('/api/platform/auth/register', { method: 'POST', body: JSON.stringify({
         prenom: $p('registerFirstName').value.trim(), name: $p('registerName').value.trim(),
@@ -359,7 +359,7 @@ async function register(event) {
         country: $p('registerCountry').value, phone: normalizeRegisterPhone(), pin: $p('registerPin').value.trim(),
         pinConfirmation: $p('registerPinConfirmation').value.trim()
     }) });
-    $p('portalStatus').textContent = data.message || 'Compte créé. Vérifiez votre e-mail pour l’activer.';
+    $p('portalStatus').textContent = data.message || t("platform_dynamic_019", 'Compte créé. Vérifiez votre e-mail pour l’activer.');
     $p('registerForm').reset();
 }
 async function login(event) {
@@ -401,11 +401,11 @@ async function verifyEmailVerification(purpose, emailId, codeId, statusId) {
     }
     if (purpose === 'profile_email') emailVerificationTokens.profile = data.verificationToken;
     else emailVerificationTokens.reset = data.verificationToken;
-    showVerificationStatus(statusId, 'E-mail vérifié dans cette session.');
+    showVerificationStatus(statusId, t("platform_dynamic_020", 'E-mail vérifié dans cette session.'));
 }
 async function resetPin(event) {
     event.preventDefault();
-    if (!emailVerificationTokens.reset) throw new Error('Vérifiez l’e-mail avant de réinitialiser le PIN.');
+    if (!emailVerificationTokens.reset) throw new Error(t("platform_dynamic_021", 'Vérifiez l’e-mail avant de réinitialiser le PIN.'));
     const data = await request('/api/auth/pin-reset', {
         method: 'POST',
         body: JSON.stringify({
@@ -427,10 +427,10 @@ async function saveProfile(event) {
         availability: $p('profileAvailability').value, visibility: $p('profileVisibility').value
     }) })).account;
     renderAccount();
-    notice('Profil mis à jour.');
+    notice(t("platform_dynamic_022", 'Profil mis à jour.'));
 }
 async function saveProfileEmail() {
-    if (!emailVerificationTokens.profile) throw new Error('Demandez puis vérifiez le code e-mail avant l’enregistrement.');
+    if (!emailVerificationTokens.profile) throw new Error(t("platform_dynamic_023", 'Demandez puis vérifiez le code e-mail avant l’enregistrement.'));
     account = (await request('/api/platform/profile/email', {
         method: 'PUT',
         body: JSON.stringify({
@@ -441,7 +441,7 @@ async function saveProfileEmail() {
     })).account;
     emailVerificationTokens.profile = null;
     renderAccount();
-    showVerificationStatus('profileEmailStatus', 'E-mail vérifié et enregistré.');
+    showVerificationStatus('profileEmailStatus', t("platform_dynamic_024", 'E-mail vérifié et enregistré.'));
 }
 async function requestProfileEmailVerification() {
     const data = await request('/api/platform/profile/email/request', {
@@ -455,20 +455,20 @@ async function saveProfileAvatar(event) {
     event.preventDefault();
     const file = $p('profileAvatar').files[0];
     if (!file || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024) {
-        throw new Error('Choisissez une photo JPEG, PNG ou WebP de 3 Mo maximum.');
+        throw new Error(t("platform_dynamic_025", 'Choisissez une photo JPEG, PNG ou WebP de 3 Mo maximum.'));
     }
     const response = await fetch(`${api}/api/profile/avatar`, { method: 'POST', headers: tokenHeaders({ 'Content-Type': file.type }), body: file });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Photo impossible à enregistrer.');
+    if (!response.ok) throw new Error(data.error || t("platform_dynamic_026", 'Photo impossible à enregistrer.'));
     account.avatar_media_id = data.media.id;
     $p('profileAvatarForm').reset();
     renderAccount();
-    notice('Photo de profil enregistrée.');
+    notice(t("platform_dynamic_027", 'Photo de profil enregistrée.'));
 }
 async function saveSecurityProfile(event) {
     event.preventDefault();
     if (!account.onboardingComplete && !phoneVerificationTokens.profile && !account.phoneVerified) {
-        throw new Error('Vérifiez le téléphone SANDBOX avant d’enregistrer.');
+        throw new Error(t("platform_dynamic_028", 'Vérifiez le téléphone SANDBOX avant d’enregistrer.'));
     }
     account = (await request('/api/platform/profile/security', {
         method: 'PUT',
@@ -544,7 +544,7 @@ async function createGroup(event) {
         intended_member_count: Number($p('intendedMemberCount').value),
         starting_capital: Number($p('startingCapital').value)
     }) });
-    if (!data.dashboard || !data.accessToken || !data.refreshToken) throw new Error('Réponse de création de groupe incomplète.');
+    if (!data.dashboard || !data.accessToken || !data.refreshToken) throw new Error(t("platform_dynamic_032", 'Réponse de création de groupe incomplète.'));
     ['accessToken', 'refreshToken', 'groupId', 'userId'].forEach(key => localStorage.removeItem(key));
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
@@ -580,7 +580,7 @@ function renderCandidates(group, candidates) {
         const button = document.createElement('button');
         button.className = 'btn btn-primary';
         button.type = 'button';
-        button.textContent = 'Proposer une invitation';
+        button.textContent = t("platform_dynamic_034", 'Proposer une invitation');
         button.onclick = () => inviteCandidate(group.id, candidate).catch(error => alert(error.message));
         row.appendChild(button);
         return row;
@@ -608,11 +608,11 @@ async function loadGroups() {
         row.innerHTML = `<strong>${esc(group.name)}</strong> · ${esc(group.city || group.country)} · ${esc(type)} · ${Number(group.member_count)} membre(s)`;
         const button = document.createElement('button');
         button.className = 'btn btn-secondary';
-        button.textContent = 'Demander à rejoindre';
+        button.textContent = t("platform_dynamic_035", 'Demander à rejoindre');
         button.onclick = async () => {
             await request(`/api/platform/groups/${group.id}/join-requests`, { method: 'POST', body: JSON.stringify({ note: '' }) });
             button.disabled = true;
-            button.textContent = 'Demande envoyée — en attente';
+            button.textContent = t("platform_dynamic_036", 'Demande envoyée — en attente');
             notice(`Votre demande pour rejoindre ${group.name} a été envoyée. Le président ou le personnel du groupe doit la valider.`);
         };
         row.appendChild(button);
@@ -658,12 +658,12 @@ async function loadGroups() {
     const group = mine.groups[0];
     summary.innerHTML = group
         ? `<strong>Mon compte AVEC</strong><span>${esc(group.name)}</span><small>${esc(group.role)}</small>`
-        : '<strong>Mon compte AVEC</strong><span>Aucun groupe</span><small>Rejoignez ou créez une AVEC pour accéder à son tableau de bord.</small>';
+        : t("platform_dynamic_039", '<strong>Mon compte AVEC</strong><span>Aucun groupe</span><small>Rejoignez ou créez une AVEC pour accéder à son tableau de bord.</small>');
     if (group) {
         const button = document.createElement('button');
         button.className = 'btn btn-primary';
         button.type = 'button';
-        button.textContent = 'Se connecter à mon AVEC';
+        button.textContent = t("platform_dynamic_040", 'Se connecter à mon AVEC');
         button.onclick = () => openGroupDashboard(group.id).catch(error => notice(error.message));
         summary.appendChild(button);
     }
@@ -696,8 +696,8 @@ async function addContactByPhone(event) {
     });
     $p('contactPhoneForm').reset();
     $p('contactPhoneStatus').textContent = data.group_request_created
-        ? 'Contact ajouté. Une demande pour rejoindre son groupe AVEC a également été créée.'
-        : 'Demande de contact envoyée.';
+        ? t("platform_dynamic_042", 'Contact ajouté. Une demande pour rejoindre son groupe AVEC a également été créée.')
+        : t("platform_dynamic_043", 'Demande de contact envoyée.');
     await loadFriends();
 }
 function showContactSource(source) {
@@ -710,7 +710,7 @@ function showContactSource(source) {
 async function addPlatformContact(member, button) {
     button.disabled = true;
     await request('/api/platform/friends/requests', { method: 'POST', body: JSON.stringify({ account_id: member.id }) });
-    button.textContent = 'Demande envoyée';
+    button.textContent = t("platform_dynamic_044", 'Demande envoyée');
     $p('contactPhoneStatus').textContent = `Demande de contact envoyée à ${member.prenom} ${member.name}.`;
     await loadFriends();
 }
@@ -734,19 +734,19 @@ async function searchPlatformContacts(event) {
         row.appendChild(button);
         return row;
     }));
-    if (!data.members.length) results.textContent = 'Aucun membre AVEC public ne correspond à cette recherche.';
+    if (!data.members.length) results.textContent = t("platform_dynamic_045", 'Aucun membre AVEC public ne correspond à cette recherche.');
     hydrateProtectedMedia(results);
 }
 async function pickPhoneContacts() {
     if (!navigator.contacts || typeof navigator.contacts.select !== 'function') {
-        $p('contactPickerHelp').textContent = 'Le navigateur ne donne pas accès au carnet téléphonique. Utilisez « Saisir un numéro » ou « Rechercher sur AVEC ».';
+        $p('contactPickerHelp').textContent = t("platform_dynamic_046", 'Le navigateur ne donne pas accès au carnet téléphonique. Utilisez « Saisir un numéro » ou « Rechercher sur AVEC ».');
         showContactSource('phone');
         return;
     }
     const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: true });
     const phones = [...new Set(contacts.flatMap(contact => contact.tel || []).filter(Boolean))];
     if (!phones.length) {
-        $p('contactPickerHelp').textContent = 'Aucun numéro n’a été sélectionné.';
+        $p('contactPickerHelp').textContent = t("platform_dynamic_047", 'Aucun numéro n’a été sélectionné.');
         return;
     }
     let added = 0;
@@ -766,7 +766,7 @@ function renderOnlineFriends() {
     const online = friends.filter(friend => friend.status === 'accepted' && friend.availability === 'online');
     $p('onlineFriends').innerHTML = online.length
         ? online.map(friend => `<div class="presence-member">${avatarMarkup(friend, 'chat-avatar')}<span class="presence-dot availability-online" aria-hidden="true"></span><span>${esc(friend.prenom)} ${esc(friend.name)}</span><span class="field-hint">En ligne</span></div>`).join('')
-        : '<p class="field-hint">Aucun contact n’est actuellement en ligne.</p>';
+        : t("platform_dynamic_048", '<p class="field-hint">Aucun contact n’est actuellement en ligne.</p>');
     hydrateProtectedMedia($p('onlineFriends'));
 }
 async function loadFriends() {
@@ -794,7 +794,7 @@ async function loadFriends() {
 }
 function renderDmReactions(message) {
     const reactions = Array.isArray(message.reactions) ? message.reactions : [];
-    return `<div class="reaction-row" aria-label="Réactions au message">${DM_REACTIONS.map(emoji => {
+    return `<div class="reaction-row" aria-label=t("platform_dynamic_049", "Réactions au message")>${DM_REACTIONS.map(emoji => {
         const count = reactions.filter(reaction => reaction.emoji === emoji).length;
         const mine = reactions.some(reaction => Number(reaction.account_id) === Number(account.id) && reaction.emoji === emoji);
         return `<button class="reaction-button${mine ? ' is-active' : ''}" type="button" data-dm-message="${Number(message.id)}" data-emoji="${emoji}" aria-pressed="${mine}">${emoji}${count ? ` ${count}` : ''}</button>`;
@@ -805,13 +805,13 @@ async function openDm(member) {
     $p('dmPanel').hidden = false;
     $p('dmTitle').textContent = `Discussion avec ${member.prenom} ${member.name}`;
     const data = await request(`/api/platform/dms/${member.id}`);
-    $p('dmMessages').innerHTML = data.messages.map(message => `<article class="chat-message">${avatarMarkup(message)}<div class="chat-content"><strong>${esc(message.prenom)} ${esc(message.name)}</strong>${message.message ? `<p>${esc(message.message)}</p>` : ''}${message.attachment_id ? `<button class="attachment-download" type="button" data-dm-download="${Number(message.attachment_id)}">Télécharger : ${esc(message.attachment_name)}</button>` : ''}<small>${esc(new Date(message.created_at).toLocaleString('fr-FR'))}</small>${renderDmReactions(message)}</div></article>`).join('') || '<p>Aucun message pour le moment.</p>';
+    $p('dmMessages').innerHTML = data.messages.map(message => `<article class="chat-message">${avatarMarkup(message)}<div class="chat-content"><strong>${esc(message.prenom)} ${esc(message.name)}</strong>${message.message ? `<p>${esc(message.message)}</p>` : ''}${message.attachment_id ? `<button class="attachment-download" type="button" data-dm-download="${Number(message.attachment_id)}">Télécharger : ${esc(message.attachment_name)}</button>` : ''}<small>${esc(new Date(message.created_at).toLocaleString('fr-FR'))}</small>${renderDmReactions(message)}</div></article>`).join('') || t("platform_dynamic_053", '<p>Aucun message pour le moment.</p>');
     hydrateProtectedMedia($p('dmMessages'));
     $p('dmMessages').scrollTop = $p('dmMessages').scrollHeight;
 }
 async function uploadDmAttachment(file) {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm', 'application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-    if (!allowed.includes(file.type) || file.size > 6 * 1024 * 1024) throw new Error('Formats autorisés : documents, images ou vidéos jusqu’à 6 Mo.');
+    if (!allowed.includes(file.type) || file.size > 6 * 1024 * 1024) throw new Error(t("platform_dynamic_054", 'Formats autorisés : documents, images ou vidéos jusqu’à 6 Mo.'));
     return request(`/api/platform/dm-attachments/${selectedDm}`, { method: 'POST', headers: { 'Content-Type': file.type, 'X-File-Name': file.name }, body: file });
 }
 async function sendDm(event) {
@@ -852,7 +852,7 @@ function renderComment(comment, postId, isPublic) {
         const mine = reactions.some(item => Number(item.account_id) === Number(account.id) && item.reaction === emoji);
         return `<button class="reaction-button comment-reaction${mine ? ' is-active' : ''}" type="button" data-comment="${comment.id}" data-emoji="${emoji}" aria-pressed="${mine}">${emoji}${count ? ` ${count}` : ''}</button>`;
     }).join('');
-    const price = isPublic ? 'Commentaire public : 0,25 USD.' : 'Discussion privée/de contacts : gratuite.';
+    const price = isPublic ? 'Commentaire public : 0,25 USD.' : t("platform_dynamic_058", 'Discussion privée/de contacts : gratuite.');
     return `<article class="feed-comment"><strong>${esc(comment.prenom)} ${esc(comment.name)}</strong>${pending}<p>${esc(comment.body)}</p><div class="reaction-row">${reactionButtons}</div><button class="btn btn-secondary reply-comment" data-post="${postId}" data-comment="${comment.id}" type="button">Répondre</button><form class="comment-form" data-post="${postId}" data-parent="${comment.id}" hidden><label>Réponse <textarea maxlength="800" required></textarea></label><small>${price}</small><button class="btn btn-primary">Envoyer la réponse</button></form></article>`;
 }
 function renderComments(post) {
@@ -861,7 +861,7 @@ function renderComments(post) {
     comments.forEach(comment => { const key = comment.parent_comment_id || 0; if (!children.has(key)) children.set(key, []); children.get(key).push(comment); });
     const isPublic = post.visibility === 'public';
     const branch = comment => `${renderComment(comment, post.id, isPublic)}<div class="comment-replies">${(children.get(comment.id) || []).map(branch).join('')}</div>`;
-    const price = isPublic ? 'Commentaire public : 0,25 USD.' : 'Discussion privée/de contacts : gratuite.';
+    const price = isPublic ? 'Commentaire public : 0,25 USD.' : t("platform_dynamic_058", 'Discussion privée/de contacts : gratuite.');
     return `<section class="post-comments"><h4>Commentaires (${comments.length})</h4>${(children.get(0) || []).map(branch).join('') || '<p>Aucun commentaire pour le moment.</p>'}<form class="comment-form" data-post="${post.id}"><label for="comment-${post.id}">Ajouter un commentaire</label><textarea id="comment-${post.id}" maxlength="800" required></textarea><small>${price}</small><button class="btn btn-primary">Commenter</button></form></section>`;
 }
 async function loadFeed() {
@@ -879,9 +879,9 @@ async function loadFeed() {
     }
     $p('feedList').innerHTML = data.posts.map(post => {
         const media = !post.media_id ? '' : `<${post.media_mime_type?.startsWith('video/') ? 'video controls' : 'img alt="Média partagé"'} class="feed-image protected-media" data-media-id="${Number(post.media_id)}"></${post.media_mime_type?.startsWith('video/') ? 'video' : 'img'}>`;
-        const pending = post.moderation_status === 'pending' ? '<p class="field-hint">Votre publication est en examen humain et n’est visible que par vous.</p>' : '';
+        const pending = post.moderation_status === 'pending' ? t("platform_dynamic_060", '<p class="field-hint">Votre publication est en examen humain et n’est visible que par vous.</p>') : '';
         return `<article class="feed-post"><div class="profile-summary">${avatarMarkup(post)}<strong>${esc(post.prenom)} ${esc(post.name)}</strong></div><p>${esc(post.body)}</p>${media}${pending}<p><button class="btn btn-secondary feed-reaction" data-post="${post.id}" type="button">👍 ${post.reaction_count}</button></p>${renderComments(post)}</article>`;
-    }).join('') || '<p>Aucune publication visible pour le moment.</p>';
+    }).join('') || t("platform_dynamic_061", '<p>Aucune publication visible pour le moment.</p>');
     hydrateProtectedMedia($p('feedList'));
 }
 function postPriceMinor(file) { return !file ? 10 : !file.type.startsWith('video/') ? 20 : Math.min(10000, 50 + (Math.max(1, Math.ceil(file.size / (1024 * 1024))) * 10)); }
@@ -929,7 +929,7 @@ async function submitPaidContent(event, contentType) {
         payload = { content_type: 'announcement', body: $p('announcementBody').value.trim(), duration_days: durationDays('announcementDuration'), payment_method: $p('announcementPayment').value };
     } else {
         files = $p('advertisementPhotos').files;
-        if (files.length > 4) throw new Error('Une publicité peut contenir au maximum quatre photos.');
+        if (files.length > 4) throw new Error(t("platform_dynamic_062", 'Une publicité peut contenir au maximum quatre photos.'));
         payload = {
             content_type: 'advertisement', title: $p('advertisementTitle').value.trim(), body: $p('advertisementBody').value.trim(),
             product_price: $p('advertisementPriceValue').value.trim(), product_total: $p('advertisementTotal').value.trim(),
@@ -949,7 +949,7 @@ async function submitPaidContent(event, contentType) {
     $p('simulateMomoConfirmation').hidden = !pendingMomoPaymentId;
     if (!pendingMomoPaymentId) {
         await loadProfile();
-        notice('Contenu public créé et validé. Il apparaît dans le fil public lorsqu’il est approuvé.');
+        notice(t("platform_dynamic_063", 'Contenu public créé et validé. Il apparaît dans le fil public lorsqu’il est approuvé.'));
     }
 }
 async function simulateMomoConfirmation() {
@@ -960,7 +960,7 @@ async function simulateMomoConfirmation() {
     $p('contentPaymentStatus').textContent = `Confirmation simulée réussie. Reçu ${data.receipt.payment_id}. ${data.receipt.notice}`;
     pendingMomoPaymentId = null;
     $p('simulateMomoConfirmation').hidden = true;
-    notice('Le contenu est maintenant admissible au fil public, sous réserve de son état d’approbation.');
+    notice(t("platform_dynamic_064", 'Le contenu est maintenant admissible au fil public, sous réserve de son état d’approbation.'));
 }
 async function publish(event) {
     event.preventDefault();
@@ -992,7 +992,7 @@ async function submitComment(event) {
     const response = await request(`/api/social/posts/${form.dataset.post}/comments`, { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey('comment') }, body: JSON.stringify({ body, ...(form.dataset.parent ? { parent_comment_id: Number(form.dataset.parent) } : {}) }) });
     notice(response.receipt
         ? `Commentaire ajouté. Reçu ${response.receipt.payment_id} : ${response.receipt.display}.`
-        : 'Commentaire ajouté.');
+        : t("platform_dynamic_065", 'Commentaire ajouté.'));
     loadFeed();
 }
 async function createEvent(event) {
@@ -1027,7 +1027,7 @@ function logout() {
     mediaUrls.clear();
     account = null;
     $p('portalNotice').style.display = 'none';
-    $p('portalStatus').textContent = 'Vous êtes déconnecté·e. Connectez-vous pour accéder à votre espace membre.';
+    $p('portalStatus').textContent = t("platform_dynamic_066", 'Vous êtes déconnecté·e. Connectez-vous pour accéder à votre espace membre.');
     $p('portalSection').hidden = true;
     $p('authSection').hidden = false;
 }
@@ -1037,6 +1037,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (event.detail && event.detail.userInitiated) {
                 languageOverridden = true;
                 localStorage.setItem('platformUiLanguageOverride', 'true');
+            }
+            if (account) {
+                renderAccount();
+                const activeScreen = document.querySelector('.portal-screen:not([hidden])');
+                const reload = {
+                    groupsScreen: loadGroups,
+                    friendsScreen: loadFriends,
+                    feedScreen: loadFeed,
+                    contentScreen: loadPaidContentPrices,
+                    calendarScreen: loadEvents,
+                    walletScreen: loadFinance
+                }[activeScreen && activeScreen.id];
+                if (reload) reload().catch(() => {});
             }
         });
     }

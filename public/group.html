@@ -8,8 +8,8 @@
 </head>
 <body>
     <header class="app-header">
-        <div><h1 id="groupTitle">Mon AVEC</h1><p id="groupStatus" role="status">Chargement de votre espace membre AVEC…</p></div>
-        <div class="header-actions"><label class="language-picker" for="groupLanguage"><span class="sr-only" data-i18n="group_interface_language">Langue de l’interface</span><select id="groupLanguage" data-language-selector aria-label="Langue de l’interface" data-i18n-aria-label="group_interface_language"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option><option value="ln">Lingala</option></select></label><a class="btn btn-secondary" href="platform.html" data-i18n="group_platform_space">Espace plateforme</a><button id="groupLogout" class="btn btn-secondary" type="button" data-i18n="group_logout">Déconnexion</button></div>
+        <div><h1 id="groupTitle" data-i18n="ui_authored_103">Mon AVEC</h1><p id="groupStatus" role="status" data-i18n="ui_authored_104">Chargement de votre espace membre AVEC…</p></div>
+        <div class="header-actions"><label class="language-picker" for="groupLanguage"><span class="sr-only" data-i18n="group_interface_language">Langue de l’interface</span><select id="groupLanguage" data-language-selector aria-label="Langue de l’interface" data-i18n-aria-label="group_interface_language"><option value="fr" data-i18n="ui_authored_003">Français</option><option value="en" data-i18n="ui_authored_004">English</option><option value="rw" data-i18n="ui_authored_005">Kinyarwanda</option><option value="rn" data-i18n="ui_authored_006">Kirundi</option><option value="sw" data-i18n="ui_authored_007">Kiswahili</option><option value="ln" data-i18n="ui_authored_008">Lingala</option></select></label><a class="btn btn-secondary" href="platform.html" data-i18n="group_platform_space">Espace plateforme</a><button id="groupLogout" class="btn btn-secondary" type="button" data-i18n="group_logout">Déconnexion</button></div>
     </header>
     <main class="container">
         <nav class="group-dashboard-nav" aria-label="Espaces du groupe" data-i18n-aria-label="group_spaces">
@@ -18,11 +18,11 @@
         </nav>
 
         <section id="memberDashboard" class="card">
-            <h2><span data-i18n="group_member_space_heading">Mon espace membre — </span><span id="memberGroupName">AVEC</span></h2>
-            <p class="field-hint"><span data-i18n="group_member_role_intro">Votre rôle dans le groupe : </span><strong id="memberRole">Membre</strong><span data-i18n="group_member_role_help">. Cet espace existe aussi pour le président, le vice-président et le comptable.</span></p>
+            <h2><span data-i18n="group_member_space_heading">Mon espace membre — </span><span id="memberGroupName" data-i18n="ui_authored_105">AVEC</span></h2>
+            <p class="field-hint"><span data-i18n="group_member_role_intro">Votre rôle dans le groupe : </span><strong id="memberRole" data-i18n="ui_authored_106">Membre</strong><span data-i18n="group_member_role_help">. Cet espace existe aussi pour le président, le vice-président et le comptable.</span></p>
             <div class="wallet-grid">
-                <div class="wallet-card"><strong data-i18n="group_ui_007">Mon wallet personnel AVEC</strong><span id="memberWallet">0</span><small data-i18n="group_ui_008">Pour cotiser, rembourser, payer les intérêts et retirer vers votre Momo.</small></div>
-                <div class="wallet-card"><strong><span data-i18n="group_collective_wallet">Wallet AVEC — </span><span id="memberGroupWalletName">Groupe</span></strong><span id="memberGroupWallet">0</span><small data-i18n="group_collective_wallet_help">Solde collectif, affiché en lecture seule.</small></div>
+                <div class="wallet-card"><strong data-i18n="group_ui_007">Mon wallet personnel AVEC</strong><span id="memberWallet" data-i18n="ui_authored_098">0</span><small data-i18n="group_ui_008">Pour cotiser, rembourser, payer les intérêts et retirer vers votre Momo.</small></div>
+                <div class="wallet-card"><strong><span data-i18n="group_collective_wallet">Wallet AVEC — </span><span id="memberGroupWalletName" data-i18n="ui_authored_107">Groupe</span></strong><span id="memberGroupWallet" data-i18n="ui_authored_098">0</span><small data-i18n="group_collective_wallet_help">Solde collectif, affiché en lecture seule.</small></div>
             </div>
             <section class="group-member-panel">
                 <h3 data-i18n="group_wallet_funding">Alimenter mon wallet AVEC</h3>
@@ -41,9 +41,9 @@
         </section>
 
         <section id="groupAdminDashboard" class="card" hidden>
-            <h2><span data-i18n="group_admin_heading">Gestion du compte AVEC — </span><span id="adminGroupName">Groupe</span></h2>
+            <h2><span data-i18n="group_admin_heading">Gestion du compte AVEC — </span><span id="adminGroupName" data-i18n="ui_authored_107">Groupe</span></h2>
             <p class="field-hint" data-i18n="group_admin_help">Réservé au président, vice-président et comptable. Cet espace gère les fonds communs ; il ne remplace pas votre espace membre.</p>
-            <div class="wallet-grid"><div class="wallet-card"><strong><span data-i18n="group_collective_wallet">Wallet AVEC — </span><span id="adminGroupWalletName">Groupe</span></strong><span id="groupWallet">0</span><small id="groupRole">Personnel autorisé</small></div></div>
+            <div class="wallet-grid"><div class="wallet-card"><strong><span data-i18n="group_collective_wallet">Wallet AVEC — </span><span id="adminGroupWalletName" data-i18n="ui_authored_107">Groupe</span></strong><span id="groupWallet" data-i18n="ui_authored_098">0</span><small id="groupRole" data-i18n="ui_authored_108">Personnel autorisé</small></div></div>
             <nav class="group-action-nav" aria-label="Gestion AVEC" data-i18n-aria-label="group_management">
                 <button id="showGroupMovements" class="btn btn-secondary" type="button" data-i18n="group_ui_023">Registre du groupe</button>
                 <button id="showJoinRequests" class="btn btn-primary" type="button" data-i18n="group_membership_requests">Demandes d’adhésion</button>
@@ -63,8 +63,8 @@
             <section id="creditRequestsSection" class="group-member-panel" hidden><h3 data-i18n="group_credit_requests_title">Demandes de crédit des membres</h3><div id="creditRequestsList" class="member-list"></div></section>
         </section>
 
-        <section id="actionSection" class="card" hidden><h2 id="actionTitle">Opération</h2><form id="actionForm"><div id="amountField" class="form-group"><label for="actionAmount" data-i18n="group_ui_033">Montant</label><input id="actionAmount" type="number" min="0.01" step="0.01" required></div><div id="reasonField" class="form-group" hidden><label for="actionReason" data-i18n="group_reason">Motif</label><textarea id="actionReason" maxlength="500"></textarea></div><button class="btn btn-primary" data-i18n="group_ui_034">Valider</button></form></section>
-        <section id="movementSection" class="card" hidden><h2 id="movementTitle">Registre</h2><p class="field-hint" data-i18n="group_movements_help">Les opérations sont classées par mois et année.</p><div id="movementList" class="member-list"></div></section>
+        <section id="actionSection" class="card" hidden><h2 id="actionTitle" data-i18n="ui_authored_109">Opération</h2><form id="actionForm"><div id="amountField" class="form-group"><label for="actionAmount" data-i18n="group_ui_033">Montant</label><input id="actionAmount" type="number" min="0.01" step="0.01" required></div><div id="reasonField" class="form-group" hidden><label for="actionReason" data-i18n="group_reason">Motif</label><textarea id="actionReason" maxlength="500"></textarea></div><button class="btn btn-primary" data-i18n="group_ui_034">Valider</button></form></section>
+        <section id="movementSection" class="card" hidden><h2 id="movementTitle" data-i18n="ui_authored_110">Registre</h2><p class="field-hint" data-i18n="group_movements_help">Les opérations sont classées par mois et année.</p><div id="movementList" class="member-list"></div></section>
         <section id="chatSection" class="card" hidden><h2 data-i18n="group_chat_title">Discussion de l’AVEC</h2><div id="groupChat" class="chat-window" aria-live="polite"></div><form id="groupChatForm"><label for="groupMessage" data-i18n="group_ui_037">Message</label><textarea id="groupMessage" maxlength="1000" required></textarea><button class="btn btn-primary" data-i18n="group_send">Envoyer</button></form></section>
     </main>
     <script src="i18n.js"></script>

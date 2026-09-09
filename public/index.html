@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AVEC Microcredit | Épargne solidaire, AVEC et associations villageoises</title>
+    <title data-i18n="ui_authored_001">AVEC Microcredit | Épargne solidaire, AVEC et associations villageoises</title>
     <meta name="description" content="AVEC Microcredit est une plateforme numérique pour les groupes AVEC, l'épargne solidaire, le microcrédit communautaire et les associations villageoises.">
     <meta name="keywords" content="AVEC, épargne solidaire, association villageoise, microcrédit communautaire, groupe d'épargne, plateforme numérique, communauté">
     <link rel="canonical" href="https://www.avec.my/">
@@ -46,8 +46,8 @@
 <body>
     <!-- THESIS: l'accueil traduit une organisation d'épargne complexe en un chemin public immédiatement praticable, sans imiter un tableau financier. OWN-WORLD: le bleu AVEC profond construit une place de confiance; surfaces blanches, lignes nettes et jaune solaire réservent l'énergie à l'action. STORY: comprendre la plateforme, choisir son espace, demander une réponse sûre puis créer un compte. FIRST VIEWPORT: marque et langue en haut; promesse, deux accès et parcours visible dans un seul champ bleu. FORM: place communautaire mobile, avec une conversation guidée comme moment signature. -->
     <header class="app-header">
-        <div><h1>AVEC Microcredit</h1><p data-i18n="tagline">Épargne, crédit et entraide organisés pour votre groupe.</p></div>
-        <div class="header-actions"><label class="language-picker" for="publicLanguage"><span data-i18n="language">Langue</span><select id="publicLanguage" data-language-selector aria-label="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option><option value="ln">Lingala</option></select></label><a class="btn btn-secondary" href="news.html" data-i18n="news">Actualités</a><a class="btn btn-primary" href="/application" data-i18n="account">Créer ou ouvrir mon compte</a></div>
+        <div><h1 data-i18n="ui_authored_002">AVEC Microcredit</h1><p data-i18n="tagline">Épargne, crédit et entraide organisés pour votre groupe.</p></div>
+        <div class="header-actions"><label class="language-picker" for="publicLanguage"><span data-i18n="language">Langue</span><select id="publicLanguage" data-language-selector aria-label="Langue de l’interface" data-i18n-aria-label="ui_authored_013"><option value="fr" data-i18n="ui_authored_003">Français</option><option value="en" data-i18n="ui_authored_004">English</option><option value="rw" data-i18n="ui_authored_005">Kinyarwanda</option><option value="rn" data-i18n="ui_authored_006">Kirundi</option><option value="sw" data-i18n="ui_authored_007">Kiswahili</option><option value="ln" data-i18n="ui_authored_008">Lingala</option></select></label><a class="btn btn-secondary" href="news.html" data-i18n="news">Actualités</a><a class="btn btn-primary" href="/application" data-i18n="account">Créer ou ouvrir mon compte</a></div>
     </header>
     <main class="container">
         <section class="landing-hero">
@@ -57,9 +57,9 @@
                 <div class="landing-actions"><a class="btn btn-primary" href="/application" data-i18n="create">Créer mon compte membre</a><a class="btn btn-secondary" href="/communaute" data-i18n="community">Découvrir AVEC Communauté</a></div>
                 <p class="landing-note" data-i18n="sandbox">Les paiements et la vérification Mobile Money sont actuellement en mode SANDBOX.</p>
             </div>
-            <aside class="journey-panel" aria-label="Parcours membre">
+            <aside class="journey-panel" aria-label="Parcours membre" data-i18n-aria-label="ui_authored_014">
                 <p data-i18n="journey">Votre parcours</p>
-                <ol><li><strong>1</strong><span data-i18n="step_one">Créer et vérifier votre identité</span></li><li><strong>2</strong><span data-i18n="step_two">Découvrir ou rejoindre un groupe</span></li><li><strong>3</strong><span data-i18n="step_three">Organiser l’épargne avec votre communauté</span></li></ol>
+                <ol><li><strong data-i18n="ui_authored_009">1</strong><span data-i18n="step_one">Créer et vérifier votre identité</span></li><li><strong data-i18n="ui_authored_010">2</strong><span data-i18n="step_two">Découvrir ou rejoindre un groupe</span></li><li><strong data-i18n="ui_authored_011">3</strong><span data-i18n="step_three">Organiser l’épargne avec votre communauté</span></li></ol>
             </aside>
         </section>
         <section class="landing-section" aria-labelledby="howItWorks">
@@ -94,12 +94,12 @@
             <div class="assistant-intro"><h2 id="assistantTitle" data-i18n="assistant_title">Assistant AVEC</h2><p data-i18n="assistant_text">Une aide rapide pour comprendre la plateforme. Il ne demande jamais votre PIN, code OTP, mot de passe ou informations Mobile Money.</p><p class="assistant-safety" data-i18n="assistant_safety">Pour une opération financière, suivez toujours les contrôles sécurisés de votre espace membre.</p></div>
             <div class="assistant-panel">
                 <div id="assistantMessages" class="assistant-messages" aria-live="polite"><p class="assistant-message assistant-answer" data-i18n="assistant_welcome">Bonjour ! Posez une question sur l’inscription, les groupes AVEC, l’épargne, la communauté ou la sécurité.</p></div>
-                <form id="assistantForm" class="assistant-form"><label class="sr-only" for="assistantQuestion" data-i18n="assistant_label">Votre question</label><input id="assistantQuestion" type="text" maxlength="280" autocomplete="off" data-i18n-placeholder="assistant_placeholder" placeholder="Ex. Comment rejoindre un groupe ?" required><button class="btn btn-primary" data-i18n="assistant_send">Demander</button></form>
+                <form id="assistantForm" class="assistant-form"><label class="sr-only" for="assistantQuestion" data-i18n="assistant_label">Votre question</label><input id="assistantQuestion" type="text" maxlength="500" autocomplete="off" data-i18n-placeholder="assistant_placeholder" placeholder="Ex. Comment rejoindre un groupe ?" required><label class="assistant-opt-in"><input id="assistantSaveForReview" type="checkbox"> <span data-i18n="assistant_optin">J’accepte que cette question non sensible soit envoyée à la modération pour améliorer l’aide publique.</span></label><button class="btn btn-primary" data-i18n="assistant_send">Demander</button></form>
             </div>
         </section>
         <section class="card" aria-labelledby="homeNewsTitle">
             <div class="dashboard-heading"><div><h2 id="homeNewsTitle" data-i18n="home_news_title">Annonces et publicités des membres</h2><p data-i18n="home_news_text">Les contenus sont publiés par les membres après débit automatique de leur portefeuille SANDBOX.</p></div><a class="btn btn-secondary" href="news.html" data-i18n="home_news_action">Voir les annonces</a></div>
-            <div id="homeNewsFeed" class="feed-list" aria-live="polite"><p class="field-hint">Chargement des annonces…</p></div>
+            <div id="homeNewsFeed" class="feed-list" aria-live="polite"><p class="field-hint" data-i18n="ui_authored_012">Chargement des annonces…</p></div>
         </section>
     </main>
     <script src="i18n.js"></script>

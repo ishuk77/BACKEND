@@ -2,10 +2,12 @@
 
 // For production, change this to your deployed server URL
 const API_BASE = window.location.origin;
+const t = (key, fallback) => window.AVEC_I18N ? window.AVEC_I18N.t(key, fallback) : fallback;
 const momoCountryByName = name => (window.MOMO_COUNTRIES || []).find(country => country.name === name);
 let platformConversationGroups = [];
 let selectedPlatformConversationId = '';
 let adminPinResetToken = null;
+let assistantKnowledgeVisible = false;
 const ADMIN_PIN_RESET_SESSION_KEY = 'adminPinResetSession';
 
 function adminPinResetSessionId() {
@@ -37,6 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btnPaymentLedger').addEventListener('click', showPaymentLedger);
     document.getElementById('btnSocialModeration').addEventListener('click', () => showSocialModeration().catch(error => alert(error.message)));
     document.getElementById('btnPublicContent').addEventListener('click', () => showPublicContent().catch(error => alert(error.message)));
+    document.getElementById('btnAssistantKnowledge').addEventListener('click', () => showAssistantKnowledge().catch(error => alert(error.message)));
     document.getElementById('btnFlashChannels').addEventListener('click', () => showFlashChannels().catch(error => alert(error.message)));
     document.getElementById('btnPlatformStats').addEventListener('click', showPlatformStats);
     document.getElementById('btnDeploymentSettings').addEventListener('click', () => showDeploymentSettings().catch(error => alert(error.message)));
@@ -65,6 +68,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('platformConversationForm').addEventListener('submit', event => sendPlatformConversation(event).catch(error => alert(error.message)));
     populateMomoCountries();
+    if (typeof window.addEventListener === 'function') {
+        window.addEventListener('avec:localechange', () => {
+            if (assistantKnowledgeVisible) showAssistantKnowledge().catch(() => {});
+        });
+    }
 
     // Check if platform admin is already logged in
     const token = localStorage.getItem('platformAccessToken');
@@ -81,6 +89,87 @@ function populateMomoCountries() {
         countrySelect.appendChild(option);
     });
     updateMomoFields();
+}
+
+function assistantElement(tag, text, key) {
+    const element = document.createElement(tag);
+    element.textContent = key ? t(key, text) : text;
+    return element;
+}
+
+async function showAssistantKnowledge() {
+    showPlatformDashboard();
+    assistantKnowledgeVisible = true;
+    const content = document.getElementById('platformContent');
+    content.replaceChildren();
+    content.append(
+        assistantElement('h3', 'Connaissances de l’assistant', 'assistant_admin_title'),
+        assistantElement('p', 'Seules les ressources validées et les publications publiques déjà approuvées peuvent être examinées. Les messages privés, données personnelles et données financières sont exclus.', 'assistant_admin_note')
+    );
+    const form = document.createElement('form');
+    const title = document.createElement('input');
+    title.required = true; title.maxLength = 160; title.placeholder = t('assistant_admin_resource_title', 'Titre de la ressource');
+    const body = document.createElement('textarea');
+    body.required = true; body.maxLength = 1200; body.rows = 4; body.placeholder = t('assistant_admin_resource_body', 'Texte de la ressource approuvée');
+    const locale = document.createElement('select');
+    (window.AVEC_I18N ? window.AVEC_I18N.locales : ['fr', 'en', 'rw', 'rn', 'sw', 'ln']).forEach(code => locale.add(new Option(code.toUpperCase(), code)));
+    locale.value = window.AVEC_I18N ? window.AVEC_I18N.locale : 'fr';
+    const save = assistantElement('button', 'Ajouter une ressource validée', 'assistant_admin_add');
+    save.type = 'submit'; save.className = 'btn btn-primary';
+    form.append(title, body, locale, save);
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        await apiRequest('/api/admin/assistant/knowledge', { method: 'POST', body: JSON.stringify({ title: title.value, body: body.value, locale: locale.value }) });
+        await showAssistantKnowledge();
+    });
+    content.appendChild(form);
+    const publicContentForm = document.createElement('form');
+    const contentType = document.createElement('select');
+    contentType.add(new Option(t('assistant_admin_post', 'Publication publique'), 'post'));
+    contentType.add(new Option(t('assistant_admin_comment', 'Commentaire public'), 'comment'));
+    const contentId = document.createElement('input');
+    contentId.type = 'number'; contentId.min = '1'; contentId.required = true;
+    contentId.placeholder = t('assistant_admin_content_id', 'Identifiant du contenu approuvé');
+    const queue = assistantElement('button', 'Envoyer à la modération', 'assistant_admin_queue');
+    queue.type = 'submit'; queue.className = 'btn btn-secondary';
+    publicContentForm.append(assistantElement('label', 'Proposer un contenu public approuvé', 'assistant_admin_propose'), contentType, contentId, queue);
+    publicContentForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        await apiRequest('/api/admin/assistant/submissions/public-content', {
+            method: 'POST',
+            body: JSON.stringify({ contentType: contentType.value, contentId: Number(contentId.value), locale: locale.value })
+        });
+        await showAssistantKnowledge();
+    });
+    content.appendChild(publicContentForm);
+    const [knowledge, review] = await Promise.all([
+        apiRequest('/api/admin/assistant/knowledge'),
+        apiRequest('/api/admin/assistant/submissions')
+    ]);
+    content.appendChild(assistantElement('h4', 'Propositions à examiner', 'assistant_admin_pending'));
+    if (!review.submissions.length) content.appendChild(assistantElement('p', 'Aucune proposition en attente.', 'assistant_admin_empty'));
+    review.submissions.forEach(submission => {
+        const card = document.createElement('article');
+        card.className = 'momo-item';
+        card.append(assistantElement('p', `${submission.source_type} · ${submission.locale}`), assistantElement('p', submission.body));
+        ['approve', 'reject'].forEach(action => {
+            const button = assistantElement('button', action === 'approve' ? 'Approuver' : 'Rejeter', action === 'approve' ? 'assistant_admin_approve' : 'assistant_admin_reject');
+            button.type = 'button'; button.className = `btn btn-${action === 'approve' ? 'success' : 'danger'}`;
+            button.addEventListener('click', async () => {
+                await apiRequest(`/api/admin/assistant/submissions/${encodeURIComponent(submission.id)}/review`, { method: 'POST', body: JSON.stringify({ action, note: 'Examen de modération AVEC' }) });
+                await showAssistantKnowledge();
+            });
+            card.appendChild(button);
+        });
+        content.appendChild(card);
+    });
+    content.appendChild(assistantElement('h4', 'Ressources actives', 'assistant_admin_active'));
+    knowledge.entries.filter(entry => entry.status === 'approved').forEach(entry => {
+        const item = document.createElement('article');
+        item.className = 'momo-item';
+        item.append(assistantElement('strong', entry.title), assistantElement('p', entry.body));
+        content.appendChild(item);
+    });
 }
 
 function updateMomoFields() {
@@ -221,6 +310,7 @@ async function handlePlatformLogin(e) {
 }
 
 function showPlatformDashboard() {
+    assistantKnowledgeVisible = false;
     hideAllSections();
     document.getElementById('platformDashboard').style.display = 'block';
 }

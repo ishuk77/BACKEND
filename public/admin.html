@@ -3,88 +3,88 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Administration Plateforme - AVEC Microcredit</title>
+    <title data-i18n="ui_authored_126">Administration Plateforme - AVEC Microcredit</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#007bff">
 </head>
 <body>
     <header>
-        <h1>Administration de la Plateforme AVEC</h1>
-        <div class="header-actions"><label class="language-picker" for="adminLanguage"><span class="sr-only">Langue de l’interface</span><select id="adminLanguage" data-language-selector aria-label="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option><option value="ln">Lingala</option></select></label></div>
+        <h1 data-i18n="ui_authored_127">Administration de la Plateforme AVEC</h1>
+        <div class="header-actions"><label class="language-picker" for="adminLanguage"><span class="sr-only" data-i18n="ui_authored_013">Langue de l’interface</span><select id="adminLanguage" data-language-selector aria-label="Langue de l’interface" data-i18n-aria-label="ui_authored_013"><option value="fr" data-i18n="ui_authored_003">Français</option><option value="en" data-i18n="ui_authored_004">English</option><option value="rw" data-i18n="ui_authored_005">Kinyarwanda</option><option value="rn" data-i18n="ui_authored_006">Kirundi</option><option value="sw" data-i18n="ui_authored_007">Kiswahili</option><option value="ln" data-i18n="ui_authored_008">Lingala</option></select></label></div>
         <div id="adminInfo"></div>
     </header>
 
     <main class="container">
         <!-- Platform Admin Login -->
         <section id="platformLoginSection" class="card">
-            <h2>Connexion Administration Plateforme</h2>
+            <h2 data-i18n="ui_authored_128">Connexion Administration Plateforme</h2>
             <form id="platformLoginForm">
                 <div class="form-group">
-                    <label for="platformLoginPhone">Téléphone</label>
-                    <input type="tel" id="platformLoginPhone" placeholder="+22912345678" required>
+                    <label for="platformLoginPhone" data-i18n="ui_authored_016">Téléphone</label>
+                    <input type="tel" id="platformLoginPhone" placeholder="+22912345678" required data-i18n-placeholder="ui_authored_252">
                 </div>
                 <div class="form-group">
-                    <label for="platformLoginPin">PIN</label>
-                    <input type="password" id="platformLoginPin" placeholder="1234" required>
+                    <label for="platformLoginPin" data-i18n="ui_authored_129">PIN</label>
+                    <input type="password" id="platformLoginPin" placeholder="1234" required data-i18n-placeholder="ui_authored_253">
                 </div>
-                <button type="submit" class="btn btn-primary">Se connecter</button>
+                <button type="submit" class="btn btn-primary" data-i18n="ui_authored_015">Se connecter</button>
             </form>
-            <details class="password-reset"><summary>PIN administrateur oublié ?</summary><form id="adminPinResetForm"><p class="field-hint">Vérifiez le numéro de l’administrateur puis choisissez un nouveau PIN. En SANDBOX, le code est affiché dans cette session.</p><div class="form-group"><label for="adminPinResetPhone">Téléphone</label><input id="adminPinResetPhone" type="tel" required autocomplete="tel"></div><button id="adminPinResetRequestCode" type="button" class="btn btn-secondary">Demander le code</button><div class="form-group"><label for="adminPinResetCode">Code à 6 chiffres</label><input id="adminPinResetCode" inputmode="numeric" pattern="\d{6}" maxlength="6" required></div><button id="adminPinResetVerifyCode" type="button" class="btn btn-secondary">Vérifier le téléphone</button><p id="adminPinResetStatus" class="field-hint" role="status"></p><div class="form-group"><label for="adminPinResetNewPin">Nouveau PIN (4 chiffres)</label><input id="adminPinResetNewPin" type="password" inputmode="numeric" pattern="\d{4}" maxlength="4" required autocomplete="new-password"></div><div class="form-group"><label for="adminPinResetPinConfirmation">Confirmer le nouveau PIN</label><input id="adminPinResetPinConfirmation" type="password" inputmode="numeric" pattern="\d{4}" maxlength="4" required autocomplete="new-password"></div><button class="btn btn-primary">Réinitialiser le PIN</button></form></details>
-            <button id="btnShowPlatformSetup" type="button" class="btn btn-secondary">Initialiser l'administrateur plateforme</button>
+            <details class="password-reset"><summary data-i18n="ui_authored_130">PIN administrateur oublié ?</summary><form id="adminPinResetForm"><p class="field-hint" data-i18n="ui_authored_131">Vérifiez le numéro de l’administrateur puis choisissez un nouveau PIN. En SANDBOX, le code est affiché dans cette session.</p><div class="form-group"><label for="adminPinResetPhone" data-i18n="ui_authored_016">Téléphone</label><input id="adminPinResetPhone" type="tel" required autocomplete="tel"></div><button id="adminPinResetRequestCode" type="button" class="btn btn-secondary" data-i18n="ui_authored_132">Demander le code</button><div class="form-group"><label for="adminPinResetCode" data-i18n="ui_authored_133">Code à 6 chiffres</label><input id="adminPinResetCode" inputmode="numeric" pattern="\d{6}" maxlength="6" required></div><button id="adminPinResetVerifyCode" type="button" class="btn btn-secondary" data-i18n="ui_authored_038">Vérifier le téléphone</button><p id="adminPinResetStatus" class="field-hint" role="status"></p><div class="form-group"><label for="adminPinResetNewPin" data-i18n="ui_authored_134">Nouveau PIN (4 chiffres)</label><input id="adminPinResetNewPin" type="password" inputmode="numeric" pattern="\d{4}" maxlength="4" required autocomplete="new-password"></div><div class="form-group"><label for="adminPinResetPinConfirmation" data-i18n="ui_authored_135">Confirmer le nouveau PIN</label><input id="adminPinResetPinConfirmation" type="password" inputmode="numeric" pattern="\d{4}" maxlength="4" required autocomplete="new-password"></div><button class="btn btn-primary" data-i18n="ui_authored_136">Réinitialiser le PIN</button></form></details>
+            <button id="btnShowPlatformSetup" type="button" class="btn btn-secondary" data-i18n="ui_authored_137">Initialiser l'administrateur plateforme</button>
         </section>
 
         <section id="platformSetupSection" class="card" style="display:none;">
-            <h2>Initialiser l'administrateur plateforme</h2>
-            <p>Cette opération est disponible une seule fois.</p>
+            <h2 data-i18n="ui_authored_137">Initialiser l'administrateur plateforme</h2>
+            <p data-i18n="ui_authored_138">Cette opération est disponible une seule fois.</p>
             <form id="platformSetupForm">
                 <div class="form-group">
-                    <label for="setupPrenom">Prénom</label>
+                    <label for="setupPrenom" data-i18n="ui_authored_028">Prénom</label>
                     <input type="text" id="setupPrenom" required>
                 </div>
                 <div class="form-group">
-                    <label for="setupNom">Nom</label>
+                    <label for="setupNom" data-i18n="ui_authored_029">Nom</label>
                     <input type="text" id="setupNom" required>
                 </div>
                 <div class="form-group">
-                    <label for="setupPhone">Téléphone</label>
+                    <label for="setupPhone" data-i18n="ui_authored_016">Téléphone</label>
                     <input type="tel" id="setupPhone" required>
                 </div>
                 <div class="form-group">
-                    <label for="setupIdNumber">N° carte d'identité / passeport</label>
+                    <label for="setupIdNumber" data-i18n="ui_authored_139">N° carte d'identité / passeport</label>
                     <input type="text" id="setupIdNumber" required>
                 </div>
-                <button type="submit" class="btn btn-primary">Créer l'administrateur</button>
-                <button id="btnBackToPlatformLogin" type="button" class="btn btn-secondary">Retour</button>
+                <button type="submit" class="btn btn-primary" data-i18n="ui_authored_140">Créer l'administrateur</button>
+                <button id="btnBackToPlatformLogin" type="button" class="btn btn-secondary" data-i18n="ui_authored_141">Retour</button>
             </form>
         </section>
 
         <!-- Platform Admin Dashboard -->
         <section id="platformDashboard" class="card" style="display:none;">
             <h2>Tableau de bord - <span id="platformAdminName"></span></h2>
-            <p class="notifications" style="display:block;"><strong>PAIEMENTS : SANDBOX UNIQUEMENT.</strong> Aucune transaction réelle n’est envoyée à un opérateur.</p>
-            <button onclick="platformLogout()" class="btn btn-secondary">Déconnexion</button>
+            <p class="notifications" style="display:block;"><strong data-i18n="ui_authored_142">PAIEMENTS : SANDBOX UNIQUEMENT.</strong> Aucune transaction réelle n’est envoyée à un opérateur.</p>
+            <button onclick="platformLogout()" class="btn btn-secondary" data-i18n="ui_authored_019">Déconnexion</button>
 
-            <div class="action-menu-list" aria-label="Outils d’administration">
+            <div class="action-menu-list" aria-label="Outils d’administration" data-i18n-aria-label="ui_authored_254">
                 <details class="action-menu" open>
-                    <summary>Finance <span>Momo et paiements de démonstration</span></summary>
-                    <div class="button-grid icon-grid"><button id="btnManageMomo" class="btn btn-info icon-button" type="button" aria-label="Gérer les comptes Momo" title="Gérer les comptes Momo"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#wallet"></use></svg><span class="sr-only">Gérer les comptes Momo</span></button><button id="btnPaymentLedger" class="btn btn-warning icon-button" type="button" aria-label="Registre de paiements SANDBOX" title="Registre de paiements SANDBOX"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#history"></use></svg><span class="sr-only">Registre de paiements SANDBOX</span></button></div>
+                    <summary>Finance <span data-i18n="ui_authored_143">Momo et paiements de démonstration</span></summary>
+                    <div class="button-grid icon-grid"><button id="btnManageMomo" class="btn btn-info icon-button" type="button" aria-label="Gérer les comptes Momo" title="Gérer les comptes Momo" data-i18n-title="ui_authored_144" data-i18n-aria-label="ui_authored_144"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#wallet"></use></svg><span class="sr-only" data-i18n="ui_authored_144">Gérer les comptes Momo</span></button><button id="btnPaymentLedger" class="btn btn-warning icon-button" type="button" aria-label="Registre de paiements SANDBOX" title="Registre de paiements SANDBOX" data-i18n-title="ui_authored_145" data-i18n-aria-label="ui_authored_145"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#history"></use></svg><span class="sr-only" data-i18n="ui_authored_145">Registre de paiements SANDBOX</span></button></div>
                 </details>
                 <details class="action-menu">
-                    <summary>Groupe <span>Groupes, membres et révisions</span></summary>
-                    <div class="button-grid icon-grid"><button id="btnViewAllGroups" class="btn btn-primary icon-button" type="button" aria-label="Voir tous les groupes" title="Voir tous les groupes"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#groups"></use></svg><span class="sr-only">Voir tous les groupes</span></button><button id="btnViewAllMembers" class="btn btn-secondary icon-button" type="button" aria-label="Voir tous les membres" title="Voir tous les membres"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#profile"></use></svg><span class="sr-only">Voir tous les membres</span></button><button id="btnReviewRequests" class="btn btn-danger icon-button" type="button" aria-label="Groupes bloqués et révisions" title="Groupes bloqués et révisions"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#alert"></use></svg><span class="sr-only">Groupes bloqués et révisions</span></button><button id="btnPlatformStats" class="btn btn-success icon-button" type="button" aria-label="Statistiques globales" title="Statistiques globales"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#admin"></use></svg><span class="sr-only">Statistiques globales</span></button></div>
+                    <summary>Groupe <span data-i18n="ui_authored_146">Groupes, membres et révisions</span></summary>
+                    <div class="button-grid icon-grid"><button id="btnViewAllGroups" class="btn btn-primary icon-button" type="button" aria-label="Voir tous les groupes" title="Voir tous les groupes" data-i18n-title="ui_authored_147" data-i18n-aria-label="ui_authored_147"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#groups"></use></svg><span class="sr-only" data-i18n="ui_authored_147">Voir tous les groupes</span></button><button id="btnViewAllMembers" class="btn btn-secondary icon-button" type="button" aria-label="Voir tous les membres" title="Voir tous les membres" data-i18n-title="ui_authored_148" data-i18n-aria-label="ui_authored_148"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#profile"></use></svg><span class="sr-only" data-i18n="ui_authored_148">Voir tous les membres</span></button><button id="btnReviewRequests" class="btn btn-danger icon-button" type="button" aria-label="Groupes bloqués et révisions" title="Groupes bloqués et révisions" data-i18n-title="ui_authored_149" data-i18n-aria-label="ui_authored_149"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#alert"></use></svg><span class="sr-only" data-i18n="ui_authored_149">Groupes bloqués et révisions</span></button><button id="btnPlatformStats" class="btn btn-success icon-button" type="button" aria-label="Statistiques globales" title="Statistiques globales" data-i18n-title="ui_authored_150" data-i18n-aria-label="ui_authored_150"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#admin"></use></svg><span class="sr-only" data-i18n="ui_authored_150">Statistiques globales</span></button></div>
                 </details>
                 <details class="action-menu">
-                    <summary>Collaboration <span>Alertes et messages aux présidents</span></summary>
-                    <div class="button-grid icon-grid"><button id="btnViewAlerts" class="btn btn-warning icon-button" type="button" aria-label="Voir les alertes" title="Voir les alertes"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#alert"></use></svg><span class="sr-only">Voir les alertes</span></button><button id="btnPlatformMessages" class="btn btn-info icon-button" type="button" aria-label="Messages privés aux présidents" title="Messages privés aux présidents"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#chat"></use></svg><span class="sr-only">Messages privés aux présidents</span></button></div>
+                    <summary>Collaboration <span data-i18n="ui_authored_151">Alertes et messages aux présidents</span></summary>
+                    <div class="button-grid icon-grid"><button id="btnViewAlerts" class="btn btn-warning icon-button" type="button" aria-label="Voir les alertes" title="Voir les alertes" data-i18n-title="ui_authored_152" data-i18n-aria-label="ui_authored_152"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#alert"></use></svg><span class="sr-only" data-i18n="ui_authored_152">Voir les alertes</span></button><button id="btnPlatformMessages" class="btn btn-info icon-button" type="button" aria-label="Messages privés aux présidents" title="Messages privés aux présidents" data-i18n-title="ui_authored_153" data-i18n-aria-label="ui_authored_153"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#chat"></use></svg><span class="sr-only" data-i18n="ui_authored_153">Messages privés aux présidents</span></button></div>
                 </details>
                 <details class="action-menu">
-                    <summary>Social <span>Modération des publications</span></summary>
-                    <div class="button-grid icon-grid"><button id="btnSocialModeration" class="btn btn-danger icon-button" type="button" aria-label="Modération des publications" title="Modération des publications"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#alert"></use></svg><span class="sr-only">Modération des publications</span></button><button id="btnPublicContent" class="btn btn-primary icon-button" type="button" aria-label="Actualités et publicités" title="Actualités et publicités"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#publish"></use></svg><span class="sr-only">Actualités et publicités</span></button><button id="btnFlashChannels" class="btn btn-info icon-button" type="button" aria-label="Flashs et réseaux sociaux" title="Flashs et réseaux sociaux"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#feed"></use></svg><span class="sr-only">Flashs et réseaux sociaux</span></button></div>
+                    <summary>Social <span data-i18n="ui_authored_154">Modération des publications</span></summary>
+                    <div class="button-grid icon-grid"><button id="btnSocialModeration" class="btn btn-danger icon-button" type="button" aria-label="Modération des publications" title="Modération des publications" data-i18n-title="ui_authored_154" data-i18n-aria-label="ui_authored_154"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#alert"></use></svg><span class="sr-only" data-i18n="ui_authored_154">Modération des publications</span></button><button id="btnPublicContent" class="btn btn-primary icon-button" type="button" aria-label="Actualités et publicités" title="Actualités et publicités" data-i18n-title="ui_authored_155" data-i18n-aria-label="ui_authored_155"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#publish"></use></svg><span class="sr-only" data-i18n="ui_authored_155">Actualités et publicités</span></button><button id="btnAssistantKnowledge" class="btn btn-info icon-button" type="button" data-i18n-title="assistant_admin_title" title="Connaissances de l’assistant" aria-label="Connaissances de l’assistant" data-i18n-aria-label="ui_authored_265"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#feed"></use></svg><span class="sr-only" data-i18n="assistant_admin_title">Connaissances de l’assistant</span></button><button id="btnFlashChannels" class="btn btn-info icon-button" type="button" aria-label="Flashs et réseaux sociaux" title="Flashs et réseaux sociaux" data-i18n-title="ui_authored_156" data-i18n-aria-label="ui_authored_156"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#feed"></use></svg><span class="sr-only" data-i18n="ui_authored_156">Flashs et réseaux sociaux</span></button></div>
                 </details>
                 <details class="action-menu">
-                    <summary>Profil et paramètres <span>Configuration de la plateforme</span></summary>
-                    <div class="button-grid icon-grid"><button id="btnDeploymentSettings" class="btn btn-secondary icon-button" type="button" aria-label="Paramètres de déploiement" title="Paramètres de déploiement"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#settings"></use></svg><span class="sr-only">Paramètres de déploiement</span></button></div>
+                    <summary>Profil et paramètres <span data-i18n="ui_authored_157">Configuration de la plateforme</span></summary>
+                    <div class="button-grid icon-grid"><button id="btnDeploymentSettings" class="btn btn-secondary icon-button" type="button" aria-label="Paramètres de déploiement" title="Paramètres de déploiement" data-i18n-title="ui_authored_158" data-i18n-aria-label="ui_authored_158"><svg class="action-icon" aria-hidden="true"><use href="icons.svg#settings"></use></svg><span class="sr-only" data-i18n="ui_authored_158">Paramètres de déploiement</span></button></div>
                 </details>
             </div>
 
@@ -93,223 +93,223 @@
 
         <!-- Momo Management Section -->
         <section id="momoSection" class="card" style="display:none;">
-            <h2>Gestion des comptes Momo</h2>
+            <h2 data-i18n="ui_authored_159">Gestion des comptes Momo</h2>
             <div class="form-group">
-                <label for="momoCountry">Pays</label>
+                <label for="momoCountry" data-i18n="ui_authored_160">Pays</label>
                 <select id="momoCountry" required>
-                    <option value="">Sélectionner un pays</option>
+                    <option value="" data-i18n="ui_authored_045">Sélectionner un pays</option>
                 </select>
-                <label for="momoProvider">Opérateur</label>
+                <label for="momoProvider" data-i18n="ui_authored_161">Opérateur</label>
                 <select id="momoProvider" required disabled>
-                    <option value="">Choisissez d'abord un pays</option>
+                    <option value="" data-i18n="ui_authored_162">Choisissez d'abord un pays</option>
                 </select>
-                <label for="momoPhone">Numéro Momo</label>
+                <label for="momoPhone" data-i18n="ui_authored_163">Numéro Momo</label>
                 <div class="phone-field">
                     <span id="momoDialCode" aria-live="polite">+--</span>
-                    <input type="tel" id="momoPhone" inputmode="tel" placeholder="Numéro sans l'indicatif" required>
+                    <input type="tel" id="momoPhone" inputmode="tel" placeholder="Numéro sans l'indicatif" required data-i18n-placeholder="ui_authored_255">
                 </div>
-                <p class="field-hint">L'indicatif est ajouté automatiquement. Saisissez le numéro local.</p>
-                <button id="btnAddMomo" class="btn btn-primary">Ajouter compte Momo</button>
+                <p class="field-hint" data-i18n="ui_authored_164">L'indicatif est ajouté automatiquement. Saisissez le numéro local.</p>
+                <button id="btnAddMomo" class="btn btn-primary" data-i18n="ui_authored_165">Ajouter compte Momo</button>
             </div>
             <div id="momoList"></div>
-            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+            <button class="btn btn-secondary platform-back" type="button" data-i18n="ui_authored_166">Retour au tableau de bord</button>
         </section>
 
         <!-- Groups List Section -->
         <section id="groupsSection" class="card" style="display:none;">
-            <h2>Tous les groupes AVEC</h2>
+            <h2 data-i18n="ui_authored_167">Tous les groupes AVEC</h2>
             <div id="allGroupsList"></div>
-            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+            <button class="btn btn-secondary platform-back" type="button" data-i18n="ui_authored_166">Retour au tableau de bord</button>
         </section>
 
         <!-- Members List Section -->
         <section id="membersSection" class="card" style="display:none;">
-            <h2>Tous les membres</h2>
+            <h2 data-i18n="ui_authored_168">Tous les membres</h2>
             <div id="allMembersList"></div>
-            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+            <button class="btn btn-secondary platform-back" type="button" data-i18n="ui_authored_166">Retour au tableau de bord</button>
         </section>
 
         <!-- Alerts Section -->
         <section id="alertsSection" class="card" style="display:none;">
-            <h2>Alertes et signalements</h2>
+            <h2 data-i18n="ui_authored_169">Alertes et signalements</h2>
             <div id="alertsList"></div>
-            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+            <button class="btn btn-secondary platform-back" type="button" data-i18n="ui_authored_166">Retour au tableau de bord</button>
         </section>
 
         <section id="reviewRequestsSection" class="card" style="display:none;">
-            <h2>Groupes bloqués et demandes de révision</h2>
-            <p>Seule la plateforme peut réactiver un groupe après examen.</p>
+            <h2 data-i18n="ui_authored_170">Groupes bloqués et demandes de révision</h2>
+            <p data-i18n="ui_authored_171">Seule la plateforme peut réactiver un groupe après examen.</p>
             <div id="reviewRequestsList"></div>
-            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+            <button class="btn btn-secondary platform-back" type="button" data-i18n="ui_authored_166">Retour au tableau de bord</button>
         </section>
 
         <section id="platformMessagesSection" class="card" style="display:none;">
-            <h2>Messages privés aux présidents</h2>
-            <p>Échangez uniquement avec le président du groupe sélectionné. Les membres ordinaires n’y ont pas accès.</p>
+            <h2 data-i18n="ui_authored_153">Messages privés aux présidents</h2>
+            <p data-i18n="ui_authored_172">Échangez uniquement avec le président du groupe sélectionné. Les membres ordinaires n’y ont pas accès.</p>
             <div class="form-group">
-                <label for="platformConversationSearch">Rechercher un groupe ou un président</label>
-                <input id="platformConversationSearch" type="search" autocomplete="off" placeholder="Nom du groupe ou du président">
+                <label for="platformConversationSearch" data-i18n="ui_authored_173">Rechercher un groupe ou un président</label>
+                <input id="platformConversationSearch" type="search" autocomplete="off" placeholder="Nom du groupe ou du président" data-i18n-placeholder="ui_authored_256">
             </div>
             <div class="form-group">
-                <label for="platformConversationSelect">Conversation</label>
+                <label for="platformConversationSelect" data-i18n="ui_authored_174">Conversation</label>
                 <select id="platformConversationSelect" size="6" aria-describedby="platformConversationHelp">
-                    <option value="">Chargement des groupes…</option>
+                    <option value="" data-i18n="ui_authored_175">Chargement des groupes…</option>
                 </select>
-                <p id="platformConversationHelp" class="field-hint">Choisissez un groupe pour consulter et envoyer des messages.</p>
+                <p id="platformConversationHelp" class="field-hint" data-i18n="ui_authored_176">Choisissez un groupe pour consulter et envoyer des messages.</p>
             </div>
-            <h3 id="platformConversationTitle">Sélectionnez un groupe</h3>
-            <div id="platformConversationWindow" class="chat-window" role="log" aria-live="polite" aria-label="Messages privés avec la plateforme">
-                <p>Sélectionnez un groupe avec un président pour ouvrir la conversation.</p>
+            <h3 id="platformConversationTitle" data-i18n="ui_authored_177">Sélectionnez un groupe</h3>
+            <div id="platformConversationWindow" class="chat-window" role="log" aria-live="polite" aria-label="Messages privés avec la plateforme" data-i18n-aria-label="ui_authored_257">
+                <p data-i18n="ui_authored_178">Sélectionnez un groupe avec un président pour ouvrir la conversation.</p>
             </div>
             <form id="platformConversationForm">
                 <div class="form-group">
-                    <label for="platformConversationInput">Votre message au président</label>
+                    <label for="platformConversationInput" data-i18n="ui_authored_179">Votre message au président</label>
                     <textarea id="platformConversationInput" rows="3" maxlength="1000" disabled required></textarea>
                 </div>
-                <button id="platformConversationSend" class="btn btn-primary" type="submit" disabled>Envoyer le message</button>
+                <button id="platformConversationSend" class="btn btn-primary" type="submit" disabled data-i18n="ui_authored_180">Envoyer le message</button>
             </form>
-            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+            <button class="btn btn-secondary platform-back" type="button" data-i18n="ui_authored_166">Retour au tableau de bord</button>
         </section>
 
         <!-- Platform Stats Section -->
         <section id="platformStatsSection" class="card" style="display:none;">
-            <h2>Statistiques de la plateforme</h2>
+            <h2 data-i18n="ui_authored_181">Statistiques de la plateforme</h2>
             <div id="platformStats"></div>
-            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+            <button class="btn btn-secondary platform-back" type="button" data-i18n="ui_authored_166">Retour au tableau de bord</button>
         </section>
 
         <section id="paymentLedgerSection" class="card" style="display:none;">
-            <h2>Registre de paiements — SANDBOX UNIQUEMENT</h2>
-            <p>Identifiants, statuts et références simulées pour la réconciliation de test. Aucun transfert réel n’est effectué.</p>
+            <h2 data-i18n="ui_authored_182">Registre de paiements — SANDBOX UNIQUEMENT</h2>
+            <p data-i18n="ui_authored_183">Identifiants, statuts et références simulées pour la réconciliation de test. Aucun transfert réel n’est effectué.</p>
             <div id="paymentLedgerList"></div>
             <div id="paymentOperationsList"></div>
-            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+            <button class="btn btn-secondary platform-back" type="button" data-i18n="ui_authored_166">Retour au tableau de bord</button>
         </section>
 
         <section id="publicContentSection" class="card" style="display:none;">
-            <h2>Actualités &amp; publicités publiques</h2>
-            <p class="field-hint">Les annonces sont du texte brut. Seules les publications membres <strong>publiques et approuvées</strong> apparaissent automatiquement sur la page publique; les contenus de contacts, privés, en attente ou retirés n’y figurent jamais.</p>
+            <h2 data-i18n="ui_authored_184">Actualités &amp; publicités publiques</h2>
+            <p class="field-hint">Les annonces sont du texte brut. Seules les publications membres <strong data-i18n="ui_authored_185">publiques et approuvées</strong> apparaissent automatiquement sur la page publique; les contenus de contacts, privés, en attente ou retirés n’y figurent jamais.</p>
             <div class="card" aria-labelledby="metaPublishingTitle">
-                <h3 id="metaPublishingTitle">Publication automatique sur la Page Facebook</h3>
-                <p id="metaPublishingStatus" class="field-hint" role="status">Vérification de la configuration Meta…</p>
+                <h3 id="metaPublishingTitle" data-i18n="ui_authored_186">Publication automatique sur la Page Facebook</h3>
+                <p id="metaPublishingStatus" class="field-hint" role="status" data-i18n="ui_authored_187">Vérification de la configuration Meta…</p>
                 <div class="form-group">
-                    <label for="metaPublishTarget">Contenu à réessayer (facultatif)</label>
+                    <label for="metaPublishTarget" data-i18n="ui_authored_188">Contenu à réessayer (facultatif)</label>
                     <select id="metaPublishTarget" disabled>
-                        <option value="">Chargement des contenus promotionnels…</option>
+                        <option value="" data-i18n="ui_authored_189">Chargement des contenus promotionnels…</option>
                     </select>
-                    <p class="field-hint">Toute actualité, publicité ou campagne promotionnelle publique active est envoyée automatiquement à la Page Facebook configurée, sans seconde approbation de la plateforme. Sont exclus les publications sociales, les contenus privés ou entre amis, les brouillons, contenus inactifs, expirés ou archivés. Les publications Facebook renvoient les réactions, questions et commentaires vers AVEC Communauté; aucun commentaire Facebook n’est importé ni synchronisé.</p>
+                    <p class="field-hint" data-i18n="ui_authored_190">Toute actualité, publicité ou campagne promotionnelle publique active est envoyée automatiquement à la Page Facebook configurée, sans seconde approbation de la plateforme. Sont exclus les publications sociales, les contenus privés ou entre amis, les brouillons, contenus inactifs, expirés ou archivés. Les publications Facebook renvoient les réactions, questions et commentaires vers AVEC Communauté; aucun commentaire Facebook n’est importé ni synchronisé.</p>
                 </div>
-                <button id="metaPublishSelected" class="btn btn-primary" type="button" disabled>Réessayer la sélection sur Facebook</button>
+                <button id="metaPublishSelected" class="btn btn-primary" type="button" disabled data-i18n="ui_authored_191">Réessayer la sélection sur Facebook</button>
                 <div id="metaPublicationFailures" class="field-hint" aria-live="polite"></div>
             </div>
             <form id="publicContentForm">
                 <input id="publicContentId" type="hidden">
                 <input id="publicContentMediaId" type="hidden">
                 <div class="form-grid">
-                    <div class="form-group"><label for="publicContentType">Type</label><select id="publicContentType" required><option value="announcement">Actualité</option><option value="advertisement">Publicité</option></select></div>
-                    <div class="form-group"><label for="publicContentAudience">Audience</label><select id="publicContentAudience" required><option value="public">Public</option><option value="members">Membres connectés</option></select></div>
-                    <div class="form-group"><label for="publicContentPlacement">Emplacement</label><select id="publicContentPlacement" required><option value="news">Fil Actualités</option><option value="home">Accueil (réservé)</option></select></div>
-                    <div class="form-group"><label for="publicContentTitle">Titre</label><input id="publicContentTitle" maxlength="160" required></div>
+                    <div class="form-group"><label for="publicContentType" data-i18n="ui_authored_113">Type</label><select id="publicContentType" required><option value="announcement" data-i18n="ui_authored_192">Actualité</option><option value="advertisement" data-i18n="ui_authored_193">Publicité</option></select></div>
+                    <div class="form-group"><label for="publicContentAudience" data-i18n="ui_authored_194">Audience</label><select id="publicContentAudience" required><option value="public" data-i18n="ui_authored_195">Public</option><option value="members" data-i18n="ui_authored_196">Membres connectés</option></select></div>
+                    <div class="form-group"><label for="publicContentPlacement" data-i18n="ui_authored_197">Emplacement</label><select id="publicContentPlacement" required><option value="news" data-i18n="ui_authored_198">Fil Actualités</option><option value="home" data-i18n="ui_authored_199">Accueil (réservé)</option></select></div>
+                    <div class="form-group"><label for="publicContentTitle" data-i18n="ui_authored_200">Titre</label><input id="publicContentTitle" maxlength="160" required></div>
                 </div>
-                <div class="form-group"><label for="publicContentBody">Texte</label><textarea id="publicContentBody" rows="5" maxlength="4000" required></textarea><p class="field-hint">HTML non interprété : les balises et scripts sont affichés comme du texte.</p></div>
+                <div class="form-group"><label for="publicContentBody" data-i18n="ui_authored_067">Texte</label><textarea id="publicContentBody" rows="5" maxlength="4000" required></textarea><p class="field-hint" data-i18n="ui_authored_201">HTML non interprété : les balises et scripts sont affichés comme du texte.</p></div>
                 <div class="form-grid">
-                    <div class="form-group"><label for="publicContentStarts">Début</label><input id="publicContentStarts" type="datetime-local" required></div>
-                    <div class="form-group"><label for="publicContentEnds">Fin facultative</label><input id="publicContentEnds" type="datetime-local"></div>
-                    <div class="form-group"><label for="publicContentMedia">Image facultative (JPEG, PNG, GIF ou WebP, 3 Mo)</label><input id="publicContentMedia" type="file" accept="image/jpeg,image/png,image/gif,image/webp"><p id="publicContentMediaStatus" class="field-hint" role="status"></p></div>
+                    <div class="form-group"><label for="publicContentStarts" data-i18n="ui_authored_078">Début</label><input id="publicContentStarts" type="datetime-local" required></div>
+                    <div class="form-group"><label for="publicContentEnds" data-i18n="ui_authored_202">Fin facultative</label><input id="publicContentEnds" type="datetime-local"></div>
+                    <div class="form-group"><label for="publicContentMedia" data-i18n="ui_authored_203">Image facultative (JPEG, PNG, GIF ou WebP, 3 Mo)</label><input id="publicContentMedia" type="file" accept="image/jpeg,image/png,image/gif,image/webp"><p id="publicContentMediaStatus" class="field-hint" role="status"></p></div>
                 </div>
                 <label class="deployment-check"><input id="publicContentActive" type="checkbox" checked> Activer à la période indiquée</label>
                 <p id="publicContentSaveStatus" class="field-hint" role="status"></p>
-                <div class="button-grid"><button id="publicContentSave" class="btn btn-primary" type="submit">Publier l’annonce</button><button id="publicContentLaunchPreset" class="btn btn-secondary" type="button">Préparer la campagne de lancement AVEC</button><button id="publicContentReset" class="btn btn-secondary" type="button">Nouvelle annonce</button></div>
+                <div class="button-grid"><button id="publicContentSave" class="btn btn-primary" type="submit" data-i18n="ui_authored_204">Publier l’annonce</button><button id="publicContentLaunchPreset" class="btn btn-secondary" type="button" data-i18n="ui_authored_205">Préparer la campagne de lancement AVEC</button><button id="publicContentReset" class="btn btn-secondary" type="button" data-i18n="ui_authored_206">Nouvelle annonce</button></div>
             </form>
             <div id="publicContentList" class="feed-list" aria-live="polite"></div>
-            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+            <button class="btn btn-secondary platform-back" type="button" data-i18n="ui_authored_166">Retour au tableau de bord</button>
         </section>
 
         <section id="flashChannelsSection" class="card" style="display:none;">
-            <h2>Flashs &amp; réseaux sociaux</h2>
-            <p class="notifications"><strong>Éditorial AVEC uniquement.</strong> Ajoutez des flashs originaux ou autorisés; aucun flux tiers, scraping ou publication automatique n’est activé. Les API et identifiants de réseaux sociaux restent une configuration future.</p>
-            <form id="flashForm"><h3>Nouveau flash</h3><div class="form-grid"><div class="form-group"><label for="flashCategory">Catégorie</label><select id="flashCategory"><option value="sport">Sport</option><option value="international">International</option><option value="local">Local</option></select></div><div class="form-group"><label for="flashLocality">Localité facultative</label><input id="flashLocality" maxlength="120"></div><div class="form-group"><label for="flashAudience">Audience facultative</label><input id="flashAudience" maxlength="120"></div><div class="form-group"><label for="flashTitle">Titre</label><input id="flashTitle" maxlength="160" required></div></div><div class="form-group"><label for="flashBody">Texte</label><textarea id="flashBody" maxlength="1500" rows="4" required></textarea></div><button class="btn btn-primary">Publier le flash</button></form>
+            <h2 data-i18n="ui_authored_207">Flashs &amp; réseaux sociaux</h2>
+            <p class="notifications"><strong data-i18n="ui_authored_208">Éditorial AVEC uniquement.</strong> Ajoutez des flashs originaux ou autorisés; aucun flux tiers, scraping ou publication automatique n’est activé. Les API et identifiants de réseaux sociaux restent une configuration future.</p>
+            <form id="flashForm"><h3 data-i18n="ui_authored_209">Nouveau flash</h3><div class="form-grid"><div class="form-group"><label for="flashCategory" data-i18n="ui_authored_210">Catégorie</label><select id="flashCategory"><option value="sport" data-i18n="ui_authored_211">Sport</option><option value="international" data-i18n="ui_authored_212">International</option><option value="local" data-i18n="ui_authored_213">Local</option></select></div><div class="form-group"><label for="flashLocality" data-i18n="ui_authored_214">Localité facultative</label><input id="flashLocality" maxlength="120"></div><div class="form-group"><label for="flashAudience" data-i18n="ui_authored_215">Audience facultative</label><input id="flashAudience" maxlength="120"></div><div class="form-group"><label for="flashTitle" data-i18n="ui_authored_200">Titre</label><input id="flashTitle" maxlength="160" required></div></div><div class="form-group"><label for="flashBody" data-i18n="ui_authored_067">Texte</label><textarea id="flashBody" maxlength="1500" rows="4" required></textarea></div><button class="btn btn-primary" data-i18n="ui_authored_216">Publier le flash</button></form>
             <div id="flashAdminList" class="feed-list"></div>
-            <form id="socialLinksForm"><h3>Liens de canaux officiels</h3><p class="field-hint">HTTPS uniquement. L’enregistrement ne publie rien sur ces réseaux.</p><div class="form-grid"><div class="form-group"><label for="facebookLink">Facebook</label><input id="facebookLink" type="url" placeholder="https://facebook.com/..."></div><div class="form-group"><label for="instagramLink">Instagram</label><input id="instagramLink" type="url" placeholder="https://instagram.com/..."></div><div class="form-group"><label for="youtubeLink">YouTube</label><input id="youtubeLink" type="url" placeholder="https://youtube.com/..."></div><div class="form-group"><label for="tiktokLink">TikTok</label><input id="tiktokLink" type="url" placeholder="https://tiktok.com/..."></div></div><button class="btn btn-primary">Enregistrer les liens</button></form>
-            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+            <form id="socialLinksForm"><h3 data-i18n="ui_authored_217">Liens de canaux officiels</h3><p class="field-hint" data-i18n="ui_authored_218">HTTPS uniquement. L’enregistrement ne publie rien sur ces réseaux.</p><div class="form-grid"><div class="form-group"><label for="facebookLink" data-i18n="ui_authored_219">Facebook</label><input id="facebookLink" type="url" placeholder="https://facebook.com/..." data-i18n-placeholder="ui_authored_258"></div><div class="form-group"><label for="instagramLink" data-i18n="ui_authored_220">Instagram</label><input id="instagramLink" type="url" placeholder="https://instagram.com/..." data-i18n-placeholder="ui_authored_259"></div><div class="form-group"><label for="youtubeLink" data-i18n="ui_authored_221">YouTube</label><input id="youtubeLink" type="url" placeholder="https://youtube.com/..." data-i18n-placeholder="ui_authored_260"></div><div class="form-group"><label for="tiktokLink" data-i18n="ui_authored_222">TikTok</label><input id="tiktokLink" type="url" placeholder="https://tiktok.com/..." data-i18n-placeholder="ui_authored_261"></div></div><button class="btn btn-primary" data-i18n="ui_authored_223">Enregistrer les liens</button></form>
+            <button class="btn btn-secondary platform-back" type="button" data-i18n="ui_authored_166">Retour au tableau de bord</button>
         </section>
 
         <section id="deploymentSettingsSection" class="card" style="display:none;">
-            <h2>Paramètres de déploiement</h2>
-            <p class="notifications"><strong>Secrets exclus.</strong> Cette page ne reçoit, n’affiche et n’enregistre jamais de clé API, jeton, mot de passe ou identifiant TURN. Configurez-les uniquement dans les variables d’environnement de l’hébergeur.</p>
+            <h2 data-i18n="ui_authored_158">Paramètres de déploiement</h2>
+            <p class="notifications"><strong data-i18n="ui_authored_224">Secrets exclus.</strong> Cette page ne reçoit, n’affiche et n’enregistre jamais de clé API, jeton, mot de passe ou identifiant TURN. Configurez-les uniquement dans les variables d’environnement de l’hébergeur.</p>
             <div id="deploymentReadiness" aria-live="polite"></div>
             <form id="deploymentSettingsForm">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="deploymentPublicBaseUrl">URL publique de l’application</label>
-                        <input id="deploymentPublicBaseUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://app.exemple.org" required>
-                        <p class="field-hint">HTTPS est requis hors environnement local.</p>
+                        <label for="deploymentPublicBaseUrl" data-i18n="ui_authored_225">URL publique de l’application</label>
+                        <input id="deploymentPublicBaseUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://app.exemple.org" required data-i18n-placeholder="ui_authored_262">
+                        <p class="field-hint" data-i18n="ui_authored_226">HTTPS est requis hors environnement local.</p>
                     </div>
                     <div class="form-group">
-                        <label for="deploymentHostingProvider">Hébergeur</label>
+                        <label for="deploymentHostingProvider" data-i18n="ui_authored_227">Hébergeur</label>
                         <select id="deploymentHostingProvider" required></select>
                     </div>
                     <div class="form-group">
-                        <label for="deploymentSmsProvider">Fournisseur SMS</label>
+                        <label for="deploymentSmsProvider" data-i18n="ui_authored_228">Fournisseur SMS</label>
                         <select id="deploymentSmsProvider" required></select>
                     </div>
                     <div class="form-group">
-                        <label for="deploymentVideoProvider">Fournisseur vidéo</label>
+                        <label for="deploymentVideoProvider" data-i18n="ui_authored_229">Fournisseur vidéo</label>
                         <select id="deploymentVideoProvider" required></select>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="deploymentAllowedOrigins">Origines frontend autorisées</label>
-                    <textarea id="deploymentAllowedOrigins" rows="3" maxlength="20480" placeholder="https://app.exemple.org&#10;https://admin.exemple.org" required></textarea>
-                    <p class="field-hint">Une origine HTTPS par ligne, sans chemin, clé ni paramètre.</p>
+                    <label for="deploymentAllowedOrigins" data-i18n="ui_authored_230">Origines frontend autorisées</label>
+                    <textarea id="deploymentAllowedOrigins" rows="3" maxlength="20480" placeholder="https://app.exemple.org&#10;https://admin.exemple.org" required data-i18n-placeholder="ui_authored_263"></textarea>
+                    <p class="field-hint" data-i18n="ui_authored_231">Une origine HTTPS par ligne, sans chemin, clé ni paramètre.</p>
                 </div>
                 <div class="form-group">
-                    <label for="deploymentTurnUrls">URLs TURN publiques (sans identifiants)</label>
-                    <textarea id="deploymentTurnUrls" rows="3" maxlength="3000" placeholder="turn:turn.exemple.org:3478&#10;turns:turn.exemple.org:5349?transport=tcp"></textarea>
-                    <p class="field-hint">Les identifiants TURN courts restent uniquement dans TURN_USERNAME et TURN_CREDENTIAL côté hébergeur.</p>
+                    <label for="deploymentTurnUrls" data-i18n="ui_authored_232">URLs TURN publiques (sans identifiants)</label>
+                    <textarea id="deploymentTurnUrls" rows="3" maxlength="3000" placeholder="turn:turn.exemple.org:3478&#10;turns:turn.exemple.org:5349?transport=tcp" data-i18n-placeholder="ui_authored_264"></textarea>
+                    <p class="field-hint" data-i18n="ui_authored_233">Les identifiants TURN courts restent uniquement dans TURN_USERNAME et TURN_CREDENTIAL côté hébergeur.</p>
                 </div>
                 <fieldset class="form-group">
-                    <legend>Fournisseurs Momo prévus</legend>
+                    <legend data-i18n="ui_authored_234">Fournisseurs Momo prévus</legend>
                     <div id="deploymentMomoProviders" class="deployment-checkboxes"></div>
-                    <p class="field-hint">Activer ici n’active aucune API ni transaction réelle.</p>
+                    <p class="field-hint" data-i18n="ui_authored_235">Activer ici n’active aucune API ni transaction réelle.</p>
                 </fieldset>
                 <fieldset class="form-group">
-                    <legend>État opérationnel</legend>
+                    <legend data-i18n="ui_authored_236">État opérationnel</legend>
                     <label class="deployment-check"><input id="deploymentMaintenanceMode" type="checkbox"> Mode maintenance annoncé</label>
                     <label class="deployment-check"><input id="deploymentBackupVerified" type="checkbox"> Sauvegarde restaurable vérifiée</label>
                     <label class="deployment-check"><input id="deploymentSandboxAcknowledged" type="checkbox"> Je confirme que paiements et SMS restent en SANDBOX tant qu’une intégration certifiée n’est pas livrée</label>
                     <label class="deployment-check"><input id="deploymentProductionReady" type="checkbox"> La checklist de mise en production a été revue</label>
                 </fieldset>
                 <p id="deploymentSaveMessage" class="field-hint" role="status"></p>
-                <button class="btn btn-primary" type="submit">Enregistrer les paramètres non secrets</button>
+                <button class="btn btn-primary" type="submit" data-i18n="ui_authored_237">Enregistrer les paramètres non secrets</button>
             </form>
             <form id="groupCreationRulesForm">
-                <h3>Règles de création des groupes AVEC</h3>
-                <p class="field-hint">Ces règles sont appliquées côté serveur. Les frais sont prélevés du portefeuille personnel du créateur et enregistrés comme revenu de plateforme; ils ne financent jamais le wallet du groupe.</p>
+                <h3 data-i18n="ui_authored_238">Règles de création des groupes AVEC</h3>
+                <p class="field-hint" data-i18n="ui_authored_239">Ces règles sont appliquées côté serveur. Les frais sont prélevés du portefeuille personnel du créateur et enregistrés comme revenu de plateforme; ils ne financent jamais le wallet du groupe.</p>
                 <div class="form-grid">
-                    <div class="form-group"><label for="groupRuleMinimumMembers">Membres minimum</label><input id="groupRuleMinimumMembers" type="number" min="1" required></div>
-                    <div class="form-group"><label for="groupRuleMaximumMembers">Membres maximum</label><input id="groupRuleMaximumMembers" type="number" min="1" required></div>
-                    <div class="form-group"><label for="groupRuleFeePerMember">Frais par membre (centimes USD)</label><input id="groupRuleFeePerMember" type="number" min="0" required></div>
-                    <div class="form-group"><label for="groupRuleMinimumCapital">Capital initial minimum (centimes USD)</label><input id="groupRuleMinimumCapital" type="number" min="0" required></div>
+                    <div class="form-group"><label for="groupRuleMinimumMembers" data-i18n="ui_authored_240">Membres minimum</label><input id="groupRuleMinimumMembers" type="number" min="1" required></div>
+                    <div class="form-group"><label for="groupRuleMaximumMembers" data-i18n="ui_authored_241">Membres maximum</label><input id="groupRuleMaximumMembers" type="number" min="1" required></div>
+                    <div class="form-group"><label for="groupRuleFeePerMember" data-i18n="ui_authored_242">Frais par membre (centimes USD)</label><input id="groupRuleFeePerMember" type="number" min="0" required></div>
+                    <div class="form-group"><label for="groupRuleMinimumCapital" data-i18n="ui_authored_243">Capital initial minimum (centimes USD)</label><input id="groupRuleMinimumCapital" type="number" min="0" required></div>
                 </div>
                 <p id="groupCreationRulesMessage" class="field-hint" role="status"></p>
-                <button class="btn btn-primary" type="submit">Enregistrer les règles AVEC</button>
+                <button class="btn btn-primary" type="submit" data-i18n="ui_authored_244">Enregistrer les règles AVEC</button>
             </form>
             <section class="deployment-checklist" aria-labelledby="deploymentChecklistTitle">
-                <h3 id="deploymentChecklistTitle">Checklist avant mise en production</h3>
+                <h3 id="deploymentChecklistTitle" data-i18n="ui_authored_245">Checklist avant mise en production</h3>
                 <ol>
-                    <li>Configurer HTTPS, le domaine et CORS_ORIGIN sur l’hébergeur.</li>
-                    <li>Stocker JWT_SECRET, identifiants SMS, paiement, TURN et vidéo uniquement dans le gestionnaire de secrets.</li>
-                    <li>Monter un stockage privé et persistant pour les téléversements, avec sauvegardes testées.</li>
-                    <li>Configurer STUN/TURN, signalisation autorisée et revue confidentialité avant tout appel vidéo.</li>
-                    <li>Conserver le SANDBOX de paiement jusqu’au contrat opérateur, à la revue sécurité et aux tests certifiés.</li>
+                    <li data-i18n="ui_authored_246">Configurer HTTPS, le domaine et CORS_ORIGIN sur l’hébergeur.</li>
+                    <li data-i18n="ui_authored_247">Stocker JWT_SECRET, identifiants SMS, paiement, TURN et vidéo uniquement dans le gestionnaire de secrets.</li>
+                    <li data-i18n="ui_authored_248">Monter un stockage privé et persistant pour les téléversements, avec sauvegardes testées.</li>
+                    <li data-i18n="ui_authored_249">Configurer STUN/TURN, signalisation autorisée et revue confidentialité avant tout appel vidéo.</li>
+                    <li data-i18n="ui_authored_250">Conserver le SANDBOX de paiement jusqu’au contrat opérateur, à la revue sécurité et aux tests certifiés.</li>
                 </ol>
             </section>
             <section class="deployment-history" aria-labelledby="deploymentHistoryTitle">
-                <h3 id="deploymentHistoryTitle">Historique des paramètres</h3>
+                <h3 id="deploymentHistoryTitle" data-i18n="ui_authored_251">Historique des paramètres</h3>
                 <div id="deploymentHistory"></div>
             </section>
-            <button class="btn btn-secondary platform-back" type="button">Retour au tableau de bord</button>
+            <button class="btn btn-secondary platform-back" type="button" data-i18n="ui_authored_166">Retour au tableau de bord</button>
         </section>
     </main>
 

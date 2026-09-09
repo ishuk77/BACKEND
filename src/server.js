@@ -7,6 +7,7 @@ const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
 const https = require('https');
+const { answerQuestion, localeFor, safeSubmission } = require('./assistant-knowledge');
 const MOMO_COUNTRIES = require(path.join(__dirname, '..', 'public', 'momo-countries.js'));
 
 const app = express();
@@ -88,6 +89,7 @@ const AVEC_APPLICATION_URL = 'https://www.avec.my/application';
 const AVEC_SOCIAL_URL = 'https://www.avec.my/communaute';
 const metaOAuthStates = new Map();
 let metaPromotionRetryTimer = null;
+const assistantRateLimits = new Map();
 
 if (!JWT_SECRET) {
     throw new Error('JWT_SECRET must be set before starting the server.');
@@ -1106,6 +1108,38 @@ function initDatabase(onReady) {
                 BEFORE UPDATE ON wallet_withdrawal_events BEGIN SELECT RAISE(ABORT, 'wallet_withdrawal_events are append-only'); END`, logDatabaseError('protecting wallet withdrawal audit updates'));
         db.run(`CREATE TRIGGER IF NOT EXISTS wallet_withdrawal_events_immutable_delete
                 BEFORE DELETE ON wallet_withdrawal_events BEGIN SELECT RAISE(ABORT, 'wallet_withdrawal_events are append-only'); END`, logDatabaseError('protecting wallet withdrawal audit deletes'));
+        db.run(`CREATE TABLE IF NOT EXISTS assistant_knowledge_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            locale TEXT NOT NULL CHECK (locale IN ('fr', 'en', 'rw', 'rn', 'sw', 'ln')),
+            source_type TEXT NOT NULL CHECK (source_type IN ('curated_resource', 'public_post', 'public_comment', 'assistant_question')),
+            source_reference TEXT UNIQUE,
+            status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('approved', 'archived')),
+            created_by_member_id INTEGER,
+            approved_by_member_id INTEGER,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            approved_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by_member_id) REFERENCES members(id),
+            FOREIGN KEY (approved_by_member_id) REFERENCES members(id)
+        )`, logDatabaseError('creating assistant knowledge table'));
+        db.run(`CREATE TABLE IF NOT EXISTS assistant_learning_submissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_type TEXT NOT NULL CHECK (source_type IN ('public_post', 'public_comment', 'assistant_question')),
+            source_reference TEXT NOT NULL UNIQUE,
+            body TEXT NOT NULL,
+            locale TEXT NOT NULL CHECK (locale IN ('fr', 'en', 'rw', 'rn', 'sw', 'ln')),
+            status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+            submitted_by_member_id INTEGER,
+            reviewed_by_member_id INTEGER,
+            review_note TEXT,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            reviewed_at DATETIME,
+            FOREIGN KEY (submitted_by_member_id) REFERENCES members(id),
+            FOREIGN KEY (reviewed_by_member_id) REFERENCES members(id)
+        )`, logDatabaseError('creating assistant learning submissions table'));
+        db.run('CREATE INDEX IF NOT EXISTS idx_assistant_knowledge_approved ON assistant_knowledge_entries(status, locale, created_at DESC)', logDatabaseError('creating assistant knowledge index'));
+        db.run('CREATE INDEX IF NOT EXISTS idx_assistant_learning_pending ON assistant_learning_submissions(status, created_at ASC)', logDatabaseError('creating assistant learning index'));
 
         migratePlatformMomo();
         migrateChatMessages();
@@ -8448,6 +8482,165 @@ app.get('/api/public/news/social-media/:mediaId', (req, res) => {
             res.type(media.mime_type).set('Cache-Control', 'no-store').sendFile(path.join(UPLOADS_DIRECTORY, media.stored_name));
         }
     );
+});
+
+function enforceAssistantRateLimit(kind, limit, windowMs) {
+    return (req, res, next) => {
+        const now = Date.now();
+        const key = `${kind}:${req.ip || req.socket.remoteAddress || 'unknown'}`;
+        const record = assistantRateLimits.get(key);
+        if (!record || record.resetAt <= now) {
+            assistantRateLimits.set(key, { count: 1, resetAt: now + windowMs });
+            return next();
+        }
+        if (record.count >= limit) return res.status(429).json({ error: 'Trop de demandes. Réessayez plus tard.' });
+        record.count += 1;
+        next();
+    };
+}
+
+function approvedAssistantKnowledge(callback) {
+    db.all(
+        `SELECT id, title, body, locale FROM assistant_knowledge_entries
+         WHERE status = 'approved' ORDER BY created_at DESC LIMIT 200`,
+        [],
+        callback
+    );
+}
+
+function assistantSubmission(sourceType, sourceReference, body, locale, accountId, callback) {
+    db.run(
+        `INSERT INTO assistant_learning_submissions
+         (source_type, source_reference, body, locale, submitted_by_member_id)
+         VALUES (?, ?, ?, ?, ?)`,
+        [sourceType, sourceReference, body, locale, accountId || null],
+        function insertAssistantSubmission(err) {
+            callback(err, this.lastID);
+        }
+    );
+}
+
+// Questions are processed locally.  They are retained only after a separate, explicit opt-in.
+app.post('/api/assistant/query', enforceAssistantRateLimit('query', 30, 10 * 60 * 1000), (req, res) => {
+    const question = safeSubmission(req.body && req.body.question, 500);
+    const locale = localeFor(req.body && req.body.locale);
+    if (!question) return res.status(400).json({ error: 'Question invalide ou donnée sensible détectée.' });
+    approvedAssistantKnowledge((knowledgeErr, entries) => {
+        if (knowledgeErr) return res.status(503).json({ error: 'Assistant indisponible.' });
+        const result = answerQuestion({ question, locale, entries });
+        if (req.body && req.body.saveForReview === true) {
+            const reference = `question:${crypto.randomUUID()}`;
+            return assistantSubmission('assistant_question', reference, question, locale, null, submissionErr => {
+                if (submissionErr) return res.status(503).json({ error: 'Assistant indisponible.' });
+                res.json({ ...result, savedForReview: true });
+            });
+        }
+        res.json({ ...result, savedForReview: false });
+    });
+});
+
+app.get('/api/admin/assistant/knowledge', authenticateToken, authorizeRole(['plateforme']), (_req, res) => {
+    db.all('SELECT id, title, body, locale, source_type, source_reference, status, created_at, approved_at FROM assistant_knowledge_entries ORDER BY created_at DESC LIMIT 200', [], (err, entries) => {
+        if (err) return res.status(500).json({ error: 'Impossible de charger les connaissances.' });
+        res.json({ entries });
+    });
+});
+
+app.post('/api/admin/assistant/knowledge', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    const title = safeSubmission(req.body && req.body.title, 160);
+    const body = safeSubmission(req.body && req.body.body, 1200);
+    const locale = localeFor(req.body && req.body.locale);
+    if (!title || !body) return res.status(400).json({ error: 'Ressource invalide ou donnée sensible détectée.' });
+    db.run(
+        `INSERT INTO assistant_knowledge_entries
+         (title, body, locale, source_type, created_by_member_id, approved_by_member_id)
+         VALUES (?, ?, ?, 'curated_resource', ?, ?)`,
+        [title, body, locale, req.user.id, req.user.id],
+        function createKnowledge(err) {
+            if (err) return res.status(500).json({ error: 'Impossible d’enregistrer la ressource.' });
+            res.status(201).json({ id: this.lastID });
+        }
+    );
+});
+
+app.get('/api/admin/assistant/submissions', authenticateToken, authorizeRole(['plateforme']), (_req, res) => {
+    db.all(
+        `SELECT id, source_type, source_reference, body, locale, status, review_note, created_at
+         FROM assistant_learning_submissions WHERE status = 'pending' ORDER BY created_at ASC LIMIT 200`,
+        [],
+        (err, submissions) => err ? res.status(500).json({ error: 'Impossible de charger les propositions.' }) : res.json({ submissions })
+    );
+});
+
+// This is deliberately admin initiated: public content is never automatically added to knowledge.
+app.post('/api/admin/assistant/submissions/public-content', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    const contentType = String(req.body && req.body.contentType || '');
+    const contentId = Number(req.body && req.body.contentId);
+    if (!['post', 'comment'].includes(contentType) || !Number.isInteger(contentId) || contentId < 1) {
+        return res.status(400).json({ error: 'Référence de contenu invalide.' });
+    }
+    const lookup = contentType === 'post'
+        ? {
+            sql: `SELECT body FROM social_posts WHERE id = ? AND visibility = 'public'
+                  AND moderation_status = 'approved' AND deleted_at IS NULL`,
+            params: [contentId], sourceType: 'public_post', reference: `social_post:${contentId}`
+        }
+        : {
+            sql: `SELECT c.body FROM post_comments c JOIN social_posts p ON p.id = c.post_id
+                  WHERE c.id = ? AND c.moderation_status = 'approved' AND p.visibility = 'public'
+                    AND p.moderation_status = 'approved' AND p.deleted_at IS NULL`,
+            params: [contentId], sourceType: 'public_comment', reference: `social_comment:${contentId}`
+        };
+    db.get(lookup.sql, lookup.params, (lookupErr, content) => {
+        if (lookupErr) return res.status(500).json({ error: 'Impossible de vérifier le contenu.' });
+        const body = content && safeSubmission(content.body, 1200);
+        if (!body) return res.status(400).json({ error: 'Seul un contenu public approuvé et non sensible peut être proposé.' });
+        assistantSubmission(lookup.sourceType, lookup.reference, body, localeFor(req.body && req.body.locale), null, (insertErr, id) => {
+            if (insertErr && isConstraintError(insertErr)) return res.status(409).json({ error: 'Ce contenu est déjà en révision.' });
+            if (insertErr) return res.status(500).json({ error: 'Impossible de créer la proposition.' });
+            res.status(201).json({ id, status: 'pending' });
+        });
+    });
+});
+
+app.post('/api/admin/assistant/submissions/:submissionId/review', authenticateToken, authorizeRole(['plateforme']), (req, res) => {
+    const submissionId = Number(req.params.submissionId);
+    const action = String(req.body && req.body.action || '');
+    const note = safeSubmission(String(req.body && req.body.note || 'Examen de modération'), 300);
+    if (!Number.isInteger(submissionId) || !['approve', 'reject'].includes(action) || !note) return res.status(400).json({ error: 'Décision invalide.' });
+    db.get('SELECT * FROM assistant_learning_submissions WHERE id = ? AND status = ?', [submissionId, 'pending'], (lookupErr, submission) => {
+        if (lookupErr) return res.status(500).json({ error: 'Impossible de vérifier la proposition.' });
+        if (!submission) return res.status(404).json({ error: 'Proposition introuvable.' });
+        db.serialize(() => {
+            db.run('BEGIN IMMEDIATE', beginErr => {
+                if (beginErr) return res.status(500).json({ error: 'Impossible de traiter la proposition.' });
+                const finish = (status, payload) => db.run('COMMIT', commitErr => commitErr
+                    ? res.status(500).json({ error: 'Impossible de finaliser la décision.' })
+                    : res.json({ status, ...payload }));
+                db.run(
+                    `UPDATE assistant_learning_submissions
+                     SET status = ?, reviewed_by_member_id = ?, review_note = ?, reviewed_at = CURRENT_TIMESTAMP
+                     WHERE id = ? AND status = 'pending'`,
+                    [action === 'approve' ? 'approved' : 'rejected', req.user.id, note, submissionId],
+                    function updateSubmission(updateErr) {
+                        if (updateErr || !this.changes) return db.run('ROLLBACK', () => res.status(409).json({ error: 'Proposition déjà traitée.' }));
+                        if (action === 'reject') return finish('rejected', {});
+                        db.run(
+                            `INSERT INTO assistant_knowledge_entries
+                             (title, body, locale, source_type, source_reference, created_by_member_id, approved_by_member_id)
+                             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                            [`Contenu public approuvé #${submission.id}`, submission.body, submission.locale, submission.source_type,
+                                submission.source_reference, req.user.id, req.user.id],
+                            function insertKnowledge(insertErr) {
+                                if (insertErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Impossible d’approuver la connaissance.' }));
+                                finish('approved', { knowledgeId: this.lastID });
+                            }
+                        );
+                    }
+                );
+            });
+        });
+    });
 });
 
 function start(port = PORT) {

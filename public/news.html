@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Actualités &amp; publicités - AVEC Microcredit</title>
+    <title data-i18n="ui_authored_111">Actualités &amp; publicités - AVEC Microcredit</title>
     <meta name="description" content="Découvrez les actualités, annonces et publicités publiques de la communauté AVEC Microcredit.">
     <link rel="canonical" href="https://www.avec.my/news.html">
     <meta property="og:type" content="website">
@@ -22,7 +22,7 @@
             <h1 data-i18n="news_page_header">Actualités &amp; publicités</h1>
             <p data-i18n="news_page_subheader">Les annonces, publicités et produits proposés par les membres AVEC.</p>
         </div>
-        <div class="header-actions"><label class="language-picker" for="newsLanguage"><span class="sr-only" data-i18n="language">Langue de l’interface</span><select id="newsLanguage" data-language-selector aria-label="Langue de l’interface"><option value="fr">Français</option><option value="en">English</option><option value="rw">Kinyarwanda</option><option value="rn">Kirundi</option><option value="sw">Kiswahili</option><option value="ln">Lingala</option></select></label><a class="btn btn-secondary" href="/" data-i18n="news_public_home">Accueil public</a><a class="btn btn-primary" href="/application" data-i18n="news_member_account">Accéder à mon compte membre</a></div>
+        <div class="header-actions"><label class="language-picker" for="newsLanguage"><span class="sr-only" data-i18n="language">Langue de l’interface</span><select id="newsLanguage" data-language-selector aria-label="Langue de l’interface" data-i18n-aria-label="ui_authored_013"><option value="fr" data-i18n="ui_authored_003">Français</option><option value="en" data-i18n="ui_authored_004">English</option><option value="rw" data-i18n="ui_authored_005">Kinyarwanda</option><option value="rn" data-i18n="ui_authored_006">Kirundi</option><option value="sw" data-i18n="ui_authored_007">Kiswahili</option><option value="ln" data-i18n="ui_authored_008">Lingala</option></select></label><a class="btn btn-secondary" href="/" data-i18n="news_public_home">Accueil public</a><a class="btn btn-primary" href="/application" data-i18n="news_member_account">Accéder à mon compte membre</a></div>
     </header>
     <main class="container">
         <section class="card news-intro" aria-labelledby="newsTitle">
@@ -31,22 +31,22 @@
             <p class="field-hint" data-i18n="news_privacy_text">Les publications réservées aux contacts, privées ou retirées restent hors de cette page. Le nom d’un membre n’est affiché que lorsque son profil est public.</p>
         </section>
         <section class="card" aria-labelledby="filterTitle">
-            <h2 id="filterTitle">Filtrer les actualités</h2>
+            <h2 id="filterTitle" data-i18n="ui_authored_112">Filtrer les actualités</h2>
             <form id="newsFilters" class="form-grid">
-                <div class="form-group"><label for="newsType">Type</label><select id="newsType"><option value="">Tout afficher</option><option value="announcement">Annonces membres</option><option value="advertisement">Publicités</option><option value="member_publication">Publications membres</option></select></div>
-                <div class="form-group"><label for="newsFrom">Depuis le</label><input id="newsFrom" type="date"></div>
-                <div class="form-group"><label for="newsTo">Jusqu’au</label><input id="newsTo" type="date"></div>
-                <div class="form-group news-filter-action"><button class="btn btn-primary" type="submit">Appliquer les filtres</button></div>
+                <div class="form-group"><label for="newsType" data-i18n="ui_authored_113">Type</label><select id="newsType"><option value="" data-i18n="ui_authored_114">Tout afficher</option><option value="announcement" data-i18n="ui_authored_115">Annonces membres</option><option value="advertisement" data-i18n="ui_authored_116">Publicités</option><option value="member_publication" data-i18n="ui_authored_117">Publications membres</option></select></div>
+                <div class="form-group"><label for="newsFrom" data-i18n="ui_authored_118">Depuis le</label><input id="newsFrom" type="date"></div>
+                <div class="form-group"><label for="newsTo" data-i18n="ui_authored_119">Jusqu’au</label><input id="newsTo" type="date"></div>
+                <div class="form-group news-filter-action"><button class="btn btn-primary" type="submit" data-i18n="ui_authored_120">Appliquer les filtres</button></div>
             </form>
         </section>
         <section class="card" aria-labelledby="feedTitle">
-            <h2 id="feedTitle">Fil public</h2>
-            <p id="newsStatus" class="field-hint" role="status">Chargement des actualités…</p>
+            <h2 id="feedTitle" data-i18n="ui_authored_121">Fil public</h2>
+            <p id="newsStatus" class="field-hint" role="status" data-i18n="ui_authored_122">Chargement des actualités…</p>
             <div id="newsFeed" class="feed-list" aria-live="polite"></div>
-            <button id="newsMore" class="btn btn-secondary" type="button" hidden>Afficher plus</button>
+            <button id="newsMore" class="btn btn-secondary" type="button" hidden data-i18n="ui_authored_123">Afficher plus</button>
         </section>
     </main>
-    <footer class="public-footer"><div><strong>AVEC sur les réseaux</strong><p>Liens vérifiés par l’administration. La publication automatique nécessite une configuration future des API et identifiants officiels.</p></div><div id="socialLinks" class="social-links"></div></footer>
+    <footer class="public-footer"><div><strong data-i18n="ui_authored_124">AVEC sur les réseaux</strong><p data-i18n="ui_authored_125">Liens vérifiés par l’administration. La publication automatique nécessite une configuration future des API et identifiants officiels.</p></div><div id="socialLinks" class="social-links"></div></footer>
     <script src="i18n.js"></script>
     <script src="news.js"></script>
     <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});</script>

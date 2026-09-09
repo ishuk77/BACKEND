@@ -2,9 +2,9 @@
     const t = (key, fallback) => window.AVEC_I18N ? window.AVEC_I18N.t(key, fallback) : fallback;
     const feed = document.getElementById('homeNewsFeed');
     if (!feed) return;
-    const label = item => item.content_type === 'advertisement' ? 'Publicité'
-        : item.content_type === 'announcement' ? 'Annonce'
-            : (item.content_type === 'post' || item.content_type === 'member_publication') ? 'Publication membre' : 'Actualité';
+    const label = item => item.content_type === 'advertisement' ? t('advertisement', 'Publicité')
+        : item.content_type === 'announcement' ? t('announcement', 'Annonce')
+            : (item.content_type === 'post' || item.content_type === 'member_publication') ? t('publication', 'Publication membre') : t('news', 'Actualité');
     const mediaUrl = (item, id) => item.source === 'platform'
         ? `/api/public/news/media/${encodeURIComponent(id)}`
         : `/api/public/news/social-media/${encodeURIComponent(id)}`;
@@ -34,7 +34,7 @@
             heading.textContent = item.title;
             const meta = document.createElement('p');
             meta.className = 'field-hint';
-            meta.textContent = `${item.type} · Exemple`;
+            meta.textContent = `${item.type} · ${t('home_demo', 'Exemple')}`;
             const body = document.createElement('p');
             body.textContent = item.body;
             article.append(heading, meta, body);
@@ -77,5 +77,5 @@
             article.appendChild(comments);
             feed.appendChild(article);
         });
-    }).catch(error => { feed.textContent = error.message; });
+    }).catch(() => { feed.textContent = t('news_unavailable', 'Actualités indisponibles.'); });
 })();

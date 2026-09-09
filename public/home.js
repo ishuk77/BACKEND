@@ -1,34 +1,41 @@
 (() => {
     function boot() {
-    const i18n = window.AVEC_I18N || { t: (key, fallback = key) => fallback };
+    const i18n = window.AVEC_I18N || { t: (key, fallback = key) => fallback, locale: 'fr' };
     const messages = document.getElementById('assistantMessages');
     const question = document.getElementById('assistantQuestion');
     const form = document.getElementById('assistantForm');
+    const saveForReview = document.getElementById('assistantSaveForReview');
     if (!messages || !question || !form) return;
 
-    function answer(value) {
-        const q = value.toLowerCase();
-        if (/(pin|mot de passe|password|otp|code|momo|mobile money|bokengi|usalama)/.test(q)) return i18n.t('assistant_security');
-        if (/(groupe|avec|épargne|epargne|rejoindre|join|lisanga|kikundi|itsinda|umugwi|akiba|bobombi)/.test(q)) return i18n.t('assistant_group', 'Please create or join an AVEC group from your member account.');
-        if (/(email|e-mail|inscri|compte|account|akaunti|konti)/.test(q)) return i18n.t('assistant_account');
-        if (/(wallet|portefeuille|argent|transfert|retrait|recharge|pochi)/.test(q)) return i18n.t('assistant_wallet');
-        if (/(communaut|facebook|actualité|actualit|publication|jumuiya|lisanga|umuryango)/.test(q)) return i18n.t('assistant_community', 'Visit AVEC Community for public conversations and announcements.');
-        return i18n.t('assistant_default', 'I can help with registration, security, groups, savings, wallets, the community and news.');
+    function appendMessage(className, value) {
+        const reply = document.createElement('p');
+        reply.className = `assistant-message ${className}`;
+        reply.textContent = value;
+        messages.appendChild(reply);
+        if (typeof reply.scrollIntoView === 'function') reply.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    form.addEventListener('submit', event => {
+    form.addEventListener('submit', async event => {
         event.preventDefault();
         const text = question.value.trim();
         if (!text) return;
-        const user = document.createElement('p');
-        user.className = 'assistant-message assistant-question';
-        user.textContent = text;
-        const reply = document.createElement('p');
-        reply.className = 'assistant-message assistant-answer';
-        reply.textContent = answer(text);
-        messages.append(user, reply);
+        appendMessage('assistant-question', text);
         question.value = '';
-        if (typeof reply.scrollIntoView === 'function') reply.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const button = form.querySelector('button[type="submit"], button');
+        if (button) button.disabled = true;
+        try {
+            const response = await fetch('/api/assistant/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: text, locale: i18n.locale, saveForReview: Boolean(saveForReview && saveForReview.checked) })
+            });
+            const data = await response.json().catch(() => ({}));
+            appendMessage('assistant-answer', data.answer || data.error || i18n.t('assistant_unavailable'));
+        } catch (_) {
+            appendMessage('assistant-answer', i18n.t('assistant_unavailable'));
+        } finally {
+            if (button) button.disabled = false;
+        }
     });
     }
 

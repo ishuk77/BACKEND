@@ -146,6 +146,22 @@
             finance_withdrawal_confirmed: 'Retrait ya simulation endimami. Opérateur moko abengami te.', finance_withdrawal_cancelled: 'Retrait ya simulation etikami; bobombi efungwami.', finance_loan_requested: 'Bosengi crédit ekomami.'
         }
     });
+    const assistantUi = Object.freeze({
+        fr: { assistant_optin: 'J’accepte que cette question non sensible soit envoyée à la modération pour améliorer l’aide publique.', assistant_unavailable: 'L’assistant est temporairement indisponible. Réessayez plus tard.', home_demo: 'Exemple', news_unavailable: 'Actualités indisponibles.', assistant_admin_title: 'Connaissances de l’assistant', assistant_admin_note: 'Seules les ressources validées et les publications publiques déjà approuvées peuvent être examinées. Les messages privés, données personnelles et données financières sont exclus.', assistant_admin_resource_title: 'Titre de la ressource', assistant_admin_resource_body: 'Texte de la ressource approuvée', assistant_admin_add: 'Ajouter une ressource validée', assistant_admin_pending: 'Propositions à examiner', assistant_admin_empty: 'Aucune proposition en attente.', assistant_admin_approve: 'Approuver', assistant_admin_reject: 'Rejeter', assistant_admin_active: 'Ressources actives' },
+        en: { assistant_optin: 'I agree that this non-sensitive question may be sent to moderation to improve public help.', assistant_unavailable: 'The assistant is temporarily unavailable. Please try again later.', home_demo: 'Example', news_unavailable: 'News is unavailable.', assistant_admin_title: 'Assistant knowledge', assistant_admin_note: 'Only validated resources and already approved public posts may be reviewed. Private messages, personal data, and financial data are excluded.', assistant_admin_resource_title: 'Resource title', assistant_admin_resource_body: 'Approved resource text', assistant_admin_add: 'Add validated resource', assistant_admin_pending: 'Submissions to review', assistant_admin_empty: 'No pending submissions.', assistant_admin_approve: 'Approve', assistant_admin_reject: 'Reject', assistant_admin_active: 'Active resources' },
+        rw: { assistant_optin: 'Nemeye ko iki kibazo kidafite amakuru y’ibanga cyoherezwa mu igenzura kugira ngo ubufasha rusange burusheho kuba bwiza.', assistant_unavailable: 'Umufasha ntari kuboneka ubu. Ongera ugerageze nyuma.', home_demo: 'Urugero', news_unavailable: 'Amakuru ntaboneka.', assistant_admin_title: 'Ubumenyi bw’umufasha', assistant_admin_note: 'Hagenzurwa gusa inyandiko zemejwe n’ibyanditswe rusange byamaze kwemezwa. Ubutumwa bw’ibanga n’amakuru bwite cyangwa ay’imari ntibyemewe.', assistant_admin_resource_title: 'Umutwe w’inyandiko', assistant_admin_resource_body: 'Inyandiko yemejwe', assistant_admin_add: 'Ongeraho inyandiko yemejwe', assistant_admin_pending: 'Ibitegereje gusuzumwa', assistant_admin_empty: 'Nta gitegereje.', assistant_admin_approve: 'Emeza', assistant_admin_reject: 'Hakana', assistant_admin_active: 'Inyandiko zikora' },
+        rn: { assistant_optin: 'Ndavyemeye ko iki kibazo kitagira amakuru y’ibanga coherezwa mu gusuzumwa kugira ngo imfashanyo ya bose itere imbere.', assistant_unavailable: 'Umufasha ntaboneka ubu. Gerageza hanyuma.', home_demo: 'Akarorero', news_unavailable: 'Amakuru ntaboneka.', assistant_admin_title: 'Ubumenyi bw’umufasha', assistant_admin_note: 'Hasuzumwa gusa inyandiko zemejwe n’ibyanditswe vya bose vyamaze kwemezwa. Ubutumwa bw’ibanga, amakuru bwite n’ay’amahera birabujijwe.', assistant_admin_resource_title: 'Umutwe w’inyandiko', assistant_admin_resource_body: 'Inyandiko yemejwe', assistant_admin_add: 'Shiramwo inyandiko yemejwe', assistant_admin_pending: 'Ibitegereje gusuzumwa', assistant_admin_empty: 'Nta gitegereje.', assistant_admin_approve: 'Emeza', assistant_admin_reject: 'Hakanya', assistant_admin_active: 'Inyandiko zikora' },
+        sw: { assistant_optin: 'Nakubali swali hili lisilo na taarifa nyeti litumwe kwa wasimamizi ili kuboresha msaada wa umma.', assistant_unavailable: 'Msaidizi hapatikani kwa muda. Jaribu tena baadaye.', home_demo: 'Mfano', news_unavailable: 'Habari hazipatikani.', assistant_admin_title: 'Maarifa ya msaidizi', assistant_admin_note: 'Ni rasilimali zilizothibitishwa na machapisho ya umma yaliyoidhinishwa pekee yanayoweza kukaguliwa. Ujumbe binafsi, data ya kibinafsi na data ya kifedha hazijumuishwi.', assistant_admin_resource_title: 'Kichwa cha rasilimali', assistant_admin_resource_body: 'Maandishi ya rasilimali iliyoidhinishwa', assistant_admin_add: 'Ongeza rasilimali iliyoidhinishwa', assistant_admin_pending: 'Mapendekezo ya kukagua', assistant_admin_empty: 'Hakuna pendekezo linalosubiri.', assistant_admin_approve: 'Idhinisha', assistant_admin_reject: 'Kataa', assistant_admin_active: 'Rasilimali zinazotumika' },
+        ln: { assistant_optin: 'Nandimi ete motuna oyo ezangi makambo ya sekele ekoki kotindama na botali mpo na kobongisa lisalisi ya bato nyonso.', assistant_unavailable: 'Mosungi azali te mpo na mwa ntango. Meka lisusu sima.', home_demo: 'Ndakisa', news_unavailable: 'Bansango ezali te.', assistant_admin_title: 'Boyebi ya mosungi', assistant_admin_note: 'Kaka makambo endimami mpe mikanda ya bato nyonso oyo endimami ekoki kotambwisama. Bansango ya kobombana, ya moto mpe ya mbongo esangisami te.', assistant_admin_resource_title: 'Motó ya lisalisi', assistant_admin_resource_body: 'Makomi ya lisalisi endimami', assistant_admin_add: 'Bakisa lisalisi endimami', assistant_admin_pending: 'Makambo ya kotala', assistant_admin_empty: 'Likambo ya kozela ezali te.', assistant_admin_approve: 'Ndima', assistant_admin_reject: 'Boya', assistant_admin_active: 'Bisaleli ezali kosala' }
+    });
+    const assistantAdminSupplement = Object.freeze({
+        fr: { assistant_admin_post: 'Publication publique', assistant_admin_comment: 'Commentaire public', assistant_admin_content_id: 'Identifiant du contenu approuvé', assistant_admin_queue: 'Envoyer à la modération', assistant_admin_propose: 'Proposer un contenu public approuvé' },
+        en: { assistant_admin_post: 'Public post', assistant_admin_comment: 'Public comment', assistant_admin_content_id: 'Approved content ID', assistant_admin_queue: 'Send to moderation', assistant_admin_propose: 'Propose approved public content' },
+        rw: { assistant_admin_post: 'Kwamamaza rusange', assistant_admin_comment: 'Igitekerezo rusange', assistant_admin_content_id: 'Nomero y’ibyemejwe', assistant_admin_queue: 'Ohereza mu igenzura', assistant_admin_propose: 'Tanga ibyemejwe rusange' },
+        rn: { assistant_admin_post: 'Kwamamaza kwa bose', assistant_admin_comment: 'Iciyumviro ca bose', assistant_admin_content_id: 'Nomero y’ibyemejwe', assistant_admin_queue: 'Rungika mu gusuzuma', assistant_admin_propose: 'Tanga ivyemejwe vya bose' },
+        sw: { assistant_admin_post: 'Chapisho la umma', assistant_admin_comment: 'Maoni ya umma', assistant_admin_content_id: 'Kitambulisho cha maudhui yaliyoidhinishwa', assistant_admin_queue: 'Tuma kwa wasimamizi', assistant_admin_propose: 'Pendekeza maudhui ya umma yaliyoidhinishwa' },
+        ln: { assistant_admin_post: 'Mokanda ya bato nyonso', assistant_admin_comment: 'Likanisi ya bato nyonso', assistant_admin_content_id: 'Elembo ya likambo endimami', assistant_admin_queue: 'Tinda na botali', assistant_admin_propose: 'Pesa likambo ya bato nyonso endimami' }
+    });
     const landing = Object.freeze({
         fr: {
             tagline: 'Épargne, crédit et entraide organisés pour votre groupe.', language: 'Langue', account: 'Créer ou ouvrir mon compte',
@@ -1111,6 +1127,273 @@
         "group_send": "Envoyer"
 });
     const explicitKeys = Object.freeze(["confirm_pin", "create_account", "create_my_account", "email", "first_name", "group_admin_dashboard", "group_admin_heading", "group_admin_help", "group_chat_title", "group_collective_wallet", "group_collective_wallet_help", "group_credit_requests", "group_credit_requests_title", "group_interface_language", "group_join_requests_title", "group_lock_beneficiaries", "group_logout", "group_member_dashboard", "group_member_role_help", "group_member_role_intro", "group_member_space_heading", "group_membership_requests", "group_monthly", "group_movements_help", "group_platform_space", "group_reason", "group_savings_frequency", "group_savings_period", "group_send", "group_settings", "group_settings_title", "group_ui_001", "group_ui_007", "group_ui_008", "group_ui_011", "group_ui_012", "group_ui_013", "group_ui_014", "group_ui_015", "group_ui_016", "group_ui_017", "group_ui_018", "group_ui_019", "group_ui_020", "group_ui_023", "group_ui_024", "group_ui_025", "group_ui_026", "group_ui_027", "group_ui_028", "group_ui_029", "group_ui_030", "group_ui_032", "group_ui_033", "group_ui_034", "group_ui_037", "group_wallet_funding", "group_weekly", "identity_number", "language", "last_name", "member_header", "member_status", "news_public_home", "no_file_chosen", "payment_setup", "payment_unavailable", "phone", "phone_country", "platform_account", "platform_ui_001", "platform_ui_002", "platform_ui_003", "platform_ui_006", "platform_ui_007", "platform_ui_009", "platform_ui_010", "platform_ui_011", "platform_ui_012", "platform_ui_013", "platform_ui_014", "platform_ui_015", "platform_ui_016", "platform_ui_017", "platform_ui_018", "platform_ui_019", "platform_ui_020", "platform_ui_021", "platform_ui_022", "platform_ui_023", "platform_ui_024", "platform_ui_025", "platform_ui_026", "platform_ui_027", "platform_ui_028", "platform_ui_029", "platform_ui_030", "platform_ui_031", "platform_ui_032", "platform_ui_033", "platform_ui_034", "platform_ui_035", "platform_ui_037", "platform_ui_038", "platform_ui_039", "platform_ui_040", "platform_ui_041", "platform_ui_042", "platform_ui_043", "platform_ui_044", "platform_ui_045", "platform_ui_046", "platform_ui_047", "platform_ui_048", "platform_ui_049", "platform_ui_051", "platform_ui_052", "platform_ui_053", "platform_ui_054", "platform_ui_055", "platform_ui_056", "platform_ui_058", "platform_ui_059", "platform_ui_060", "platform_ui_061", "platform_ui_062", "platform_ui_063", "platform_ui_064", "platform_ui_065", "platform_ui_066", "platform_ui_068", "platform_ui_069", "platform_ui_070", "platform_ui_071", "platform_ui_072", "platform_ui_073", "platform_ui_074", "platform_ui_075", "platform_ui_076", "platform_ui_077", "platform_ui_078", "platform_ui_079", "platform_ui_080", "platform_ui_081", "platform_ui_082", "platform_ui_083", "platform_ui_084", "platform_ui_085", "platform_ui_086", "platform_ui_088", "platform_ui_089", "platform_ui_090", "platform_ui_091", "platform_ui_092", "platform_ui_093", "platform_ui_094", "platform_ui_095", "platform_ui_096", "platform_ui_097", "platform_ui_098", "platform_ui_099", "platform_ui_100", "platform_ui_101", "platform_ui_102", "platform_ui_103", "platform_ui_104", "platform_ui_105", "platform_ui_106", "platform_ui_107", "platform_ui_108", "platform_ui_109", "platform_ui_110", "platform_ui_111", "platform_ui_112", "platform_ui_113", "platform_ui_114", "platform_ui_115", "platform_ui_116", "platform_ui_117", "portal_activate_account", "portal_activation_help", "portal_group_creation_help", "portal_groups_title", "portal_join_group", "portal_phone_sandbox_help", "portal_social_feed", "registration_free", "registration_photo", "registration_photo_help", "registration_pin", "registration_social_help", "select_country", "social_activate_account", "social_calendar_title", "social_community", "social_contacts_title", "social_feed_title", "social_publish_content_title", "social_status", "social_ui_001", "social_ui_002", "social_ui_003", "social_ui_005", "social_ui_006", "social_ui_007", "social_ui_009", "social_ui_010", "social_ui_011", "social_ui_012", "social_ui_013", "social_ui_014", "social_ui_015", "social_ui_016", "social_ui_017", "social_ui_018", "social_ui_019", "social_ui_020", "social_ui_021", "social_ui_024", "social_ui_025", "social_ui_026", "social_ui_027", "social_ui_028", "social_ui_029", "social_ui_030", "social_ui_031", "social_ui_032", "social_ui_033", "social_ui_034", "social_ui_035", "social_ui_036", "social_ui_037", "social_ui_038", "social_ui_039", "social_ui_040", "social_ui_041", "social_ui_042", "social_ui_043", "social_ui_044", "social_ui_045", "social_ui_046", "social_ui_047", "social_ui_048", "social_ui_049", "social_ui_050", "social_ui_051", "social_ui_052", "social_ui_053", "social_ui_054", "social_ui_055", "social_ui_056", "social_ui_057", "social_ui_058", "social_ui_059", "social_ui_060", "social_ui_061", "social_ui_062", "social_ui_063", "social_ui_064", "social_ui_065", "social_ui_066", "social_ui_067", "social_ui_068", "social_ui_069", "social_ui_070", "social_ui_071", "social_ui_072", "social_ui_074", "social_ui_075", "social_ui_076", "social_ui_077", "social_ui_078", "social_ui_079", "social_ui_080", "social_ui_081", "social_ui_082", "social_ui_083", "social_ui_084", "social_ui_085", "social_ui_086", "social_ui_087", "social_ui_088", "social_ui_090", "social_ui_091", "social_ui_092", "social_ui_093", "social_ui_094", "social_ui_095", "social_ui_096", "social_ui_097", "social_ui_098", "social_ui_099", "social_ui_100", "social_ui_101", "social_ui_102", "social_ui_103", "social_ui_104", "social_ui_105", "social_ui_106", "social_ui_107", "social_ui_108", "social_ui_109", "social_ui_110", "social_ui_111", "social_ui_112", "social_ui_113", "social_ui_114", "social_ui_116", "social_ui_117", "social_ui_118", "social_ui_119"]);
+    const generatedSources = Object.freeze({
+        "ui_authored_001": "AVEC Microcredit | Épargne solidaire, AVEC et associations villageoises",
+        "ui_authored_002": "AVEC Microcredit",
+        "ui_authored_003": "Français",
+        "ui_authored_004": "English",
+        "ui_authored_005": "Kinyarwanda",
+        "ui_authored_006": "Kirundi",
+        "ui_authored_007": "Kiswahili",
+        "ui_authored_008": "Lingala",
+        "ui_authored_009": "1",
+        "ui_authored_010": "2",
+        "ui_authored_011": "3",
+        "ui_authored_012": "Chargement des annonces…",
+        "ui_authored_013": "Langue de l’interface",
+        "ui_authored_014": "Parcours membre",
+        "ui_authored_015": "Se connecter",
+        "ui_authored_016": "Téléphone",
+        "ui_authored_017": "E-mail",
+        "ui_authored_018": "Vérifier l’e-mail",
+        "ui_authored_019": "Déconnexion",
+        "ui_authored_020": "Identité, sécurité et portefeuille",
+        "ui_authored_021": "Mon portefeuille",
+        "ui_authored_022": "Mes groupes",
+        "ui_authored_023": "Groupes",
+        "ui_authored_024": "Social",
+        "ui_authored_025": "Portefeuille",
+        "ui_authored_026": "AV",
+        "ui_authored_027": "Présence et visibilité",
+        "ui_authored_028": "Prénom",
+        "ui_authored_029": "Nom",
+        "ui_authored_030": "Présence",
+        "ui_authored_031": "En ligne",
+        "ui_authored_032": "Occupé·e",
+        "ui_authored_033": "Hors ligne",
+        "ui_authored_034": "Contacts seulement",
+        "ui_authored_035": "Visible dans la recherche",
+        "ui_authored_036": "Privé",
+        "ui_authored_037": "Numéro d’identité ou de passeport",
+        "ui_authored_038": "Vérifier le téléphone",
+        "ui_authored_039": "0.00",
+        "ui_authored_040": "Epargne (sans intérêt)",
+        "ui_authored_041": "Périodicité d’épargne",
+        "ui_authored_042": "Hebdomadaire",
+        "ui_authored_043": "Mensuelle",
+        "ui_authored_044": "Période",
+        "ui_authored_045": "Sélectionner un pays",
+        "ui_authored_046": "Province / État",
+        "ui_authored_047": "Choisissez d’abord un pays",
+        "ui_authored_048": "Membres initiaux prévus (20–50)",
+        "ui_authored_049": "Région / province",
+        "ui_authored_050": "Filtrer les groupes",
+        "ui_authored_051": "Invitations reçues",
+        "ui_authored_052": "Mes groupes et demandes à traiter",
+        "ui_authored_053": "Découvrir des membres",
+        "ui_authored_054": "Nom ou identifiant (profils publics)",
+        "ui_authored_055": "Saisir un numéro",
+        "ui_authored_056": "Caméra",
+        "ui_authored_057": "Envoyer",
+        "ui_authored_058": "Votre publication",
+        "ui_authored_059": "Mes contacts",
+        "ui_authored_060": "Public AVEC — peut rejoindre Actualités & publicités après approbation",
+        "ui_authored_061": "Image ou vidéo facultative (100 Mo)",
+        "ui_authored_062": "Les contenus sexuellement explicites sont placés en attente d’examen humain par des mots-clés déterministes. Ce n’est pas une détection par IA; le contenu politique peut seulement être étiqueté pour examen facultatif.",
+        "ui_authored_063": "Publier",
+        "ui_authored_064": "Publier / Annoncer / Faire de la publicité",
+        "ui_authored_065": "Chargement des tarifs…",
+        "ui_authored_066": "Publicité simple",
+        "ui_authored_067": "Texte",
+        "ui_authored_068": "Image ou vidéo facultative",
+        "ui_authored_069": "Durée (jours)",
+        "ui_authored_070": "Portefeuille interne SANDBOX",
+        "ui_authored_071": "Momo SANDBOX (confirmation simulée)",
+        "ui_authored_072": "Pièce jointe facultative",
+        "ui_authored_073": "Publicité produit",
+        "ui_authored_074": "Prix",
+        "ui_authored_075": "Disponibilité",
+        "ui_authored_076": "Téléphone de contact",
+        "ui_authored_077": "E-mail de contact",
+        "ui_authored_078": "Début",
+        "ui_authored_079": "Créer l’événement",
+        "ui_authored_080": "Navigation membre",
+        "ui_authored_081": "Navigation principale mobile",
+        "ui_authored_082": "Accueil",
+        "ui_authored_083": "Accueil et portefeuille",
+        "ui_authored_084": "Groupes AVEC",
+        "ui_authored_085": "Communauté sociale",
+        "ui_authored_086": "Sous-menu profil et portefeuille",
+        "ui_authored_087": "Mon profil",
+        "ui_authored_088": "Ouvrir mon portefeuille et recharger",
+        "ui_authored_089": "Régler la présence et la visibilité du profil",
+        "ui_authored_090": "Votre photo de profil",
+        "ui_authored_091": "Numéro sans l’indicatif",
+        "ui_authored_092": "Écrivez un message (facultatif avec une pièce jointe)",
+        "ui_authored_093": "Ajouter une pièce jointe",
+        "ui_authored_094": "Ajouter un emoji",
+        "ui_authored_095": "Choisir un emoji",
+        "ui_authored_096": "Contacts actuellement disponibles",
+        "ui_authored_097": "Annonces et publicités",
+        "ui_authored_098": "0",
+        "ui_authored_099": "Alimenter mon portefeuille",
+        "ui_authored_100": "Momo SANDBOX",
+        "ui_authored_101": "Carte Visa / Mastercard SANDBOX",
+        "ui_authored_102": "Créer le rechargement",
+        "ui_authored_103": "Mon AVEC",
+        "ui_authored_104": "Chargement de votre espace membre AVEC…",
+        "ui_authored_105": "AVEC",
+        "ui_authored_106": "Membre",
+        "ui_authored_107": "Groupe",
+        "ui_authored_108": "Personnel autorisé",
+        "ui_authored_109": "Opération",
+        "ui_authored_110": "Registre",
+        "ui_authored_111": "Actualités & publicités - AVEC Microcredit",
+        "ui_authored_112": "Filtrer les actualités",
+        "ui_authored_113": "Type",
+        "ui_authored_114": "Tout afficher",
+        "ui_authored_115": "Annonces membres",
+        "ui_authored_116": "Publicités",
+        "ui_authored_117": "Publications membres",
+        "ui_authored_118": "Depuis le",
+        "ui_authored_119": "Jusqu’au",
+        "ui_authored_120": "Appliquer les filtres",
+        "ui_authored_121": "Fil public",
+        "ui_authored_122": "Chargement des actualités…",
+        "ui_authored_123": "Afficher plus",
+        "ui_authored_124": "AVEC sur les réseaux",
+        "ui_authored_125": "Liens vérifiés par l’administration. La publication automatique nécessite une configuration future des API et identifiants officiels.",
+        "ui_authored_126": "Administration Plateforme - AVEC Microcredit",
+        "ui_authored_127": "Administration de la Plateforme AVEC",
+        "ui_authored_128": "Connexion Administration Plateforme",
+        "ui_authored_129": "PIN",
+        "ui_authored_130": "PIN administrateur oublié ?",
+        "ui_authored_131": "Vérifiez le numéro de l’administrateur puis choisissez un nouveau PIN. En SANDBOX, le code est affiché dans cette session.",
+        "ui_authored_132": "Demander le code",
+        "ui_authored_133": "Code à 6 chiffres",
+        "ui_authored_134": "Nouveau PIN (4 chiffres)",
+        "ui_authored_135": "Confirmer le nouveau PIN",
+        "ui_authored_136": "Réinitialiser le PIN",
+        "ui_authored_137": "Initialiser l'administrateur plateforme",
+        "ui_authored_138": "Cette opération est disponible une seule fois.",
+        "ui_authored_139": "N° carte d'identité / passeport",
+        "ui_authored_140": "Créer l'administrateur",
+        "ui_authored_141": "Retour",
+        "ui_authored_142": "PAIEMENTS : SANDBOX UNIQUEMENT.",
+        "ui_authored_143": "Momo et paiements de démonstration",
+        "ui_authored_144": "Gérer les comptes Momo",
+        "ui_authored_145": "Registre de paiements SANDBOX",
+        "ui_authored_146": "Groupes, membres et révisions",
+        "ui_authored_147": "Voir tous les groupes",
+        "ui_authored_148": "Voir tous les membres",
+        "ui_authored_149": "Groupes bloqués et révisions",
+        "ui_authored_150": "Statistiques globales",
+        "ui_authored_151": "Alertes et messages aux présidents",
+        "ui_authored_152": "Voir les alertes",
+        "ui_authored_153": "Messages privés aux présidents",
+        "ui_authored_154": "Modération des publications",
+        "ui_authored_155": "Actualités et publicités",
+        "ui_authored_156": "Flashs et réseaux sociaux",
+        "ui_authored_157": "Configuration de la plateforme",
+        "ui_authored_158": "Paramètres de déploiement",
+        "ui_authored_159": "Gestion des comptes Momo",
+        "ui_authored_160": "Pays",
+        "ui_authored_161": "Opérateur",
+        "ui_authored_162": "Choisissez d'abord un pays",
+        "ui_authored_163": "Numéro Momo",
+        "ui_authored_164": "L'indicatif est ajouté automatiquement. Saisissez le numéro local.",
+        "ui_authored_165": "Ajouter compte Momo",
+        "ui_authored_166": "Retour au tableau de bord",
+        "ui_authored_167": "Tous les groupes AVEC",
+        "ui_authored_168": "Tous les membres",
+        "ui_authored_169": "Alertes et signalements",
+        "ui_authored_170": "Groupes bloqués et demandes de révision",
+        "ui_authored_171": "Seule la plateforme peut réactiver un groupe après examen.",
+        "ui_authored_172": "Échangez uniquement avec le président du groupe sélectionné. Les membres ordinaires n’y ont pas accès.",
+        "ui_authored_173": "Rechercher un groupe ou un président",
+        "ui_authored_174": "Conversation",
+        "ui_authored_175": "Chargement des groupes…",
+        "ui_authored_176": "Choisissez un groupe pour consulter et envoyer des messages.",
+        "ui_authored_177": "Sélectionnez un groupe",
+        "ui_authored_178": "Sélectionnez un groupe avec un président pour ouvrir la conversation.",
+        "ui_authored_179": "Votre message au président",
+        "ui_authored_180": "Envoyer le message",
+        "ui_authored_181": "Statistiques de la plateforme",
+        "ui_authored_182": "Registre de paiements — SANDBOX UNIQUEMENT",
+        "ui_authored_183": "Identifiants, statuts et références simulées pour la réconciliation de test. Aucun transfert réel n’est effectué.",
+        "ui_authored_184": "Actualités & publicités publiques",
+        "ui_authored_185": "publiques et approuvées",
+        "ui_authored_186": "Publication automatique sur la Page Facebook",
+        "ui_authored_187": "Vérification de la configuration Meta…",
+        "ui_authored_188": "Contenu à réessayer (facultatif)",
+        "ui_authored_189": "Chargement des contenus promotionnels…",
+        "ui_authored_190": "Toute actualité, publicité ou campagne promotionnelle publique active est envoyée automatiquement à la Page Facebook configurée, sans seconde approbation de la plateforme. Sont exclus les publications sociales, les contenus privés ou entre amis, les brouillons, contenus inactifs, expirés ou archivés. Les publications Facebook renvoient les réactions, questions et commentaires vers AVEC Communauté; aucun commentaire Facebook n’est importé ni synchronisé.",
+        "ui_authored_191": "Réessayer la sélection sur Facebook",
+        "ui_authored_192": "Actualité",
+        "ui_authored_193": "Publicité",
+        "ui_authored_194": "Audience",
+        "ui_authored_195": "Public",
+        "ui_authored_196": "Membres connectés",
+        "ui_authored_197": "Emplacement",
+        "ui_authored_198": "Fil Actualités",
+        "ui_authored_199": "Accueil (réservé)",
+        "ui_authored_200": "Titre",
+        "ui_authored_201": "HTML non interprété : les balises et scripts sont affichés comme du texte.",
+        "ui_authored_202": "Fin facultative",
+        "ui_authored_203": "Image facultative (JPEG, PNG, GIF ou WebP, 3 Mo)",
+        "ui_authored_204": "Publier l’annonce",
+        "ui_authored_205": "Préparer la campagne de lancement AVEC",
+        "ui_authored_206": "Nouvelle annonce",
+        "ui_authored_207": "Flashs & réseaux sociaux",
+        "ui_authored_208": "Éditorial AVEC uniquement.",
+        "ui_authored_209": "Nouveau flash",
+        "ui_authored_210": "Catégorie",
+        "ui_authored_211": "Sport",
+        "ui_authored_212": "International",
+        "ui_authored_213": "Local",
+        "ui_authored_214": "Localité facultative",
+        "ui_authored_215": "Audience facultative",
+        "ui_authored_216": "Publier le flash",
+        "ui_authored_217": "Liens de canaux officiels",
+        "ui_authored_218": "HTTPS uniquement. L’enregistrement ne publie rien sur ces réseaux.",
+        "ui_authored_219": "Facebook",
+        "ui_authored_220": "Instagram",
+        "ui_authored_221": "YouTube",
+        "ui_authored_222": "TikTok",
+        "ui_authored_223": "Enregistrer les liens",
+        "ui_authored_224": "Secrets exclus.",
+        "ui_authored_225": "URL publique de l’application",
+        "ui_authored_226": "HTTPS est requis hors environnement local.",
+        "ui_authored_227": "Hébergeur",
+        "ui_authored_228": "Fournisseur SMS",
+        "ui_authored_229": "Fournisseur vidéo",
+        "ui_authored_230": "Origines frontend autorisées",
+        "ui_authored_231": "Une origine HTTPS par ligne, sans chemin, clé ni paramètre.",
+        "ui_authored_232": "URLs TURN publiques (sans identifiants)",
+        "ui_authored_233": "Les identifiants TURN courts restent uniquement dans TURN_USERNAME et TURN_CREDENTIAL côté hébergeur.",
+        "ui_authored_234": "Fournisseurs Momo prévus",
+        "ui_authored_235": "Activer ici n’active aucune API ni transaction réelle.",
+        "ui_authored_236": "État opérationnel",
+        "ui_authored_237": "Enregistrer les paramètres non secrets",
+        "ui_authored_238": "Règles de création des groupes AVEC",
+        "ui_authored_239": "Ces règles sont appliquées côté serveur. Les frais sont prélevés du portefeuille personnel du créateur et enregistrés comme revenu de plateforme; ils ne financent jamais le wallet du groupe.",
+        "ui_authored_240": "Membres minimum",
+        "ui_authored_241": "Membres maximum",
+        "ui_authored_242": "Frais par membre (centimes USD)",
+        "ui_authored_243": "Capital initial minimum (centimes USD)",
+        "ui_authored_244": "Enregistrer les règles AVEC",
+        "ui_authored_245": "Checklist avant mise en production",
+        "ui_authored_246": "Configurer HTTPS, le domaine et CORS_ORIGIN sur l’hébergeur.",
+        "ui_authored_247": "Stocker JWT_SECRET, identifiants SMS, paiement, TURN et vidéo uniquement dans le gestionnaire de secrets.",
+        "ui_authored_248": "Monter un stockage privé et persistant pour les téléversements, avec sauvegardes testées.",
+        "ui_authored_249": "Configurer STUN/TURN, signalisation autorisée et revue confidentialité avant tout appel vidéo.",
+        "ui_authored_250": "Conserver le SANDBOX de paiement jusqu’au contrat opérateur, à la revue sécurité et aux tests certifiés.",
+        "ui_authored_251": "Historique des paramètres",
+        "ui_authored_252": "+22912345678",
+        "ui_authored_253": "1234",
+        "ui_authored_254": "Outils d’administration",
+        "ui_authored_255": "Numéro sans l'indicatif",
+        "ui_authored_256": "Nom du groupe ou du président",
+        "ui_authored_257": "Messages privés avec la plateforme",
+        "ui_authored_258": "https://facebook.com/...",
+        "ui_authored_259": "https://instagram.com/...",
+        "ui_authored_260": "https://youtube.com/...",
+        "ui_authored_261": "https://tiktok.com/...",
+        "ui_authored_262": "https://app.exemple.org",
+        "ui_authored_263": "https://app.exemple.org\nhttps://admin.exemple.org",
+        "ui_authored_264": "turn:turn.exemple.org:3478\nturns:turn.exemple.org:5349?transport=tcp",
+        "ui_authored_265": "Connaissances de l’assistant",
+    });
     const completeSources = Object.freeze(Object.fromEntries(explicitKeys.map(key => [key,
         explicitSources[key] || authoredSources[key] || dynamicSources[key] || runtimeSources[key] || key
     ])));
@@ -1178,10 +1461,9 @@
         }
     });
     const authored = Object.freeze(Object.fromEntries(LOCALES.map(language => [language, Object.freeze(
-        Object.fromEntries(Object.entries({ ...completeSources, ...authoredSources, ...explicitSources, ...dynamicSources, ...runtimeSources }).map(([key, source]) => [key, (curated[language] && curated[language][key]) || textFor(source, language)]))
+        Object.fromEntries(Object.entries({ ...completeSources, ...authoredSources, ...explicitSources, ...dynamicSources, ...runtimeSources, ...generatedSources }).map(([key, source]) => [key, (curated[language] && curated[language][key]) || textFor(source, language)]))
     )])));
     let locale = LOCALES.includes(localStorage.getItem(STORAGE_KEY)) ? localStorage.getItem(STORAGE_KEY) : 'fr';
-    const captured = [];
 
     function textFor(source, language) {
         if (language === 'fr') return source;
@@ -1193,34 +1475,14 @@
     function t(key, fallback = key) {
         const value = (messages[locale] && messages[locale][key])
             || (landing[locale] && landing[locale][key])
+            || (assistantUi[locale] && assistantUi[locale][key])
+            || (assistantAdminSupplement[locale] && assistantAdminSupplement[locale][key])
             || (authored[locale] && authored[locale][key]);
         return value && value !== key ? value : textFor(fallback, locale);
-    }
-    function captureStatic() {
-        const ignored = 'script, style, template, [data-i18n-ignore]';
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-            acceptNode(node) {
-                if (!node.nodeValue.trim() || node.parentElement.closest(ignored)) return NodeFilter.FILTER_REJECT;
-                return NodeFilter.FILTER_ACCEPT;
-            }
-        });
-        let node;
-        while ((node = walker.nextNode())) captured.push({ node, source: node.nodeValue });
-        document.querySelectorAll('[placeholder], [title], [aria-label], [alt]').forEach(element => {
-            if (element.closest(ignored)) return;
-            ['placeholder', 'title', 'aria-label', 'alt'].forEach(attribute => {
-                if (element.hasAttribute(attribute)) captured.push({ element, attribute, source: element.getAttribute(attribute) });
-            });
-        });
     }
     function apply(language, persist = true, userInitiated = false) {
         locale = LOCALES.includes(language) ? language : 'fr';
         document.documentElement.lang = locale;
-        captured.forEach(item => {
-            const value = textFor(item.source, locale);
-            if (item.node) item.node.nodeValue = value;
-            else item.element.setAttribute(item.attribute, value);
-        });
         document.querySelectorAll('[data-i18n]').forEach(element => {
             const value = t(element.dataset.i18n, element.textContent);
             element.textContent = value;
@@ -1244,7 +1506,6 @@
         if (typeof window.CustomEvent === 'function') window.dispatchEvent(new CustomEvent('avec:localechange', { detail: { locale, userInitiated } }));
     }
     function initialize() {
-        captureStatic();
         document.querySelectorAll('[data-language-selector]').forEach(selector => {
             selector.value = locale;
             selector.addEventListener('change', () => apply(selector.value, true, true));

@@ -38,6 +38,12 @@ Une publication de membre ne rejoint ce fil que lorsque son auteur choisit expli
 
 Depuis **Publier du contenu public** dans `platform.html`, un membre dispose de formulaires distincts pour un post, une annonce avec pièce jointe facultative et une publicité produit/service (jusqu’à quatre photos, coordonnées validées côté serveur). Les tarifs déterministes SANDBOX sont affichés avant validation. Un portefeuille interne suffisamment approvisionné est débité immédiatement **uniquement en SANDBOX**; Momo crée seulement un intent SANDBOX et le membre doit déclencher la confirmation simulée. Aucun paiement Momo réel n’est tenté : une confirmation de production nécessiterait un webhook officiel du fournisseur. Les reçus, écritures de répartition et audits sont append-only et les clés `Idempotency-Key` sont obligatoires.
 
+## Assistant AVEC et confidentialité
+
+L’assistant de l’accueil utilise uniquement une recherche déterministe locale sur les ressources approuvées (`assistant_knowledge_entries`) et les règles de la plateforme : aucun fournisseur d’IA externe, message privé, discussion de groupe, solde, identité, PIN, OTP ou donnée financière n’est transmis ou indexé. Une question n’est conservée dans `assistant_learning_submissions` que si la personne coche explicitement l’option d’amélioration; les données sensibles et identifiantes sont rejetées côté serveur et la question brute n’est jamais journalisée.
+
+Un administrateur plateforme peut ajouter une ressource validée ou placer **manuellement** un post/commentaire social *public et déjà approuvé* dans la file de modération, puis l’approuver ou le rejeter depuis **Connaissances de l’assistant**. Aucune discussion publique n’est apprise automatiquement. Les routes de question et de soumission sont limitées en mémoire; les réponses restent informationnelles et ne constituent pas un conseil financier ou juridique.
+
 ## 👥 Rôles et fonctionnalités
 
 ### 🔧 Administrateur de la plateforme
