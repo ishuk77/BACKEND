@@ -117,7 +117,7 @@ test('navigation groups actions without exposing platform administration publicl
 
     assert.doesNotMatch(publicLanding, /href="admin\.html"/);
     assert.doesNotMatch(publicLanding, /<details class="action-menu"/);
-    ['Profil et paramètres', 'Groupe'].forEach(label => assert.match(memberPortal, new RegExp(`<summary[^>]*>${label}`)));
+    ['platform_dynamic_001', 'ui_authored_107'].forEach(key => assert.match(memberPortal, new RegExp(`<summary><span data-i18n="${key}"`)));
     assert.match(memberPortal, /href="social\.html"/);
     assert.match(fs.readFileSync(path.join(root, 'public', 'social.html'), 'utf8'), /AVEC Communauté/);
     assert.match(memberPortal, /data-screen="walletScreen"/);
@@ -137,11 +137,12 @@ test('navigation groups actions without exposing platform administration publicl
     assert.match(groupScript, /Président\(s\) à contacter/);
     assert.match(memberPortal, /<section id="profileScreen"[\s\S]*?<h3[^>]*>Accueil membre<\/h3>[\s\S]*?<\/section>/);
     assert.doesNotMatch(memberPortal.match(/<section id="profileScreen"[\s\S]*?<\/section>/)[0], /Mon wallet|Mon compte AVEC|Alimenter mon portefeuille/);
-    ['Finance', 'Groupe', 'Collaboration', 'Social', 'Profil et paramètres'].forEach(label => assert.match(admin, new RegExp(`<summary[^>]*>${label}`)));
+    ['section_finance', 'ui_authored_107', 'section_collaboration', 'ui_authored_024', 'platform_dynamic_001']
+        .forEach(key => assert.match(admin, new RegExp(`<summary><span data-i18n="${key}"`)));
     assert.match(adminScript, /apiRequest\('\/api\/stats\/platform'\)/);
     assert.match(memberPortal, /<section id="portalSection" class="card" hidden>/);
     assert.match(fs.readFileSync(path.join(root, 'public', 'style.css'), 'utf8'), /#portalSection\[hidden\][\s\S]*?display: none/);
-    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v56/);
+    assert.match(fs.readFileSync(path.join(root, 'public', 'sw.js'), 'utf8'), /avec-microcredit-cache-v57/);
 });
 
 test('all application surfaces load the bundled locale controller and expose a shared selector', () => {

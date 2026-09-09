@@ -15,6 +15,11 @@ const PHONE_VERIFICATION_SESSION_KEY = 'platformPhoneVerificationSession';
 const phoneVerificationTokens = { profile: null };
 const emailVerificationTokens = { reset: null, profile: null };
 const t = (key, fallback) => window.AVEC_I18N ? window.AVEC_I18N.t(key, fallback) : fallback;
+const setLocalizedText = (element, key, fallback) => {
+    if (window.AVEC_I18N && typeof window.AVEC_I18N.setText === 'function') return window.AVEC_I18N.setText(element, key, fallback);
+    element.textContent = t(key, fallback);
+    return element;
+};
 const UI_TRANSLATIONS = Object.freeze({
     fr: { nav_profile: 'Profil et paramètres', nav_groups: 'Groupe', nav_messages: 'Collaboration', nav_social: 'Social', profile: 'Mon profil', wallet: 'Mon portefeuille', groups: 'Mes groupes', messages: 'Messages', discover: t("platform_dynamic_005", 'Découvrir des membres'), feed: 'Fil social', publish: 'Publier', calendar: 'Agenda' },
     en: { nav_profile: 'Profile and settings', nav_groups: 'Groups', nav_messages: 'Messages', nav_social: 'Social', profile: 'My profile', wallet: t("platform_dynamic_006", 'My wallet'), groups: 'My groups', messages: 'Messages', discover: 'Discover members', feed: 'Social feed', publish: 'Publish', calendar: 'Calendar' },
@@ -580,7 +585,7 @@ function renderCandidates(group, candidates) {
         const button = document.createElement('button');
         button.className = 'btn btn-primary';
         button.type = 'button';
-        button.textContent = t("platform_dynamic_034", 'Proposer une invitation');
+        setLocalizedText(button, 'platform_dynamic_034', 'Proposer une invitation');
         button.onclick = () => inviteCandidate(group.id, candidate).catch(error => alert(error.message));
         row.appendChild(button);
         return row;
@@ -608,11 +613,11 @@ async function loadGroups() {
         row.innerHTML = `<strong>${esc(group.name)}</strong> · ${esc(group.city || group.country)} · ${esc(type)} · ${Number(group.member_count)} membre(s)`;
         const button = document.createElement('button');
         button.className = 'btn btn-secondary';
-        button.textContent = t("platform_dynamic_035", 'Demander à rejoindre');
+        setLocalizedText(button, 'platform_dynamic_035', 'Demander à rejoindre');
         button.onclick = async () => {
             await request(`/api/platform/groups/${group.id}/join-requests`, { method: 'POST', body: JSON.stringify({ note: '' }) });
             button.disabled = true;
-            button.textContent = t("platform_dynamic_036", 'Demande envoyée — en attente');
+            setLocalizedText(button, 'platform_dynamic_036', 'Demande envoyée — en attente');
             notice(`Votre demande pour rejoindre ${group.name} a été envoyée. Le président ou le personnel du groupe doit la valider.`);
         };
         row.appendChild(button);
@@ -622,10 +627,10 @@ async function loadGroups() {
         const row = document.createElement('div');
         row.className = 'member-item';
         row.textContent = `${invite.group_name} — invitation de ${invite.inviter_prenom}${invite.sponsor_prenom ? ` · parrain référent : ${invite.sponsor_prenom} (sans responsabilité financière)` : ''}`;
-        [t('platform_accept', 'Accepter'), 'Décliner'].forEach((label, index) => {
+        [['platform_accept', 'Accepter'], ['decline', 'Décliner']].forEach(([key, label], index) => {
             const button = document.createElement('button');
             button.className = `btn ${index ? 'btn-secondary' : 'btn-primary'}`;
-            button.textContent = label;
+            setLocalizedText(button, key, label);
             button.onclick = async () => { await request(`/api/platform/invitations/${invite.id}`, { method: 'PUT', body: JSON.stringify({ status: index ? 'declined' : 'accepted' }) }); loadGroups(); };
             row.appendChild(button);
         });
@@ -638,17 +643,17 @@ async function loadGroups() {
         const open = document.createElement('button');
         open.className = 'btn btn-primary';
         open.type = 'button';
-        open.textContent = t('platform_open_group_dashboard', 'Ouvrir le tableau de bord du groupe');
+        setLocalizedText(open, 'platform_open_group_dashboard', 'Ouvrir le tableau de bord du groupe');
         open.onclick = () => openGroupDashboard(group.id).catch(error => alert(error.message));
         row.appendChild(open);
         if (['president', 'vice_president', 'comptable', 'secretaire'].includes(group.role)) {
             const requests = document.createElement('button');
             requests.className = 'btn btn-secondary';
-            requests.textContent = t('platform_view_requests', 'Voir les demandes');
+            setLocalizedText(requests, 'platform_view_requests', 'Voir les demandes');
             requests.onclick = () => openGroupDashboard(group.id).catch(error => alert(error.message));
             const invite = document.createElement('button');
             invite.className = 'btn btn-primary';
-            invite.textContent = t('platform_find_and_invite', 'Rechercher et inviter');
+            setLocalizedText(invite, 'platform_find_and_invite', 'Rechercher et inviter');
             invite.onclick = () => openGroupDashboard(group.id).catch(error => alert(error.message));
             row.append(requests, invite);
         }
@@ -663,7 +668,7 @@ async function loadGroups() {
         const button = document.createElement('button');
         button.className = 'btn btn-primary';
         button.type = 'button';
-        button.textContent = t("platform_dynamic_040", 'Se connecter à mon AVEC');
+        setLocalizedText(button, 'platform_dynamic_040', 'Se connecter à mon AVEC');
         button.onclick = () => openGroupDashboard(group.id).catch(error => notice(error.message));
         summary.appendChild(button);
     }
@@ -674,7 +679,7 @@ function memberRow(member, discover = false) {
     row.innerHTML = `${avatarMarkup(member, 'chat-avatar')}<strong>${esc(member.prenom)} ${esc(member.name)}</strong><span class="field-hint">${esc(member.identifier)} · ${esc(member.availability)}</span>`;
     const button = document.createElement('button');
     button.className = 'btn btn-primary';
-    button.textContent = discover ? 'Se connecter' : 'Messages';
+    setLocalizedText(button, discover ? 'ui_authored_015' : 'messages', discover ? 'Se connecter' : 'Messages');
     button.onclick = async () => {
         if (discover) { await request('/api/platform/friends/requests', { method: 'POST', body: JSON.stringify({ account_id: member.id }) }); notice('Demande de connexion envoyée.'); }
         else openDm(member);
@@ -710,7 +715,7 @@ function showContactSource(source) {
 async function addPlatformContact(member, button) {
     button.disabled = true;
     await request('/api/platform/friends/requests', { method: 'POST', body: JSON.stringify({ account_id: member.id }) });
-    button.textContent = t("platform_dynamic_044", 'Demande envoyée');
+    setLocalizedText(button, 'platform_dynamic_044', 'Demande envoyée');
     $p('contactPhoneStatus').textContent = `Demande de contact envoyée à ${member.prenom} ${member.name}.`;
     await loadFriends();
 }
@@ -726,7 +731,7 @@ async function searchPlatformContacts(event) {
         const button = document.createElement('button');
         button.className = 'btn btn-primary';
         button.type = 'button';
-        button.textContent = t('platform_add', 'Ajouter');
+        setLocalizedText(button, 'platform_add', 'Ajouter');
         button.addEventListener('click', () => addPlatformContact(member, button).catch(error => {
             button.disabled = false;
             $p('contactPhoneStatus').textContent = error.message;
@@ -776,7 +781,7 @@ async function loadFriends() {
         const member = { id: item.member_id, prenom: item.prenom, name: item.name, identifier: item.identifier, availability: item.availability, avatar_media_id: item.avatar_media_id };
         const row = memberRow(member, item.status !== 'accepted');
         if (item.status === 'pending' && item.requested_by_account_id !== account.id) {
-            row.lastChild.textContent = t('platform_accept', 'Accepter');
+            setLocalizedText(row.lastChild, 'platform_accept', 'Accepter');
             row.lastChild.onclick = async () => { await request(`/api/platform/friends/${item.id}`, { method: 'PUT', body: JSON.stringify({ status: 'accepted' }) }); loadFriends(); };
         } else if (item.status !== 'accepted') row.lastChild.textContent = 'En attente';
         return row;

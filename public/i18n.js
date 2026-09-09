@@ -340,6 +340,11 @@
         'Accepter': ['Accept', 'Emera', 'Emera', 'Kubali', 'Ndima'],
         'Refuser': ['Decline', 'Kwanga', 'Kwanka', 'Kataa', 'Boya'],
         'Valider': ['Confirm', 'Emeza', 'Emeza', 'Thibitisha', 'Ndima'],
+        'Profil et paramètres': ['Profile and settings', 'Umwirondoro n’igenamiterere', 'Umwirondoro n’ugutunganya', 'Wasifu na mipangilio', 'Profil mpe bobongisi'],
+        'Groupe': ['Group', 'Itsinda', 'Umugwi', 'Kikundi', 'Lisanga'],
+        'Finance': ['Finance', 'Imari', 'Amafaranga', 'Fedha', 'Mbongo'],
+        'Collaboration': ['Collaboration', 'Ubufatanye', 'Ugufashanya', 'Ushirikiano', 'Lisungi'],
+        'Social': ['Social', 'Imbuga nkoranyambaga', 'Kwamamaza', 'Jamii', 'Lisanga'],
         'Langue de l’interface': ['Interface language', 'Ururimi rw’imigaragarire', 'Ururimi rw’urubuga', 'Lugha ya kiolesura', 'Lokóta ya etando']
     };
     Object.assign(copy, {
@@ -788,6 +793,8 @@
         "platform_find_and_invite": "Rechercher et inviter",
         "platform_add": "Ajouter",
         "platform_message_or_attachment": "Saisissez un message ou joignez un fichier.",
+        "section_finance": "Finance",
+        "section_collaboration": "Collaboration",
         "group_dynamic_001": "Contribuer depuis mon wallet personnel AVEC",
         "group_dynamic_002": "Demander un crédit",
         "group_dynamic_003": "Motif de la demande",
@@ -1463,7 +1470,21 @@
     const authored = Object.freeze(Object.fromEntries(LOCALES.map(language => [language, Object.freeze(
         Object.fromEntries(Object.entries({ ...completeSources, ...authoredSources, ...explicitSources, ...dynamicSources, ...runtimeSources, ...generatedSources }).map(([key, source]) => [key, (curated[language] && curated[language][key]) || textFor(source, language)]))
     )])));
-    let locale = LOCALES.includes(localStorage.getItem(STORAGE_KEY)) ? localStorage.getItem(STORAGE_KEY) : 'fr';
+    function storedLocale() {
+        try {
+            const saved = window.localStorage && window.localStorage.getItem(STORAGE_KEY);
+            if (LOCALES.includes(saved)) return saved;
+            const legacyPlatformLocale = window.localStorage && window.localStorage.getItem('platformUiLanguage');
+            if (LOCALES.includes(legacyPlatformLocale)) {
+                window.localStorage.setItem(STORAGE_KEY, legacyPlatformLocale);
+                return legacyPlatformLocale;
+            }
+            return 'fr';
+        } catch (_) {
+            return 'fr';
+        }
+    }
+    let locale = storedLocale();
 
     function textFor(source, language) {
         if (language === 'fr') return source;
@@ -1480,21 +1501,43 @@
             || (authored[locale] && authored[locale][key]);
         return value && value !== key ? value : textFor(fallback, locale);
     }
+    function translateElement(element) {
+        if (element.hasAttribute('data-i18n')) {
+            const value = t(element.dataset.i18n, element.textContent);
+            element.textContent = value;
+        }
+        ['placeholder', 'title', 'aria-label', 'alt'].forEach(attribute => {
+            const key = `i18n${attribute.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())}`;
+            if (element.dataset[key]) element.setAttribute(attribute, t(element.dataset[key], element.getAttribute(attribute)));
+        });
+        if (element.dataset.i18nLabel) {
+            const value = t(element.dataset.i18nLabel, element.getAttribute('aria-label') || element.getAttribute('title') || '');
+            element.setAttribute('aria-label', value);
+            element.setAttribute('title', value);
+            const label = element.querySelector('.sr-only');
+            if (label) label.textContent = value;
+        }
+    }
+    function translate(root = document) {
+        const elements = [];
+        if (root.nodeType === 1 && (root.hasAttribute('data-i18n') || root.hasAttribute('data-i18n-label')
+            || ['placeholder', 'title', 'aria-label', 'alt'].some(attribute => root.hasAttribute(`data-i18n-${attribute}`)))) {
+            elements.push(root);
+        }
+        if (typeof root.querySelectorAll === 'function') {
+            root.querySelectorAll('[data-i18n], [data-i18n-label], [data-i18n-placeholder], [data-i18n-title], [data-i18n-aria-label], [data-i18n-alt]').forEach(element => elements.push(element));
+        }
+        elements.forEach(translateElement);
+    }
+    function setText(element, key, fallback = '') {
+        element.dataset.i18n = key;
+        element.textContent = t(key, fallback);
+        return element;
+    }
     function apply(language, persist = true, userInitiated = false) {
         locale = LOCALES.includes(language) ? language : 'fr';
         document.documentElement.lang = locale;
-        document.querySelectorAll('[data-i18n]').forEach(element => {
-            const value = t(element.dataset.i18n, element.textContent);
-            element.textContent = value;
-        });
-        ['placeholder', 'title', 'aria-label', 'alt'].forEach(attribute => {
-            document.querySelectorAll(`[data-i18n-${attribute}]`).forEach(element => {
-                element.setAttribute(attribute, t(element.dataset[`i18n${attribute.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())}`], element.getAttribute(attribute)));
-            });
-        });
-        document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
-            element.placeholder = t(element.dataset.i18nPlaceholder, element.placeholder);
-        });
+        translate();
         document.querySelectorAll('[data-file-label-for]').forEach(label => {
             const input = document.getElementById(label.dataset.fileLabelFor);
             label.textContent = input && input.files && input.files[0]
@@ -1502,8 +1545,26 @@
                 : t('no_file_chosen', 'Aucun fichier choisi');
         });
         document.querySelectorAll('[data-language-selector]').forEach(selector => { selector.value = locale; });
-        if (persist) localStorage.setItem(STORAGE_KEY, locale);
-        if (typeof window.CustomEvent === 'function') window.dispatchEvent(new CustomEvent('avec:localechange', { detail: { locale, userInitiated } }));
+        if (persist) {
+            try { window.localStorage && window.localStorage.setItem(STORAGE_KEY, locale); } catch (_) {}
+        }
+        if (typeof window.CustomEvent === 'function') window.dispatchEvent(new window.CustomEvent('avec:localechange', { detail: { locale, userInitiated } }));
+    }
+    function observeExplicitI18n() {
+        if (typeof window.MutationObserver !== 'function' || !document.body) return;
+        new window.MutationObserver(records => {
+            records.forEach(record => {
+                if (record.type === 'attributes') translate(record.target);
+                record.addedNodes.forEach(node => {
+                    if (node.nodeType === 1 || node.nodeType === 11) translate(node);
+                });
+            });
+        }).observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['data-i18n', 'data-i18n-label', 'data-i18n-placeholder', 'data-i18n-title', 'data-i18n-aria-label', 'data-i18n-alt']
+        });
     }
     function initialize() {
         document.querySelectorAll('[data-language-selector]').forEach(selector => {
@@ -1521,8 +1582,7 @@
         });
         apply(locale, false);
     }
-    window.AVEC_I18N = Object.freeze({ locales: LOCALES, names, t, apply, get locale() { return locale; } });
-    // This script is placed after each page's markup and before code that requests API content.
-    // Capturing now ensures only authored UI nodes, never later user content, are localized.
+    window.AVEC_I18N = Object.freeze({ locales: LOCALES, names, t, apply, translate, setText, get locale() { return locale; } });
     initialize();
+    observeExplicitI18n();
 })();
